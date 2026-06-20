@@ -111,7 +111,7 @@ export default async function CategoryPage({
                   ))}
                 </ul>
                 <div className="mt-6">
-                  <ButtonLink href="/book" className="w-full sm:w-auto">
+                  <ButtonLink href={`/book?category=${cat.slug}`} className="w-full sm:w-auto">
                     Book {cat.name} <ArrowRight size={18} />
                   </ButtonLink>
                 </div>

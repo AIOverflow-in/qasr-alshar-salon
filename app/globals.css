@@ -15,7 +15,7 @@
   /* Brand — gold spectrum */
   --color-gold: #c8a24c;
   --color-gold-bright: #e7c878;
-  --color-gold-pale: #f3e2ب0;
+  --color-gold-pale: #f3e2b0;
   --color-gold-deep: #9a7a2e;
 
   /* Neutrals / text */
@@ -39,11 +39,6 @@
   /* Animations */
   --animate-fade-up: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-shimmer: shimmer 6s linear infinite;
-}
-
-/* Fix typo'd token above with a real value */
-@theme {
-  --color-gold-pale: #f3e2b0;
 }
 
 @keyframes fade-up {

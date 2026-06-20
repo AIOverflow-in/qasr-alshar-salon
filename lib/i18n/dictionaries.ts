@@ -34,10 +34,10 @@ export const DICT = {
       explore: "Explore",
     },
     hero: {
-      eyebrow: "Beauty Salon · Dubai",
-      title: "Where Beauty Wears a Crown",
+      eyebrow: "Beauty Salon · Union Metro, Dubai",
+      title: "Dubai's Home of Braids, Henna & Glamour",
       subtitle:
-        "Braiding, hair, nails, facials, makeup & henna — crafted by Dubai's finest artists at Union Metro.",
+        "Specialists in knotless braids, locs & sew-ins for Afro-textured hair — alongside henna, hair, nails, facials & bridal glam. Every hair type, every culture, one golden roof near Union Metro.",
       cta: "Book Your Appointment",
       secondary: "Explore Services",
     },
@@ -112,10 +112,10 @@ export const DICT = {
       explore: "استكشفي",
     },
     hero: {
-      eyebrow: "صالون تجميل · دبي",
-      title: "حيث يتوّج الجمال",
+      eyebrow: "صالون تجميل · محطة الاتحاد، دبي",
+      title: "وجهتكِ في دبي للضفائر والحناء والإطلالة الساحرة",
       subtitle:
-        "ضفائر، شعر، أظافر، عناية بالبشرة، مكياج وحناء — بأيدي أمهر فنانات دبي قرب محطة الاتحاد.",
+        "متخصصون في الضفائر واللوكس والوصلات للشعر الأفريقي — إلى جانب الحناء والشعر والأظافر والعناية بالبشرة ومكياج العرائس. كل أنواع الشعر، كل الثقافات، تحت سقف ذهبي واحد قرب محطة الاتحاد.",
       cta: "احجزي موعدك",
       secondary: "استكشفي الخدمات",
     },

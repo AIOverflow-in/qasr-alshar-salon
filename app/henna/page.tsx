@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { Leaf } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { ButtonLink } from "@/components/ui/Button";
 import { Reveal } from "@/components/Reveal";
@@ -58,13 +59,15 @@ export default function HennaPage() {
           <Reveal delay={100}>
             <h2 className="font-display text-4xl text-cream">Enhance your natural beauty</h2>
             <p className="mt-5 text-lg leading-relaxed text-sand/85">
-              Henna is more than decoration — it's a celebration. At Qasr Alshar, our
-              artists blend timeless tradition with modern artistry to create mehndi
-              that's uniquely yours, using natural, skin-friendly henna for a rich,
-              long-lasting stain.
+              Henna is more than decoration — it's a celebration. From Khaleeji bridal
+              and laylat al-henna to Eid, festive and floral designs, our artists blend
+              timeless tradition with modern artistry to create mehndi that's uniquely yours.
             </p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/5 px-4 py-2 text-sm text-gold">
+              <Leaf size={16} /> 100% natural henna — never PPD or “black henna”
+            </div>
             <div className="mt-8 flex flex-wrap gap-4">
-              <ButtonLink href="/book">Book Your Henna Session</ButtonLink>
+              <ButtonLink href="/book?category=henna">Book Your Henna Session</ButtonLink>
               <div className="flex items-center text-sand">
                 <span className="text-muted">from&nbsp;</span>
                 <span className="text-xl font-semibold text-gold">

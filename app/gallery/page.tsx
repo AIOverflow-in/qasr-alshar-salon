@@ -15,18 +15,22 @@ export const metadata: Metadata = pageMeta({
 });
 
 const SHOTS = [
-  { src: "/gallery/braiding.jpg", label: "Braiding", span: "row-span-2" },
-  { src: "/gallery/henna.jpg", label: "Henna" },
+  { src: "/gallery/knotless.jpg", label: "Knotless Braids" },
+  { src: "/gallery/locs.jpg", label: "Locs & Microlocs" },
+  { src: "/gallery/braiding.jpg", label: "Cornrows" },
+  { src: "/gallery/natural.jpg", label: "Natural Hair" },
+  { src: "/gallery/weaving.jpg", label: "Sew-ins & Wigs" },
+  { src: "/gallery/henna-feature.jpg", label: "Bridal Henna" },
+  { src: "/gallery/henna.jpg", label: "Henna Art" },
+  { src: "/gallery/makeup.jpg", label: "Bridal Makeup" },
   { src: "/gallery/nails.jpg", label: "Nails" },
-  { src: "/gallery/makeup.jpg", label: "Makeup", span: "row-span-2" },
-  { src: "/gallery/hair.jpg", label: "Hair" },
-  { src: "/gallery/weaving.jpg", label: "Weaving" },
   { src: "/gallery/lashes.jpg", label: "Lashes" },
-  { src: "/gallery/henna-feature.jpg", label: "Bridal Henna", span: "row-span-2" },
+  { src: "/gallery/hair.jpg", label: "Hair & Styling" },
   { src: "/gallery/facial.jpg", label: "Facials" },
-  { src: "/gallery/waxing.jpg", label: "Waxing" },
-  { src: "/gallery/massage.jpg", label: "Massage" },
+  { src: "/gallery/waxing.jpg", label: "Spa & Waxing" },
   { src: "/gallery/threading.jpg", label: "Threading" },
+  { src: "/gallery/massage.jpg", label: "Massage" },
+  { src: "/gallery/about.jpg", label: "Our Salon" },
 ];
 
 export default function GalleryPage() {
@@ -34,31 +38,31 @@ export default function GalleryPage() {
     <>
       <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Gallery", path: "/gallery" }])} />
       <PageHero
-        eyebrow="Portfolio"
-        title="Our Work"
-        subtitle="A glimpse of the beauty we create every day at Qasr Alshar."
+        eyebrow="Gallery"
+        title="The Styles We Create"
+        subtitle="A look at the services we specialise in — from braids and locs to henna and bridal glam. For our latest real client looks, follow us on Instagram."
         image="/gallery/makeup.jpg"
         crumbs={[{ name: "Gallery", href: "/gallery" }]}
       />
 
       <section className="section-y">
         <div className="container-x">
-          <div className="grid auto-rows-[200px] grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {SHOTS.map((s, i) => (
               <Reveal
                 key={s.src + i}
                 delay={(i % 4) * 60}
-                className={`group relative overflow-hidden rounded-2xl border border-ink-line ${s.span ?? ""}`}
+                className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink-line"
               >
                 <Image
                   src={s.src}
-                  alt={`${s.label} at Qasr Alshar Salon Dubai`}
+                  alt={`${s.label} at Qasr Alshar Salon, Dubai`}
                   fill
                   sizes="(max-width:768px) 50vw, 25vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/80 to-transparent p-4 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="font-display text-lg text-gold">{s.label}</span>
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/85 via-ink/10 to-transparent p-4">
+                  <span className="font-display text-base text-gold drop-shadow">{s.label}</span>
                 </div>
               </Reveal>
             ))}

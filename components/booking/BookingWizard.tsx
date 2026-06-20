@@ -14,7 +14,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
-import { cn, aed } from "@/lib/utils";
+import { cn, aed, whatsappLink } from "@/lib/utils";
+import { SITE } from "@/lib/site";
 
 type Service = {
   id: string;
@@ -55,15 +56,22 @@ export function BookingWizard({
   dict,
   services,
   categoryOrder,
+  initialServiceId,
+  initialCategory,
 }: {
   locale: Locale;
   dict: Dict;
   services: Service[];
   categoryOrder: string[];
+  initialServiceId?: string;
+  initialCategory?: string;
 }) {
-  const [step, setStep] = useState(1);
-  const [query, setQuery] = useState("");
-  const [service, setService] = useState<Service | null>(null);
+  const preselected = initialServiceId
+    ? services.find((s) => s.id === initialServiceId) ?? null
+    : null;
+  const [step, setStep] = useState(preselected ? 2 : 1);
+  const [query, setQuery] = useState(initialCategory ?? "");
+  const [service, setService] = useState<Service | null>(preselected);
 
   const todayISO = useMemo(
     () =>
@@ -88,7 +96,7 @@ export function BookingWizard({
   const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ serviceName: string; whenLabel: string } | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number } | null>(null);
 
   // fetch availability whenever date / service changes on step 2
   useEffect(() => {
@@ -149,7 +157,11 @@ export function BookingWizard({
         if (res.status === 409) setStep(2); // slot taken → re-pick
         return;
       }
-      setDone({ serviceName: data.booking.serviceName, whenLabel: data.booking.whenLabel });
+      setDone({
+        serviceName: data.booking.serviceName,
+        whenLabel: data.booking.whenLabel,
+        priceAED: data.booking.priceAED,
+      });
       setStep(4);
     } catch {
       setError("Network error. Please try again.");
@@ -171,13 +183,34 @@ export function BookingWizard({
         <div className="surface mt-8 rounded-2xl p-6 text-start">
           <Row k={dict.step1} v={done.serviceName} />
           <Row k={dict.date} v={done.whenLabel} />
+          <Row k="Price" v={aed(done.priceAED)} />
+          <Row k="Location" v={`${SITE.address.line1}, ${SITE.address.city}`} />
         </div>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link href="/" className="rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10">
+        <p className="mt-4 text-sm text-muted">
+          No payment now — pay at the salon. We&apos;ll message you on WhatsApp to confirm.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <a
+            href={whatsappLink(
+              SITE.whatsapp,
+              `Hi Qasr Alshar! I just booked ${done.serviceName} for ${done.whenLabel}.`
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-ink"
+          >
+            Confirm on WhatsApp
+          </a>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${SITE.address.mapsQuery}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10"
+          >
+            Get Directions
+          </a>
+          <Link href="/" className="rounded-full border border-ink-line px-6 py-3 text-sand hover:text-gold">
             Home
-          </Link>
-          <Link href="/services" className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-ink">
-            Browse more
           </Link>
         </div>
       </div>

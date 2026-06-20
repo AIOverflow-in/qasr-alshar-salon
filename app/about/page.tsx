@@ -16,10 +16,10 @@ export const metadata: Metadata = pageMeta({
 });
 
 const STATS = [
-  { n: "10+", l: "Beauty Services" },
-  { n: "1000s", l: "Happy Clients" },
+  { n: "40+", l: "Beauty Services" },
+  { n: "11", l: "Service Categories" },
   { n: "7", l: "Days a Week" },
-  { n: "100%", l: "Dedicated Care" },
+  { n: "10–10", l: "Open Late, Daily" },
 ];
 
 export default function AboutPage() {

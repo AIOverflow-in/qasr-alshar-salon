@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Service not found." }, { status: 404 });
   }
 
+  // Pre-validate against the slot grid (working hours, lead time, blocks, alignment).
   const check = await isSlotBookable(data.startISO, service.durationMin);
   if (!check.ok) {
     return NextResponse.json({ error: check.reason }, { status: 409 });
@@ -61,33 +62,70 @@ export async function POST(req: Request) {
   const start = new Date(data.startISO);
   const end = new Date(start.getTime() + service.durationMin * 60_000);
 
-  const booking = await prisma.booking.create({
-    data: {
-      serviceId: service.id,
-      serviceName: service.name,
-      priceAED: service.priceAED,
-      durationMin: service.durationMin,
-      customerName: data.customerName,
-      email: data.email,
-      phone: data.phone,
-      notes: data.notes ?? null,
-      startAt: start,
-      endAt: end,
-      status: "CONFIRMED",
-      locale: data.locale ?? "en",
-    },
-  });
+  // Create inside a serializable transaction that re-checks capacity, so two
+  // simultaneous requests can never oversell the same slot (double-booking guard).
+  let booking;
+  try {
+    booking = await prisma.$transaction(
+      async (tx) => {
+        const settings = await tx.salonSettings.findUnique({
+          where: { id: "singleton" },
+        });
+        const capacity = settings?.capacity ?? 3;
+        const overlapping = await tx.booking.count({
+          where: {
+            status: "CONFIRMED",
+            startAt: { lt: end },
+            endAt: { gt: start },
+          },
+        });
+        if (overlapping >= capacity) throw new Error("CAPACITY_FULL");
 
-  // Fire emails but never let a mail failure break the booking.
-  await sendBookingEmails({
-    customerName: booking.customerName,
-    email: booking.email,
-    phone: booking.phone,
-    serviceName: booking.serviceName,
-    priceAED: booking.priceAED,
-    whenLabel: dubaiLabel(start),
-    notes: booking.notes,
-  });
+        return tx.booking.create({
+          data: {
+            serviceId: service.id,
+            serviceName: service.name,
+            priceAED: service.priceAED,
+            durationMin: service.durationMin,
+            customerName: data.customerName.trim(),
+            email: data.email.trim().toLowerCase(),
+            phone: data.phone.trim(),
+            notes: data.notes?.trim() || null,
+            startAt: start,
+            endAt: end,
+            status: "CONFIRMED",
+            locale: data.locale ?? "en",
+          },
+        });
+      },
+      { isolationLevel: "Serializable" }
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "CAPACITY_FULL" || msg.includes("40001") || msg.includes("could not serialize")) {
+      return NextResponse.json(
+        { error: "That time was just taken. Please pick another slot." },
+        { status: 409 }
+      );
+    }
+    console.error("[bookings] create failed:", e);
+    return NextResponse.json({ error: "Could not complete booking. Please try again." }, { status: 500 });
+  }
+
+  // Fire emails but never let a mail failure break the committed booking.
+  try {
+    await sendBookingEmails({
+      customerName: booking.customerName,
+      email: booking.email,
+      phone: booking.phone,
+      serviceName: booking.serviceName,
+      priceAED: booking.priceAED,
+      whenLabel: dubaiLabel(start),
+      notes: booking.notes,
+    });
+  } catch (e) {
+    console.error("[bookings] email send failed (booking still saved):", e);
+  }
 
   return NextResponse.json({
     ok: true,

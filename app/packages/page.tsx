@@ -9,11 +9,11 @@ import { pageMeta, breadcrumbSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 
 export const metadata: Metadata = pageMeta({
-  title: "Packages for Housemaids & Accommodations",
+  title: "Value Beauty Packages",
   description:
-    "Special value beauty packages at Qasr Alshar Salon Dubai for housemaids & accommodations — braids, lashes, waxing, gel polish & more at bundled prices.",
+    "Value beauty packages at Qasr Alshar Salon Dubai — combine braids, lashes, waxing, gel polish and more at bundled prices. Great value, beautifully done.",
   path: "/packages",
-  keywords: ["salon packages Dubai", "housemaid beauty package Dubai", "affordable salon Dubai"],
+  keywords: ["salon packages Dubai", "beauty package Dubai", "affordable salon Dubai", "salon offers Union Metro"],
 });
 
 export default function PackagesPage() {
@@ -21,9 +21,9 @@ export default function PackagesPage() {
     <>
       <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Packages", path: "/packages" }])} />
       <PageHero
-        eyebrow="Special Value"
-        title="Packages for Housemaids & Accommodations"
-        subtitle="Bundled beauty essentials at friendly prices — perfect for regular pampering."
+        eyebrow="Save More"
+        title="Value Beauty Packages"
+        subtitle="Combine your favourite services into one bundle and save — beautifully done, every time."
         image="/gallery/braiding.jpg"
         crumbs={[{ name: "Packages", href: "/packages" }]}
       />

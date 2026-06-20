@@ -81,7 +81,7 @@ export function HeaderClient({
         </nav>
 
         <div className="flex items-center gap-3">
-          <LanguageToggle locale={locale} className="hidden sm:inline-flex" />
+          <LanguageToggle locale={locale} />
           <ButtonLink href="/book" size="sm" className="hidden sm:inline-flex">
             {bookLabel}
           </ButtonLink>

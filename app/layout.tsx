@@ -93,7 +93,8 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-ink text-cream">
         <JsonLd data={localBusinessSchema()} />
         <Header />
-        <main className="flex-1">{children}</main>
+        {/* pb on mobile so the fixed booking bar never covers footer/CTAs */}
+        <main className="flex-1 pb-24 lg:pb-0">{children}</main>
         <Footer />
         <MobileBookingBar />
       </body>

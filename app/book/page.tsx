@@ -19,7 +19,12 @@ export const metadata: Metadata = pageMeta({
 
 const CATEGORY_ORDER = CATEGORIES.map((c) => c.name);
 
-export default async function BookPage() {
+export default async function BookPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ service?: string; category?: string }>;
+}) {
+  const { service: serviceParam, category: categoryParam } = await searchParams;
   const { locale, t } = await getI18n();
   const services = await prisma.service.findMany({
     where: { active: true },
@@ -33,6 +38,16 @@ export default async function BookPage() {
       categorySlug: true,
     },
   });
+
+  // Resolve a deep-linked service (by id or slug) or category for pre-selection.
+  const preselected =
+    services.find((s) => s.id === serviceParam) ??
+    (categoryParam
+      ? services.find((s) => s.categorySlug === categoryParam)
+      : undefined);
+  const initialCategoryName = categoryParam
+    ? CATEGORIES.find((c) => c.slug === categoryParam)?.name
+    : undefined;
 
   return (
     <div className="min-h-svh bg-ink">
@@ -54,6 +69,8 @@ export default async function BookPage() {
           dict={t.booking}
           services={services}
           categoryOrder={CATEGORY_ORDER}
+          initialServiceId={serviceParam && preselected?.id === serviceParam ? preselected.id : undefined}
+          initialCategory={initialCategoryName}
         />
       </div>
     </div>

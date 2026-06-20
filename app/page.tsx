@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Sparkles, HeartHandshake, Crown, Clock, MapPin, ArrowRight, Quote } from "lucide-react";
+import { HeartHandshake, Crown, Clock, MapPin, ArrowRight, ShieldCheck, Leaf } from "lucide-react";
 import { Hero } from "@/components/home/Hero";
+import { InstagramIcon, TikTokIcon } from "@/components/icons";
 import { ServiceCard } from "@/components/ServiceCard";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ButtonLink } from "@/components/ui/Button";
@@ -16,16 +17,17 @@ import { JsonLd } from "@/components/JsonLd";
 export const revalidate = 3600;
 
 const WHY = [
-  { icon: Crown, title: "Master Artists", text: "Specialists in braiding, weaving, henna & glam — years of craft in every detail." },
-  { icon: Sparkles, title: "Premium Products", text: "Quality products and hygienic, well-loved tools for results that last." },
-  { icon: HeartHandshake, title: "For Everyone", text: "A warm, multicultural salon serving every hair type and beauty need in Dubai." },
-  { icon: Clock, title: "Easy Booking", text: "Reserve your slot online in under a minute — open daily, 10 AM to 10 PM." },
+  { icon: Crown, title: "True Specialists", text: "Real expertise in Afro-textured hair — knotless braids, locs & sew-ins — plus henna, glam & nails." },
+  { icon: ShieldCheck, title: "Hygiene First", text: "Sterilised, single-use tools and fresh disposables for every client. Natural henna only — never black/PPD." },
+  { icon: HeartHandshake, title: "Every Hair, Every Culture", text: "A warm, multicultural salon where African, Arab and South-Asian beauty are all done expertly." },
+  { icon: Clock, title: "Easy Booking", text: "Reserve your slot online in under a minute — open daily, 10 AM to 10 PM, near Union Metro." },
 ];
 
-const TESTIMONIALS = [
-  { name: "Amara O.", text: "Best knotless braids I've had in Dubai — neat, gentle and lasted weeks. The team is so welcoming!", service: "Knotless Braids" },
-  { name: "Fatima A.", text: "My bridal henna was absolutely stunning. Every guest asked who did it. Thank you Qasr Alshar!", service: "Bridal Henna" },
-  { name: "Joy M.", text: "Sew-in looked completely natural and the salon is gorgeous. My new go-to for hair and nails.", service: "Weave & Nails" },
+const TRUST = [
+  { icon: ShieldCheck, label: "Sterilised & single-use tools" },
+  { icon: Leaf, label: "Natural henna — no PPD / black henna" },
+  { icon: HeartHandshake, label: "All hair types & textures welcome" },
+  { icon: Clock, label: "Open daily · 10 AM – 10 PM" },
 ];
 
 export default async function HomePage() {
@@ -162,28 +164,47 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* TRUST */}
       <section className="section-y">
         <div className="container-x">
-          <SectionHeading eyebrow="Testimonials" title={t.sections.testimonialsTitle} />
-          <div className="mt-14 grid gap-6 lg:grid-cols-3">
-            {TESTIMONIALS.map((r, i) => (
-              <Reveal key={r.name} delay={i * 80}>
-                <figure className="surface h-full rounded-2xl p-7">
-                  <Quote className="text-gold/40" size={32} />
-                  <blockquote className="mt-4 text-sand/90 leading-relaxed">
-                    “{r.text}”
-                  </blockquote>
-                  <figcaption className="mt-6 flex items-center justify-between">
-                    <span className="font-display text-lg text-cream">{r.name}</span>
-                    <span className="text-xs uppercase tracking-wider text-gold">
-                      {r.service}
-                    </span>
-                  </figcaption>
-                </figure>
+          <SectionHeading
+            eyebrow="Your Peace of Mind"
+            title="Cared for, the right way"
+            subtitle="The things that matter most when you trust us with your hair and skin."
+          />
+          <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {TRUST.map((item, i) => (
+              <Reveal key={item.label} delay={i * 60}>
+                <div className="surface flex h-full flex-col items-center gap-3 rounded-2xl p-6 text-center">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-gold/10 text-gold">
+                    <item.icon size={22} />
+                  </div>
+                  <span className="text-sm leading-snug text-sand">{item.label}</span>
+                </div>
               </Reveal>
             ))}
           </div>
+
+          {/* honest social proof — links to the salon's real, public profiles */}
+          <Reveal className="mt-12">
+            <div className="surface flex flex-col items-center gap-5 rounded-3xl p-8 text-center md:flex-row md:justify-between md:text-start">
+              <div>
+                <h3 className="font-display text-2xl text-cream">See real looks, every day</h3>
+                <p className="mt-2 max-w-xl text-sand/80">
+                  Hundreds of fresh styles from our chair — braids, locs, henna, glam & more.
+                  Follow along and message us for a quick quote.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-3">
+                <ButtonLink href={SITE.social.instagram}>
+                  <InstagramIcon size={18} /> Instagram
+                </ButtonLink>
+                <ButtonLink href={SITE.social.tiktok} variant="outline">
+                  <TikTokIcon size={18} /> TikTok
+                </ButtonLink>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
