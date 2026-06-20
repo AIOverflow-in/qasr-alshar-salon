@@ -1,0 +1,141 @@
+// Qasr Alshar Salon — data model
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  category    String
+  categorySlug String
+  priceAED    Int
+  durationMin Int      @default(60)
+  description String?
+  active      Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings    Booking[]
+
+  @@index([categorySlug])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  // denormalized service info (survives service edits/deletes)
+  serviceId    String?
+  serviceName  String
+  priceAED     Int
+  durationMin  Int
+
+  customerName String
+  email        String
+  phone        String
+  notes        String?
+
+  startAt      DateTime
+  endAt        DateTime
+  status       BookingStatus @default(CONFIRMED)
+
+  locale       String        @default("en")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([startAt])
+  @@index([status])
+}
+
+/// Weekly opening hours. weekday: 0 = Sunday … 6 = Saturday.
+model WorkingHours {
+  id      String  @id @default(cuid())
+  weekday Int     @unique
+  open    String  @default("10:00") // HH:mm
+  close   String  @default("22:00")
+  closed  Boolean @default(false)
+}
+
+/// Admin-defined blocked windows (holidays, days off, private events).
+model BlockedSlot {
+  id      String   @id @default(cuid())
+  startAt DateTime
+  endAt   DateTime
+  reason  String?
+  createdAt DateTime @default(now())
+
+  @@index([startAt])
+}
+
+/// Singleton settings row (id = "singleton").
+model SalonSettings {
+  id              String @id @default("singleton")
+  capacity        Int    @default(3)  // concurrent appointments (stations)
+  slotMinutes     Int    @default(30) // granularity of bookable slots
+  leadTimeMinutes Int    @default(60) // min notice before a booking
+  maxAdvanceDays  Int    @default(60) // how far ahead booking is allowed
+  updatedAt       DateTime @updatedAt
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PostSource {
+  AI
+  MANUAL
+}
+
+model BlogPost {
+  id              String     @id @default(cuid())
+  title           String
+  slug            String     @unique
+  excerpt         String
+  metaDescription String
+  contentMarkdown String     @db.Text
+  tags            String[]   @default([])
+  heroImage       String?
+  category        String     @default("Beauty Tips")
+  readingMinutes  Int        @default(4)
+  status          PostStatus @default(PUBLISHED)
+  source          PostSource @default(AI)
+  publishedAt     DateTime   @default(now())
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+/// Rotating pool of topics/keywords for the AI blog generator.
+model BlogTopic {
+  id        String    @id @default(cuid())
+  title     String
+  keywords  String[]  @default([])
+  used      Boolean   @default(false)
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  createdAt    DateTime @default(now())
+}

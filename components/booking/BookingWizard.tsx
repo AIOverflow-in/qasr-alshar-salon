@@ -1,0 +1,416 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Search,
+  Clock,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+  CheckCircle2,
+  CalendarDays,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { cn, aed } from "@/lib/utils";
+
+type Service = {
+  id: string;
+  name: string;
+  priceAED: number;
+  durationMin: number;
+  category: string;
+  categorySlug: string;
+};
+type Slot = { time: string; iso: string };
+type Dict = Dictionary["booking"];
+
+const DAYS = 30;
+
+function addDaysISO(baseISO: string, n: number) {
+  const [y, m, d] = baseISO.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + n));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+function dayLabel(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12));
+  return {
+    weekday: dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+    day: d,
+    month: dt.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }),
+  };
+}
+function timeLabel(hm: string) {
+  const [h, m] = hm.split(":").map(Number);
+  const ap = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
+}
+
+export function BookingWizard({
+  locale,
+  dict,
+  services,
+  categoryOrder,
+}: {
+  locale: Locale;
+  dict: Dict;
+  services: Service[];
+  categoryOrder: string[];
+}) {
+  const [step, setStep] = useState(1);
+  const [query, setQuery] = useState("");
+  const [service, setService] = useState<Service | null>(null);
+
+  const todayISO = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Dubai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    []
+  );
+  const dates = useMemo(
+    () => Array.from({ length: DAYS }, (_, i) => addDaysISO(todayISO, i)),
+    [todayISO]
+  );
+
+  const [date, setDate] = useState<string>(todayISO);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slot, setSlot] = useState<Slot | null>(null);
+
+  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string } | null>(null);
+
+  // fetch availability whenever date / service changes on step 2
+  useEffect(() => {
+    if (step !== 2 || !service) return;
+    let active = true;
+    setLoadingSlots(true);
+    setSlot(null);
+    fetch(`/api/availability?date=${date}&duration=${service.durationMin}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (active) setSlots(d.slots ?? []);
+      })
+      .catch(() => active && setSlots([]))
+      .finally(() => active && setLoadingSlots(false));
+    return () => {
+      active = false;
+    };
+  }, [step, date, service]);
+
+  const grouped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? services.filter(
+          (s) => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)
+        )
+      : services;
+    const map = new Map<string, Service[]>();
+    for (const s of filtered) {
+      if (!map.has(s.category)) map.set(s.category, []);
+      map.get(s.category)!.push(s);
+    }
+    return [...map.entries()].sort(
+      (a, b) => categoryOrder.indexOf(a[0]) - categoryOrder.indexOf(b[0])
+    );
+  }, [services, query, categoryOrder]);
+
+  async function submit() {
+    if (!service || !slot) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: service.id,
+          startISO: slot.iso,
+          customerName: form.name,
+          email: form.email,
+          phone: form.phone,
+          notes: form.notes || null,
+          locale,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+        if (res.status === 409) setStep(2); // slot taken → re-pick
+        return;
+      }
+      setDone({ serviceName: data.booking.serviceName, whenLabel: data.booking.whenLabel });
+      setStep(4);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const steps = [dict.step1, dict.step2, dict.step3];
+
+  if (step === 4 && done) {
+    return (
+      <div className="mx-auto mt-12 max-w-lg text-center">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gold/15 text-gold">
+          <CheckCircle2 size={44} />
+        </div>
+        <h2 className="mt-6 font-display text-3xl text-cream">{dict.successTitle}</h2>
+        <p className="mt-3 text-sand/80">{dict.successBody}</p>
+        <div className="surface mt-8 rounded-2xl p-6 text-start">
+          <Row k={dict.step1} v={done.serviceName} />
+          <Row k={dict.date} v={done.whenLabel} />
+        </div>
+        <div className="mt-8 flex justify-center gap-3">
+          <Link href="/" className="rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10">
+            Home
+          </Link>
+          <Link href="/services" className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-ink">
+            Browse more
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto mt-10 max-w-3xl">
+      {/* stepper */}
+      <ol className="mb-8 flex items-center justify-center gap-2 text-xs">
+        {steps.map((label, i) => {
+          const n = i + 1;
+          const active = step === n;
+          const complete = step > n;
+          return (
+            <li key={label} className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "grid h-7 w-7 place-items-center rounded-full border text-xs font-semibold transition-colors",
+                  active && "border-gold bg-gold-gradient text-ink",
+                  complete && "border-gold/60 bg-gold/15 text-gold",
+                  !active && !complete && "border-ink-line text-muted"
+                )}
+              >
+                {complete ? "✓" : n}
+              </span>
+              <span className={cn("hidden sm:inline", active ? "text-cream" : "text-muted")}>
+                {label}
+              </span>
+              {n < steps.length && <ChevronRight size={14} className="text-ink-line" />}
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* STEP 1 — service */}
+      {step === 1 && (
+        <div>
+          <div className="relative mb-5">
+            <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search services…"
+              className="w-full rounded-full border border-ink-line bg-ink-card py-3 pl-11 pr-4 text-cream outline-none placeholder:text-muted focus:border-gold/60"
+            />
+          </div>
+          <div className="max-h-[60svh] space-y-6 overflow-y-auto pr-1">
+            {grouped.map(([cat, items]) => (
+              <div key={cat}>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gold">
+                  {cat}
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {items.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setService(s);
+                        setStep(2);
+                      }}
+                      className="surface surface-hover flex items-center justify-between rounded-xl p-3.5 text-start"
+                    >
+                      <span>
+                        <span className="block text-cream">{s.name}</span>
+                        <span className="flex items-center gap-1 text-xs text-muted">
+                          <Clock size={12} /> {s.durationMin} min
+                        </span>
+                      </span>
+                      <span className="font-semibold text-gold">{aed(s.priceAED)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {grouped.length === 0 && (
+              <p className="text-center text-muted">No services match “{query}”.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2 — date & time */}
+      {step === 2 && service && (
+        <div>
+          <SelectedService service={service} />
+          <h3 className="mb-3 mt-6 flex items-center gap-2 font-display text-lg text-cream">
+            <CalendarDays size={18} className="text-gold" /> {dict.date}
+          </h3>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {dates.map((iso) => {
+              const l = dayLabel(iso);
+              const active = iso === date;
+              return (
+                <button
+                  key={iso}
+                  onClick={() => setDate(iso)}
+                  className={cn(
+                    "flex min-w-16 shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition-colors",
+                    active ? "border-gold bg-gold-gradient text-ink" : "border-ink-line text-sand hover:border-gold/50"
+                  )}
+                >
+                  <span className="text-[0.65rem] uppercase">{l.weekday}</span>
+                  <span className="text-lg font-semibold leading-none">{l.day}</span>
+                  <span className="text-[0.6rem]">{l.month}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <h3 className="mb-3 mt-6 font-display text-lg text-cream">{dict.availableTimes}</h3>
+          {loadingSlots ? (
+            <div className="flex items-center gap-2 py-8 text-muted">
+              <Loader2 className="animate-spin" size={18} /> Loading…
+            </div>
+          ) : slots.length === 0 ? (
+            <p className="py-8 text-muted">{dict.noSlots}</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {slots.map((s) => (
+                <button
+                  key={s.iso}
+                  onClick={() => setSlot(s)}
+                  className={cn(
+                    "rounded-lg border py-2.5 text-sm transition-colors",
+                    slot?.iso === s.iso
+                      ? "border-gold bg-gold-gradient text-ink"
+                      : "border-ink-line text-sand hover:border-gold/50"
+                  )}
+                >
+                  {timeLabel(s.time)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              <ChevronLeft size={16} /> {dict.back}
+            </Button>
+            <Button disabled={!slot} onClick={() => setStep(3)}>
+              {dict.next} <ChevronRight size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3 — details */}
+      {step === 3 && service && slot && (
+        <div>
+          <SelectedService service={service} when={`${dayLabel(date).weekday} ${dayLabel(date).day} ${dayLabel(date).month} · ${timeLabel(slot.time)}`} />
+          <div className="mt-6 space-y-4">
+            <Field label={dict.name} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label={dict.email} type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
+            <Field label={dict.phone} type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <div>
+              <label className="mb-1.5 block text-sm text-sand">{dict.notes}</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                rows={3}
+                className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
+              />
+            </div>
+          </div>
+
+          {error && (
+            <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-8 flex justify-between">
+            <Button variant="ghost" onClick={() => setStep(2)}>
+              <ChevronLeft size={16} /> {dict.back}
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={submitting || form.name.length < 2 || !form.email.includes("@") || form.phone.length < 6}
+            >
+              {submitting ? <Loader2 className="animate-spin" size={16} /> : null}
+              {dict.confirm}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-ink-line/50 py-2 last:border-0">
+      <span className="text-muted">{k}</span>
+      <span className="font-medium text-cream">{v}</span>
+    </div>
+  );
+}
+
+function SelectedService({ service, when }: { service: Service; when?: string }) {
+  return (
+    <div className="surface flex items-center justify-between rounded-xl p-4">
+      <div>
+        <div className="text-cream">{service.name}</div>
+        <div className="flex items-center gap-1 text-xs text-muted">
+          <Clock size={12} /> {service.durationMin} min{when ? ` · ${when}` : ""}
+        </div>
+      </div>
+      <span className="font-semibold text-gold">{aed(service.priceAED)}</span>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm text-sand">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
+      />
+    </div>
+  );
+}

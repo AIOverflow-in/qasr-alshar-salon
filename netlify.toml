@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Scheduled functions are configured via the `export const config.schedule`
+# inside netlify/functions/scheduled-blog.mjs (cron: every alternate day 06:00 UTC).
+[functions]
+  node_bundler = "esbuild"

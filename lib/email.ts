@@ -1,0 +1,93 @@
+import "server-only";
+import { Resend } from "resend";
+import { SITE } from "./site";
+
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
+const FROM = process.env.FROM_EMAIL || "Qasr Alshar Salon <onboarding@resend.dev>";
+
+type BookingEmail = {
+  customerName: string;
+  email: string;
+  phone: string;
+  serviceName: string;
+  priceAED: number;
+  whenLabel: string; // human readable Dubai time
+  notes?: string | null;
+};
+
+function shell(title: string, body: string) {
+  return `<!doctype html><html><body style="margin:0;background:#0b0a08;font-family:Arial,Helvetica,sans-serif;color:#f6f0e2;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px;">
+    <div style="text-align:center;padding-bottom:20px;border-bottom:1px solid #2a2417;">
+      <div style="font-size:26px;font-weight:bold;letter-spacing:1px;color:#e7c878;">QASR ALSHAR</div>
+      <div style="font-size:11px;letter-spacing:3px;color:#8c8267;text-transform:uppercase;">Beauty Salon · Dubai</div>
+    </div>
+    <h1 style="font-size:22px;color:#e7c878;margin:28px 0 8px;">${title}</h1>
+    ${body}
+    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a2417;font-size:12px;color:#8c8267;line-height:1.7;">
+      ${SITE.address.line1}, ${SITE.address.city}<br/>
+      ${SITE.phones[0].label} · <a href="${SITE.url}" style="color:#e7c878;">${SITE.url.replace(/^https?:\/\//, "")}</a><br/>
+      ${SITE.hours.note}
+    </div>
+  </div></body></html>`;
+}
+
+function detailsTable(b: BookingEmail) {
+  const row = (k: string, v: string) =>
+    `<tr><td style="padding:8px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
+  return `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    ${row("Service", b.serviceName)}
+    ${row("Date &amp; Time", b.whenLabel)}
+    ${row("Price", `AED ${b.priceAED}`)}
+    ${row("Name", b.customerName)}
+    ${row("Phone", b.phone)}
+    ${row("Email", b.email)}
+    ${b.notes ? row("Notes", b.notes) : ""}
+  </table>`;
+}
+
+/** Confirmation to the customer + alert to the salon. Never throws. */
+export async function sendBookingEmails(b: BookingEmail) {
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not set — skipping emails");
+    return;
+  }
+
+  const customerHtml = shell(
+    "Your appointment is confirmed 🎉",
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${b.customerName}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
+     ${detailsTable(b)}
+     <a href="${SITE.url}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
+     <p style="margin-top:18px;font-size:13px;color:#8c8267;">Need to reschedule? Reply to this email or call us at ${SITE.phones[0].label}.</p>`
+  );
+
+  const salonHtml = shell(
+    "New booking received 📅",
+    `<p style="line-height:1.7;color:#cabfa6;">A new appointment has just been booked online.</p>
+     ${detailsTable(b)}`
+  );
+
+  const results = await Promise.allSettled([
+    resend.emails.send({
+      from: FROM,
+      to: b.email,
+      subject: "Your Qasr Alshar appointment is confirmed",
+      html: customerHtml,
+    }),
+    resend.emails.send({
+      from: FROM,
+      to: process.env.SALON_NOTIFICATION_EMAIL || b.email,
+      replyTo: b.email,
+      subject: `New booking — ${b.serviceName} · ${b.whenLabel}`,
+      html: salonHtml,
+    }),
+  ]);
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected")
+      console.error(`[email] ${i === 0 ? "customer" : "salon"} send failed:`, r.reason);
+  });
+}
