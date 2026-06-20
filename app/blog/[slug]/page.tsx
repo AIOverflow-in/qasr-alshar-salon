@@ -83,7 +83,7 @@ export default async function BlogPostPage({
     publisher: {
       "@type": "Organization",
       name: SITE.name,
-      logo: { "@type": "ImageObject", url: `${SITE.url}/icon.svg` },
+      logo: { "@type": "ImageObject", url: `${SITE.url}/icon.png` },
     },
     mainEntityOfPage: `${SITE.url}/blog/${post.slug}`,
     keywords: post.tags.join(", "),

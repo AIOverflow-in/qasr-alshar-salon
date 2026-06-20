@@ -66,10 +66,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],
-    apple: "/icon.svg",
-  },
+  // Favicon/apple-icon are provided by app/icon.png and app/apple-icon.png
 };
 
 export const viewport: Viewport = {
