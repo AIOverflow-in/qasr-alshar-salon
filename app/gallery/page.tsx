@@ -61,8 +61,8 @@ export default function GalleryPage() {
                   sizes="(max-width:768px) 50vw, 25vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/85 via-ink/10 to-transparent p-4">
-                  <span className="font-display text-base text-gold drop-shadow">{s.label}</span>
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 via-black/15 to-transparent p-4">
+                  <span className="font-display text-base text-white drop-shadow">{s.label}</span>
                 </div>
               </Reveal>
             ))}

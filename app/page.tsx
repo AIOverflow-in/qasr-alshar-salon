@@ -151,7 +151,7 @@ export default async function HomePage() {
                     sizes="(max-width: 768px) 50vw, 25vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                  <div className="absolute inset-0 bg-ink/30 transition-colors group-hover:bg-ink/10" />
+                  <div className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-black/0" />
                 </Link>
               </Reveal>
             ))}
