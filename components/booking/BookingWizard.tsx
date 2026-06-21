@@ -197,7 +197,7 @@ export function BookingWizard({
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-ink"
+            className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-espresso"
           >
             Confirm on WhatsApp
           </a>
@@ -230,7 +230,7 @@ export function BookingWizard({
               <span
                 className={cn(
                   "grid h-7 w-7 place-items-center rounded-full border text-xs font-semibold transition-colors",
-                  active && "border-gold bg-gold-gradient text-ink",
+                  active && "border-gold bg-gold-gradient text-espresso",
                   complete && "border-gold/60 bg-gold/15 text-gold",
                   !active && !complete && "border-ink-line text-muted"
                 )}
@@ -310,7 +310,7 @@ export function BookingWizard({
                   onClick={() => setDate(iso)}
                   className={cn(
                     "flex min-w-16 shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition-colors",
-                    active ? "border-gold bg-gold-gradient text-ink" : "border-ink-line text-sand hover:border-gold/50"
+                    active ? "border-gold bg-gold-gradient text-espresso" : "border-ink-line text-sand hover:border-gold/50"
                   )}
                 >
                   <span className="text-[0.65rem] uppercase">{l.weekday}</span>
@@ -337,7 +337,7 @@ export function BookingWizard({
                   className={cn(
                     "rounded-lg border py-2.5 text-sm transition-colors",
                     slot?.iso === s.iso
-                      ? "border-gold bg-gold-gradient text-ink"
+                      ? "border-gold bg-gold-gradient text-espresso"
                       : "border-ink-line text-sand hover:border-gold/50"
                   )}
                 >

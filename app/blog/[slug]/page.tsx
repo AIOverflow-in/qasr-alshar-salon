@@ -154,13 +154,13 @@ export default async function BlogPostPage({
               </div>
             )}
 
-            <div className="mt-12 rounded-3xl bg-gold-gradient p-8 text-center text-ink">
+            <div className="mt-12 rounded-3xl bg-gold-gradient p-8 text-center text-espresso">
               <h2 className="font-display text-2xl">Ready to treat yourself?</h2>
-              <p className="mt-2 text-ink/80">Book your appointment at Qasr Alshar today.</p>
+              <p className="mt-2 text-espresso/80">Book your appointment at Qasr Alshar today.</p>
               <div className="mt-5">
                 <Link
                   href="/book"
-                  className="inline-flex rounded-full bg-ink px-7 py-3 font-semibold text-gold transition-transform hover:scale-105"
+                  className="inline-flex rounded-full bg-espresso px-7 py-3 font-semibold text-gold transition-transform hover:scale-105"
                 >
                   Book Now
                 </Link>

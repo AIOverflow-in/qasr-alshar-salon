@@ -37,7 +37,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3 font-semibold text-ink disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3 font-semibold text-espresso disabled:opacity-60"
       >
         {pending && <Loader2 className="animate-spin" size={16} />}
         Sign In

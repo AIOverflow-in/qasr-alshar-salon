@@ -297,14 +297,14 @@ export default async function HomePage() {
       {/* CTA */}
       <section className="relative overflow-hidden">
         <div className="bg-gold-gradient">
-          <div className="container-x py-16 text-center text-ink">
+          <div className="container-x py-16 text-center text-espresso">
             <Reveal>
               <h2 className="font-display text-4xl md:text-5xl">{t.sections.ctaTitle}</h2>
-              <p className="mt-3 text-lg text-ink/80">{t.sections.ctaSubtitle}</p>
+              <p className="mt-3 text-lg text-espresso/80">{t.sections.ctaSubtitle}</p>
               <div className="mt-8">
                 <Link
                   href="/book"
-                  className="inline-flex items-center gap-2 rounded-full bg-ink px-8 py-4 font-semibold text-gold transition-transform hover:scale-105"
+                  className="inline-flex items-center gap-2 rounded-full bg-espresso px-8 py-4 font-semibold text-gold transition-transform hover:scale-105"
                 >
                   {t.common.bookNow} <ArrowRight size={18} />
                 </Link>
