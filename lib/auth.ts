@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "qa_admin";
 
@@ -15,10 +16,10 @@ function getSecret() {
   return new TextEncoder().encode(s);
 }
 
-export type Session = { sub: string; email: string };
+export type Session = { sub: string; email: string; role: Role };
 
-export async function createSession(user: { id: string; email: string }) {
-  const token = await new SignJWT({ email: user.email })
+export async function createSession(user: { id: string; email: string; role: Role }) {
+  const token = await new SignJWT({ email: user.email, role: user.role })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
     .setIssuedAt()
@@ -46,10 +47,23 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
-    return { sub: String(payload.sub), email: String(payload.email) };
+    return {
+      sub: String(payload.sub),
+      email: String(payload.email),
+      role: (payload.role as Role) ?? "SUPER_ADMIN",
+    };
   } catch {
     return null;
   }
+}
+
+/** Roles allowed to see the finance/investor surfaces. */
+export const FINANCE_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "INVESTOR"];
+
+export async function requireRole(allowed: Role[]): Promise<Session | null> {
+  const s = await getSession();
+  if (!s || !allowed.includes(s.role)) return null;
+  return s;
 }
 
 export async function verifyCredentials(email: string, password: string) {
