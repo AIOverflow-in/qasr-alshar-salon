@@ -61,6 +61,7 @@ model Booking {
 
   service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  salesOrders  SalesOrder[]
 
   @@index([startAt])
   @@index([status])
@@ -170,7 +171,8 @@ model Staff {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  bookings   Booking[]
+  bookings    Booking[]
+  salesOrders SalesOrder[]
 
   @@index([active])
 }
@@ -188,6 +190,8 @@ model Client {
   consentMarketing Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  salesOrders SalesOrder[]
 
   @@index([phone])
   @@index([email])
@@ -208,6 +212,108 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  orderLines     OrderLine[]
+  stockMovements StockMovement[]
+
   @@index([category])
   @@index([barcode])
+}
+
+enum OrderStatus {
+  DRAFT
+  PAID
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+}
+
+/// POS invoice / sales order — ties services + products to a stylist + client.
+model SalesOrder {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  status        OrderStatus   @default(DRAFT)
+  paymentMethod PaymentMethod @default(CASH)
+
+  // optional links
+  bookingId     String?
+  clientId      String?
+  staffId       String?
+
+  subtotalAED   Int           @default(0)
+  vatPct        Int           @default(5)
+  vatAED        Int           @default(0)
+  totalAED      Int           @default(0)
+  notes         String?
+
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lines         OrderLine[]
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client        Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  staff         Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+model OrderLine {
+  id          String     @id @default(cuid())
+  orderId     String
+  kind        String     @default("SERVICE") // SERVICE | PRODUCT
+  description String
+  qty         Int        @default(1)
+  unitAED     Int
+  lineAED     Int
+
+  productId   String?
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order       SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+enum MovementKind {
+  STOCK_IN
+  STOCK_OUT
+  SALE
+  ADJUSTMENT
+}
+
+/// Inventory audit trail — every qty change recorded here.
+model StockMovement {
+  id        String       @id @default(cuid())
+  productId String
+  kind      MovementKind
+  qty       Int          // positive = in, negative = out
+  note      String?
+  staffId   String?
+  createdAt DateTime     @default(now())
+
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+/// Commission record per stylist per sales order.
+model Commission {
+  id          String   @id @default(cuid())
+  staffId     String
+  orderId     String
+  type        String   @default("SALES_SPLIT") // SALES_SPLIT | REFERRAL | INCENTIVE
+  baseAED     Int
+  pct         Int
+  amountAED   Int
+  paid        Boolean  @default(false)
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([staffId])
+  @@index([orderId])
+  @@index([paid])
 }

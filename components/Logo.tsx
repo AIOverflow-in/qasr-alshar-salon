@@ -13,14 +13,14 @@ export function Logo({
   showText?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-3", className)}>
-      <Emblem className="h-11 w-auto shrink-0" />
+    <span className={cn("inline-flex min-w-0 items-center gap-2.5", className)}>
+      <Emblem className="h-10 w-auto shrink-0 sm:h-11" />
       {showText && (
-        <span className="flex flex-col leading-none">
-          <span className="text-gold-gradient font-display text-xl font-semibold tracking-wide">
+        <span className="flex min-w-0 flex-col leading-none">
+          <span className="truncate text-gold-gradient font-display text-lg font-semibold tracking-wide sm:text-xl">
             Qasr Alshar
           </span>
-          <span className="text-[0.6rem] uppercase tracking-[0.32em] text-muted">
+          <span className="hidden text-[0.6rem] uppercase tracking-[0.32em] text-muted sm:block">
             Beauty Salon · Dubai
           </span>
         </span>

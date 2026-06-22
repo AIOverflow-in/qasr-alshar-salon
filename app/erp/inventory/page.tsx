@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { InventoryActions } from "./InventoryActions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ErpInventory({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; cat?: string }>;
+  searchParams: Promise<{ q?: string; cat?: string; low?: string }>;
 }) {
-  const { q, cat } = await searchParams;
+  const { q, cat, low } = await searchParams;
 
   const where: Prisma.ProductWhereInput = { active: true };
   if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { barcode: { contains: q } }];
   if (cat) where.category = cat;
+  if (low === "1") where.qty = { lte: 3 };
 
   const [products, categories, total, lowCount] = await Promise.all([
     prisma.product.findMany({ where, orderBy: [{ qty: "asc" }, { name: "asc" }], take: 300 }),
@@ -27,8 +29,12 @@ export default async function ErpInventory({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl text-cream">Inventory</h1>
-          <p className="text-sm text-muted">{total} products · {lowCount} low / out of stock</p>
+          <p className="text-sm text-muted">{total} products · <span className="text-gold">{lowCount} low / out of stock</span></p>
         </div>
+        <InventoryActions />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         <form className="flex gap-2" action="/erp/inventory">
           <input
             name="q"
@@ -38,11 +44,14 @@ export default async function ErpInventory({
           />
           <button className="rounded-full bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso">Search</button>
         </form>
+        <Link href="/erp/inventory?low=1" className={`rounded-full border px-3 py-1.5 text-xs ${low === "1" ? "border-gold bg-gold/15 text-gold" : "border-red-500/40 text-red-400 hover:border-red-400"}`}>
+          Low stock ({lowCount})
+        </Link>
       </div>
 
       {/* category chips */}
       <div className="flex flex-wrap gap-2">
-        <Link href="/erp/inventory" className={`rounded-full border px-3 py-1.5 text-xs ${!cat ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-sand hover:border-gold/50"}`}>
+        <Link href="/erp/inventory" className={`rounded-full border px-3 py-1.5 text-xs ${!cat && !low ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-sand hover:border-gold/50"}`}>
           All ({total})
         </Link>
         {categories.map((c) => (
@@ -64,27 +73,39 @@ export default async function ErpInventory({
               <th className="p-3 font-medium">Category</th>
               <th className="p-3 font-medium">Barcode</th>
               <th className="p-3 font-medium text-right">Qty</th>
+              <th className="p-3 font-medium text-right">Sale AED</th>
+              <th className="p-3 font-medium text-center">Adjust</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line/60">
             {products.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={p.qty === 0 ? "bg-red-500/5" : ""}>
                 <td className="p-3 text-cream">{p.name}</td>
                 <td className="p-3 text-xs text-muted">{p.category}</td>
-                <td className="p-3 font-mono text-xs text-muted">{p.barcode || "—"}</td>
+                <td className="p-3 font-mono text-xs text-muted">{p.barcode ?? "—"}</td>
                 <td className="p-3 text-right">
                   <span className={`rounded-full border px-2.5 py-1 text-xs ${p.qty === 0 ? "border-red-500/40 text-red-400" : p.qty <= 3 ? "border-gold/40 text-gold" : "border-ink-line text-sand"}`}>
                     {p.qty}
                   </span>
+                </td>
+                <td className="p-3 text-right text-sand">{p.saleAED ? `${p.saleAED}` : "—"}</td>
+                <td className="p-3 text-center">
+                  <InventoryAdjustInline productId={p.id} productName={p.name} currentQty={p.qty} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted">
-        Imported from your inventory sheets. Barcode camera scan for stock-in/out + sale arrives with the POS slice.
-      </p>
+    </div>
+  );
+}
+
+function InventoryAdjustInline({ productId, productName, currentQty }: { productId: string; productName: string; currentQty: number }) {
+  // Rendered server-side; actual interactivity is in InventoryActions client component
+  return (
+    <div className="flex items-center justify-center gap-1 text-xs text-muted">
+      <span className="font-mono">{currentQty}</span>
     </div>
   );
 }

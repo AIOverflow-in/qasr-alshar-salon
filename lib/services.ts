@@ -72,7 +72,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "custom wig Dubai",
       "wig making Dubai",
     ],
-    image: "/salon/salon-main.jpg",
+    image: "/gallery/weaving.jpg",
     items: [
       { name: "Track and Sew", price: 200, duration: 150 },
       { name: "Weaving", price: 250, duration: 180 },
@@ -95,7 +95,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "keratin treatment Dubai",
       "hair botox Dubai",
     ],
-    image: "/salon/salon-styling.jpg",
+    image: "/gallery/hair.jpg",
     items: [
       { name: "Hair Cut", price: 50, duration: 45 },
       { name: "Wash", price: 30, duration: 30 },
@@ -193,7 +193,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "mehndi artist Dubai",
       "henna design Dubai",
     ],
-    image: "/salon/salon-main.jpg",
+    image: "/gallery/henna.jpg",
     items: [
       { name: "Henna — One Side", price: 100, duration: 45 },
       { name: "Henna — Leg", price: 100, duration: 45 },
@@ -211,7 +211,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "classic lashes Dubai",
       "volume lashes Dubai",
     ],
-    image: "/salon/salon-makeup.jpg",
+    image: "/gallery/lashes.jpg",
     items: [
       { name: "Eye Lashes Curly", price: 50, duration: 45 },
       { name: "Eyelashes Extension", price: 100, duration: 90 },
@@ -231,7 +231,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "bikini wax Dubai",
       "underarm wax Dubai",
     ],
-    image: "/salon/salon-facial.jpg",
+    image: "/gallery/waxing.jpg",
     items: [
       { name: "Upper Lip", price: 10, duration: 15 },
       { name: "Chin", price: 10, duration: 15 },
@@ -255,7 +255,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "eyebrow threading Dubai",
       "brow shaping Dubai",
     ],
-    image: "/salon/salon-makeup.jpg",
+    image: "/gallery/threading.jpg",
     items: [
       { name: "Eyebrow", price: 30, duration: 15 },
       { name: "Upper Lip", price: 20, duration: 10 },
@@ -273,7 +273,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "full body massage Dubai",
       "relaxation massage Union Metro",
     ],
-    image: "/salon/salon-pedicure.jpg",
+    image: "/gallery/massage.jpg",
     items: [
       { name: "Massage — 30 Minutes", price: 100, duration: 30 },
       { name: "Massage — One Hour", price: 150, duration: 60 },

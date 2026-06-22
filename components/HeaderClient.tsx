@@ -58,9 +58,9 @@ export function HeaderClient({
           : "bg-gradient-to-b from-ink/80 to-transparent"
       )}
     >
-      <div className="container-x flex h-18 items-center justify-between py-3">
-        <Link href="/" aria-label="Qasr Alshar home" className="shrink-0">
-          <Logo />
+      <div className="container-x flex h-18 items-center justify-between gap-2 py-3">
+        <Link href="/" aria-label="Qasr Alshar home" className="min-w-0 shrink-0">
+          <Logo className="max-w-[160px] sm:max-w-none" />
         </Link>
 
         {/* desktop nav */}

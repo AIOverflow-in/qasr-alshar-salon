@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   ExternalLink,
+  ShoppingCart,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { logoutAction } from "@/lib/actions/admin";
@@ -24,6 +25,7 @@ import type { Role } from "@prisma/client";
 
 const NAV = [
   { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"] },
+  { href: "/erp/pos", label: "POS Checkout", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"] },
   { href: "/erp/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },

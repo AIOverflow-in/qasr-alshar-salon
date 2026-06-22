@@ -284,13 +284,100 @@ export default async function HomePage() {
             <div className="overflow-hidden rounded-3xl border border-ink-line">
               <iframe
                 title="Qasr Alshar Salon location"
-                src={`https://www.google.com/maps?q=${SITE.address.mapsQuery}&output=embed`}
+                src={`https://maps.google.com/maps?q=${SITE.address.lat},${SITE.address.lng}&z=18&output=embed`}
                 className="h-[360px] w-full"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      {/* HOME SERVICE */}
+      <section className="section-y border-t border-ink-line bg-ink-soft">
+        <div className="container-x grid items-center gap-12 lg:grid-cols-2">
+          <Reveal delay={120}>
+            <div className="text-xs font-medium uppercase tracking-[0.3em] text-gold">At Your Door</div>
+            <h2 className="mt-4 font-display text-4xl text-cream md:text-5xl">Home Beauty Service</h2>
+            <p className="mt-5 text-lg leading-relaxed text-sand/80">
+              Can&apos;t make it to the salon? Our Crown Artists come to you. Home service is available
+              across Dubai — braiding, henna, makeup, nails and more, delivered professionally to your
+              residence or hotel room.
+            </p>
+            <ul className="mt-6 grid grid-cols-2 gap-3 text-sm text-sand">
+              {["Braiding & Locs", "Henna Artistry", "Full Glam Makeup", "Manicure & Nails", "Hair Styling", "Wedding Packages"].map((x) => (
+                <li key={x} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-gold flex-shrink-0" /> {x}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-muted">Minimum order applies by area. Message us on WhatsApp for a quote and availability.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <ButtonLink href={`https://wa.me/${SITE.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi Qasr Alshar! I'd like to enquire about a home service. 💇🏽‍♀️")}`} target="_blank" rel="noopener noreferrer">
+                Book via WhatsApp
+              </ButtonLink>
+              <ButtonLink href="/book" variant="outline">Book at the Salon</ButtonLink>
+            </div>
+          </Reveal>
+          <Reveal>
+            <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-ink-line">
+              <Image
+                src="/salon/salon-main.jpg"
+                alt="Qasr Alshar home beauty service Dubai"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+              <div className="absolute bottom-0 left-0 p-6">
+                <div className="rounded-2xl border border-white/20 bg-black/40 px-5 py-4 backdrop-blur-sm">
+                  <div className="text-sm font-semibold text-white">Available across Dubai</div>
+                  <div className="mt-0.5 text-xs text-white/70">Message us for your area + min. order</div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* OUR WORK — real salon photos */}
+      <section className="section-y">
+        <div className="container-x">
+          <SectionHeading eyebrow="Our Work" title="Real results, real clients" subtitle="Taken at our salon in Dubai — every style shown is our own work." />
+          <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {[
+              { src: "/salon/salon-styling.jpg", label: "Braiding & Styling" },
+              { src: "/salon/salon-nailbar.jpg", label: "Nail Bar" },
+              { src: "/salon/salon-makeup.jpg", label: "Makeup Studio" },
+              { src: "/salon/salon-facial.jpg", label: "Facial Room" },
+              { src: "/salon/salon-nails.jpg", label: "Nail Art" },
+              { src: "/salon/salon-pedicure.jpg", label: "Pedicure Lounge" },
+              { src: "/salon/salon-pedicure-2.jpg", label: "Relax & Unwind" },
+              { src: "/salon/salon-pedicure-stations.jpg", label: "Pedicure Stations" },
+            ].map((shot, i) => (
+              <Reveal key={shot.src} delay={i * 40}>
+                <Link href="/gallery" className="group relative block aspect-square overflow-hidden rounded-2xl border border-ink-line">
+                  <Image
+                    src={shot.src}
+                    alt={`${shot.label} at Qasr Alshar Salon Dubai`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <div className="absolute bottom-0 left-0 right-0 translate-y-full p-3 transition-transform group-hover:translate-y-0">
+                    <span className="block rounded-lg bg-black/60 px-3 py-1.5 text-center text-xs font-medium text-white backdrop-blur-sm">
+                      {shot.label}
+                    </span>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <ButtonLink href="/gallery" variant="outline">View Full Gallery</ButtonLink>
+          </div>
         </div>
       </section>
 

@@ -13,6 +13,7 @@ const schema = z.object({
   email: z.string().email(),
   phone: z.string().min(6).max(30),
   notes: z.string().max(800).optional().nullable(),
+  staffId: z.string().optional().nullable(),
   locale: z.enum(["en", "ar"]).optional(),
 });
 
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
             endAt: end,
             status: "CONFIRMED",
             locale: data.locale ?? "en",
+            staffId: data.staffId || null,
           },
         });
       },

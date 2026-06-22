@@ -26,18 +26,25 @@ export default async function BookPage({
 }) {
   const { service: serviceParam, category: categoryParam } = await searchParams;
   const { locale, t } = await getI18n();
-  const services = await prisma.service.findMany({
-    where: { active: true },
-    orderBy: { order: "asc" },
-    select: {
-      id: true,
-      name: true,
-      priceAED: true,
-      durationMin: true,
-      category: true,
-      categorySlug: true,
-    },
-  });
+  const [services, stylists] = await Promise.all([
+    prisma.service.findMany({
+      where: { active: true },
+      orderBy: { order: "asc" },
+      select: {
+        id: true,
+        name: true,
+        priceAED: true,
+        durationMin: true,
+        category: true,
+        categorySlug: true,
+      },
+    }),
+    prisma.staff.findMany({
+      where: { active: true },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true, role: true, offDay: true },
+    }),
+  ]);
 
   // Resolve a deep-linked service (by id or slug) or category for pre-selection.
   const preselected =
@@ -68,6 +75,7 @@ export default async function BookPage({
           locale={locale}
           dict={t.booking}
           services={services}
+          stylists={stylists}
           categoryOrder={CATEGORY_ORDER}
           initialServiceId={serviceParam && preselected?.id === serviceParam ? preselected.id : undefined}
           initialCategory={initialCategoryName}
