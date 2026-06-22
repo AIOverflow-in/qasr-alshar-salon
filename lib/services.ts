@@ -38,10 +38,10 @@ export const CATEGORIES: ServiceCategory[] = [
       "box braids Dubai",
       "cornrows Dubai",
       "locs Dubai",
-      "microlocs Dubai",
+      "sister locks Dubai",
       "Afro hair salon Dubai",
     ],
-    image: "/gallery/braiding.jpg",
+    image: "/salon/salon-styling.jpg",
     items: [
       { name: "Cornrow Updo (Line Updo)", price: 200, duration: 240 },
       { name: "Cornrows Down (Downdo)", price: 100, duration: 150 },
@@ -50,10 +50,10 @@ export const CATEGORIES: ServiceCategory[] = [
       { name: "Box / Knotless Braids", price: 50, duration: 300, plus: true },
       { name: "Boho / Goddess Braids", price: 200, duration: 360 },
       { name: "Loc Retwist / Retouch", price: 150, duration: 180 },
-      { name: "Starter Locs Installation", price: 150, duration: 240 },
+      { name: "Starter Locs Installation", price: 300, duration: 240, plus: true },
       { name: "Loc Crochet / Reattach", price: 150, duration: 180 },
-      { name: "Microlocs Installation", price: 250, duration: 360, plus: true },
-      { name: "Microlocs Retouch", price: 100, duration: 180 },
+      { name: "Sister Locks Installation", price: 300, duration: 360, plus: true },
+      { name: "Sister Locks Retouch", price: 100, duration: 180 },
       { name: "Two-Strand Twists", price: 200, duration: 240 },
       { name: "Micro Twists", price: 300, duration: 360 },
     ],
@@ -72,7 +72,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "custom wig Dubai",
       "wig making Dubai",
     ],
-    image: "/gallery/weaving.jpg",
+    image: "/salon/salon-main.jpg",
     items: [
       { name: "Track and Sew", price: 200, duration: 150 },
       { name: "Weaving", price: 250, duration: 180 },
@@ -95,7 +95,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "keratin treatment Dubai",
       "hair botox Dubai",
     ],
-    image: "/gallery/hair.jpg",
+    image: "/salon/salon-styling.jpg",
     items: [
       { name: "Hair Cut", price: 50, duration: 45 },
       { name: "Wash", price: 30, duration: 30 },
@@ -129,7 +129,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "gel nails Dubai",
       "nail extensions Dubai",
     ],
-    image: "/gallery/nails.jpg",
+    image: "/salon/salon-nailbar.jpg",
     items: [
       { name: "Regular Manicure", price: 30, duration: 45 },
       { name: "Manicure Gelish", price: 70, duration: 60 },
@@ -152,7 +152,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "skin brightening Dubai",
       "best facial Union Metro",
     ],
-    image: "/gallery/facial.jpg",
+    image: "/salon/salon-facial.jpg",
     items: [
       { name: "Classic Facial", price: 100, duration: 60 },
       { name: "Hydra Facial", price: 250, duration: 75 },
@@ -174,7 +174,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "party makeup Dubai",
       "soft glam Dubai",
     ],
-    image: "/gallery/makeup.jpg",
+    image: "/salon/salon-makeup.jpg",
     items: [
       { name: "Soft Glam", price: 140, duration: 60 },
       { name: "Full Glam", price: 200, duration: 90 },
@@ -193,7 +193,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "mehndi artist Dubai",
       "henna design Dubai",
     ],
-    image: "/gallery/henna.jpg",
+    image: "/salon/salon-main.jpg",
     items: [
       { name: "Henna — One Side", price: 100, duration: 45 },
       { name: "Henna — Leg", price: 100, duration: 45 },
@@ -211,7 +211,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "classic lashes Dubai",
       "volume lashes Dubai",
     ],
-    image: "/gallery/lashes.jpg",
+    image: "/salon/salon-makeup.jpg",
     items: [
       { name: "Eye Lashes Curly", price: 50, duration: 45 },
       { name: "Eyelashes Extension", price: 100, duration: 90 },
@@ -231,7 +231,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "bikini wax Dubai",
       "underarm wax Dubai",
     ],
-    image: "/gallery/waxing.jpg",
+    image: "/salon/salon-facial.jpg",
     items: [
       { name: "Upper Lip", price: 10, duration: 15 },
       { name: "Chin", price: 10, duration: 15 },
@@ -255,7 +255,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "eyebrow threading Dubai",
       "brow shaping Dubai",
     ],
-    image: "/gallery/threading.jpg",
+    image: "/salon/salon-makeup.jpg",
     items: [
       { name: "Eyebrow", price: 30, duration: 15 },
       { name: "Upper Lip", price: 20, duration: 10 },
@@ -273,7 +273,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "full body massage Dubai",
       "relaxation massage Union Metro",
     ],
-    image: "/gallery/massage.jpg",
+    image: "/salon/salon-pedicure.jpg",
     items: [
       { name: "Massage — 30 Minutes", price: 100, duration: 30 },
       { name: "Massage — One Hour", price: 150, duration: 60 },

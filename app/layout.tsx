@@ -9,6 +9,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBookingBar } from "@/components/MobileBookingBar";
+import { WhatsAppFab } from "@/components/WhatsAppFab";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -94,6 +95,7 @@ export default async function RootLayout({
         <main className="flex-1 pb-24 lg:pb-0">{children}</main>
         <Footer />
         <MobileBookingBar />
+        <WhatsAppFab />
       </body>
     </html>
   );

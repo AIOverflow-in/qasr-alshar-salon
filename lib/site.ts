@@ -38,6 +38,14 @@ export const SITE = {
     instagramHandle: "@qasr.alshar",
     tiktok: "https://www.tiktok.com/@qasralsharsalon",
     tiktokHandle: "@qasralsharsalon",
+    facebook: "https://www.facebook.com/61583884163475",
+    facebookHandle: "Qasr Alshar Salon",
+    // TODO: confirm exact handles/links with the owner
+    snapchat: process.env.NEXT_PUBLIC_SNAPCHAT_URL || "https://www.snapchat.com/add/qasralshar",
+    snapchatHandle: "@qasralshar",
+    googleBusiness:
+      process.env.NEXT_PUBLIC_GOOGLE_BUSINESS_URL ||
+      `https://www.google.com/maps/search/?api=1&query=Qasr+Alshar+Salon+Dalmok+Series+Building+Union+Metro+Dubai`,
   },
 
   // Default opening hours (editable in admin → WorkingHours)

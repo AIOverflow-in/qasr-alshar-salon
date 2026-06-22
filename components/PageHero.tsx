@@ -6,7 +6,7 @@ export function PageHero({
   title,
   subtitle,
   eyebrow,
-  image = "/gallery/hero.jpg",
+  image = "/salon/salon-styling.jpg",
   crumbs = [],
 }: {
   title: string;

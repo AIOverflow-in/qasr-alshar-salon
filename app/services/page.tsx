@@ -30,7 +30,7 @@ export default function ServicesPage() {
         eyebrow="Our Menu"
         title="Services & Prices"
         subtitle="A complete beauty experience under one golden roof — with honest, transparent pricing in AED."
-        image="/gallery/hair.jpg"
+        image="/salon/salon-styling.jpg"
         crumbs={[{ name: "Services", href: "/services" }]}
       />
 

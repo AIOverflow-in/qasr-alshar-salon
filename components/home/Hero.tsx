@@ -8,12 +8,12 @@ export function Hero({ t }: { t: Dictionary }) {
   return (
     <section className="relative flex min-h-[100svh] items-center overflow-hidden">
       <Image
-        src="/gallery/hero-model.jpg"
-        alt="Woman with long knotless braids at Qasr Alshar Salon, Dubai"
+        src="/salon/salon-main.jpg"
+        alt="Interior of Qasr Alshar Salon, Union Metro, Dubai"
         fill
         priority
         sizes="100vw"
-        className="object-cover object-right"
+        className="object-cover"
       />
       {/* keep the photo vivid: rich left scrim for text, image stays saturated */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/10" />

@@ -41,7 +41,7 @@ export default async function BlogPage() {
         eyebrow="Journal"
         title="Beauty Journal"
         subtitle="Tips, trends and inspiration from Dubai's crown of beauty."
-        image="/gallery/facial.jpg"
+        image="/salon/salon-facial.jpg"
         crumbs={[{ name: "Blog", href: "/blog" }]}
       />
 
