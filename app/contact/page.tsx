@@ -25,7 +25,7 @@ export default function ContactPage() {
         eyebrow="Get in Touch"
         title="Contact & Location"
         subtitle="We'd love to welcome you. Call, message or book online — whatever's easiest."
-        image="/gallery/about.jpg"
+        image="/salon/salon-facial.jpg"
         crumbs={[{ name: "Contact", href: "/contact" }]}
       />
 

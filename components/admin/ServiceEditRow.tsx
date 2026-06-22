@@ -72,7 +72,7 @@ export function ServiceEditRow({
       <button
         onClick={save}
         disabled={!dirty || pending}
-        className="flex items-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-40"
+        className="flex items-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-espresso disabled:opacity-40"
       >
         {pending ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
         {saved ? "Saved" : "Save"}

@@ -23,7 +23,7 @@ export function GenerateButton() {
       <button
         onClick={go}
         disabled={pending}
-        className="flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
+        className="flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso disabled:opacity-60"
       >
         {pending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         {pending ? "Generating…" : "Generate now"}

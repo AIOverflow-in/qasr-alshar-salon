@@ -76,7 +76,12 @@ export function localBusinessSchema() {
         closes: SITE.hours.close,
       },
     ],
-    sameAs: [SITE.social.instagram, SITE.social.tiktok],
+    sameAs: [
+      SITE.social.instagram,
+      SITE.social.tiktok,
+      SITE.social.facebook,
+      SITE.social.snapchat,
+    ],
     areaServed: { "@type": "City", name: "Dubai" },
   };
 }

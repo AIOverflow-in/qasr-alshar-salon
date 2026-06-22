@@ -24,7 +24,7 @@ export default function PackagesPage() {
         eyebrow="Save More"
         title="Value Beauty Packages"
         subtitle="Combine your favourite services into one bundle and save — beautifully done, every time."
-        image="/gallery/braiding.jpg"
+        image="/salon/salon-main.jpg"
         crumbs={[{ name: "Packages", href: "/packages" }]}
       />
 

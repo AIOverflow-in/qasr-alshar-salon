@@ -17,10 +17,10 @@ export const SITE = {
     city: "Dubai",
     country: "United Arab Emirates",
     countryCode: "AE",
-    // Approximate Union Metro / Deira coordinates (update with exact pin)
-    lat: 25.2657,
-    lng: 55.3203,
+    lat: 25.264521,
+    lng: 55.315475,
     mapsQuery: "Qasr+Alshar+Salon+Dalmok+Series+Building+Union+Metro+Dubai",
+    mapsEmbed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d227.3!2d55.315475!3d25.264521!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjXCsDE1JzUyLjMiTiA1NcKwMTgnNTUuNyJF!5e0!3m2!1sen!2sae!4v1",
   },
 
   phones: [
@@ -38,6 +38,14 @@ export const SITE = {
     instagramHandle: "@qasr.alshar",
     tiktok: "https://www.tiktok.com/@qasralsharsalon",
     tiktokHandle: "@qasralsharsalon",
+    facebook: "https://www.facebook.com/p/Qasr-Alshar-Salon-61583884163475/",
+    facebookHandle: "Qasr Alshar Salon",
+    // TODO: confirm exact handles/links with the owner
+    snapchat: process.env.NEXT_PUBLIC_SNAPCHAT_URL || "https://www.snapchat.com/add/qasralshar",
+    snapchatHandle: "@qasralshar",
+    googleBusiness:
+      process.env.NEXT_PUBLIC_GOOGLE_BUSINESS_URL ||
+      `https://www.google.com/maps/search/?api=1&query=Qasr+Alshar+Salon+Dalmok+Series+Building+Union+Metro+Dubai`,
   },
 
   // Default opening hours (editable in admin → WorkingHours)

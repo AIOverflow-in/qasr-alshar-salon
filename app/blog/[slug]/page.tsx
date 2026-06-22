@@ -101,9 +101,9 @@ export default async function BlogPostPage({
       />
 
       <article className="pt-24">
-        {/* hero */}
-        <header className="relative">
-          <div className="relative aspect-[21/9] max-h-[60svh] w-full overflow-hidden">
+        {/* hero — vivid banner image, title sits on the bright page below */}
+        <header>
+          <div className="relative aspect-[21/9] max-h-[52svh] w-full overflow-hidden rounded-b-3xl">
             <Image
               src={post.heroImage || "/gallery/hero.jpg"}
               alt={post.title}
@@ -112,12 +112,12 @@ export default async function BlogPostPage({
               sizes="100vw"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-ink/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
           </div>
-          <div className="container-x relative -mt-28 pb-8">
+          <div className="container-x pt-8 pb-8">
             <Link
               href="/blog"
-              className="mb-5 inline-flex items-center gap-2 text-sm text-sand/80 hover:text-gold"
+              className="mb-5 inline-flex items-center gap-2 text-sm text-sand hover:text-gold"
             >
               <ArrowLeft size={16} /> Back to Journal
             </Link>
@@ -154,13 +154,13 @@ export default async function BlogPostPage({
               </div>
             )}
 
-            <div className="mt-12 rounded-3xl bg-gold-gradient p-8 text-center text-ink">
+            <div className="mt-12 rounded-3xl bg-gold-gradient p-8 text-center text-espresso">
               <h2 className="font-display text-2xl">Ready to treat yourself?</h2>
-              <p className="mt-2 text-ink/80">Book your appointment at Qasr Alshar today.</p>
+              <p className="mt-2 text-espresso/80">Book your appointment at Qasr Alshar today.</p>
               <div className="mt-5">
                 <Link
                   href="/book"
-                  className="inline-flex rounded-full bg-ink px-7 py-3 font-semibold text-gold transition-transform hover:scale-105"
+                  className="inline-flex rounded-full bg-espresso px-7 py-3 font-semibold text-gold transition-transform hover:scale-105"
                 >
                   Book Now
                 </Link>

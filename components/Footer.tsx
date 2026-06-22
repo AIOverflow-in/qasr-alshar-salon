@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MapPin, Phone, Clock } from "lucide-react";
 import { Logo } from "./Logo";
-import { InstagramIcon, TikTokIcon } from "./icons";
+import { InstagramIcon, TikTokIcon, FacebookIcon, SnapchatIcon, GoogleIcon } from "./icons";
 import { SITE } from "@/lib/site";
 import { CATEGORIES } from "@/lib/services";
 import { getI18n } from "@/lib/i18n/server";
@@ -19,25 +19,25 @@ export async function Footer() {
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-muted">
             {t.footer.tagline}
           </p>
-          <div className="mt-6 flex gap-3">
-            <a
-              href={SITE.social.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram"
-              className="grid h-10 w-10 place-items-center rounded-full border border-ink-line text-sand transition-colors hover:border-gold hover:text-gold"
-            >
-              <InstagramIcon size={18} />
-            </a>
-            <a
-              href={SITE.social.tiktok}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="TikTok"
-              className="grid h-10 w-10 place-items-center rounded-full border border-ink-line text-sand transition-colors hover:border-gold hover:text-gold"
-            >
-              <TikTokIcon />
-            </a>
+          <div className="mt-6 flex flex-wrap gap-3">
+            {[
+              { href: SITE.social.instagram, label: "Instagram", icon: <InstagramIcon size={18} /> },
+              { href: SITE.social.tiktok, label: "TikTok", icon: <TikTokIcon size={18} /> },
+              { href: SITE.social.facebook, label: "Facebook", icon: <FacebookIcon size={18} /> },
+              { href: SITE.social.snapchat, label: "Snapchat", icon: <SnapchatIcon size={18} /> },
+              { href: SITE.social.googleBusiness, label: "Google", icon: <GoogleIcon size={18} /> },
+            ].map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.label}
+                className="grid h-10 w-10 place-items-center rounded-full border border-ink-line text-sand transition-colors hover:border-gold hover:text-gold"
+              >
+                {s.icon}
+              </a>
+            ))}
           </div>
         </div>
 

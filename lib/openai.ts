@@ -8,7 +8,7 @@ const client = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-4.1";
+const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-5";
 
 /** Map a topic to the most relevant existing hero image. */
 function pickHeroImage(text: string): string {

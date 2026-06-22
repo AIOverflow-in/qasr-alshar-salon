@@ -19,7 +19,7 @@ export function ServiceCard({ cat }: { cat: ServiceCategory }) {
           sizes="(max-width: 768px) 100vw, 33vw"
           className="object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
         <div className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink/70 text-gold opacity-0 backdrop-blur transition-opacity duration-300 group-hover:opacity-100">
           <ArrowUpRight size={18} />
         </div>

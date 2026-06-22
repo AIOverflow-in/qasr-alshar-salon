@@ -53,13 +53,19 @@ model Booking {
   status       BookingStatus @default(CONFIRMED)
 
   locale       String        @default("en")
+  // ERP: which Crown Artist + how the booking came in
+  staffId      String?
+  source       String        @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  salesOrders  SalesOrder[]
 
   @@index([startAt])
   @@index([status])
+  @@index([staffId])
 }
 
 /// Weekly opening hours. weekday: 0 = Sunday … 6 = Saturday.
@@ -132,10 +138,182 @@ model BlogTopic {
   createdAt DateTime  @default(now())
 }
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  RECEPTION
+  STYLIST
+  INVESTOR
+}
+
 model AdminUser {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   name         String   @default("Admin")
+  role         Role     @default(SUPER_ADMIN)
+  staffId      String?  // optional link to a Staff record (for STYLIST logins)
   createdAt    DateTime @default(now())
+}
+
+/// Salon team member ("Crown Artist", reception, etc.). Seeded from STAFF INFORMATION.xlsx.
+model Staff {
+  id         String     @id @default(cuid())
+  name       String
+  role       String     @default("Crown Artist")
+  hours      String     @default("10:00AM - 10:00PM")
+  offDay     String?    // e.g. "Mondays"
+  // commission config
+  commissionPct Int     @default(40) // stylist sales split %
+  referralPct   Int     @default(5)
+  active     Boolean    @default(true)
+  order      Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  bookings    Booking[]
+  salesOrders SalesOrder[]
+
+  @@index([active])
+}
+
+/// Salon client / CRM record.
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  hairType  String?  // e.g. 4C, low-porosity
+  notes     String?
+  visits    Int      @default(0)
+  totalSpentAED Int   @default(0)
+  consentMarketing Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salesOrders SalesOrder[]
+
+  @@index([phone])
+  @@index([email])
+}
+
+/// Inventory product (barcoded) + retail/aftercare item. Seeded from inventory sheets.
+model Product {
+  id        String   @id @default(cuid())
+  barcode   String?
+  name      String
+  category  String   @default("Retail / Aftercare")
+  qty       Int      @default(0)
+  reorderAt Int      @default(3)
+  costAED   Int?
+  saleAED   Int?
+  retail    Boolean  @default(false) // show in e-commerce/aftercare
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderLines     OrderLine[]
+  stockMovements StockMovement[]
+
+  @@index([category])
+  @@index([barcode])
+}
+
+enum OrderStatus {
+  DRAFT
+  PAID
+  VOIDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+}
+
+/// POS invoice / sales order — ties services + products to a stylist + client.
+model SalesOrder {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  status        OrderStatus   @default(DRAFT)
+  paymentMethod PaymentMethod @default(CASH)
+
+  // optional links
+  bookingId     String?
+  clientId      String?
+  staffId       String?
+
+  subtotalAED   Int           @default(0)
+  vatPct        Int           @default(5)
+  vatAED        Int           @default(0)
+  totalAED      Int           @default(0)
+  notes         String?
+
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lines         OrderLine[]
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client        Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  staff         Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([staffId])
+  @@index([createdAt])
+}
+
+model OrderLine {
+  id          String     @id @default(cuid())
+  orderId     String
+  kind        String     @default("SERVICE") // SERVICE | PRODUCT
+  description String
+  qty         Int        @default(1)
+  unitAED     Int
+  lineAED     Int
+
+  productId   String?
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order       SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+enum MovementKind {
+  STOCK_IN
+  STOCK_OUT
+  SALE
+  ADJUSTMENT
+}
+
+/// Inventory audit trail — every qty change recorded here.
+model StockMovement {
+  id        String       @id @default(cuid())
+  productId String
+  kind      MovementKind
+  qty       Int          // positive = in, negative = out
+  note      String?
+  staffId   String?
+  createdAt DateTime     @default(now())
+
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+/// Commission record per stylist per sales order.
+model Commission {
+  id          String   @id @default(cuid())
+  staffId     String
+  orderId     String
+  type        String   @default("SALES_SPLIT") // SALES_SPLIT | REFERRAL | INCENTIVE
+  baseAED     Int
+  pct         Int
+  amountAED   Int
+  paid        Boolean  @default(false)
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([staffId])
+  @@index([orderId])
+  @@index([paid])
 }

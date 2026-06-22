@@ -32,7 +32,7 @@ export function MobileBookingBar() {
         </a>
         <Link
           href="/book"
-          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gold-gradient font-semibold text-ink"
+          className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gold-gradient font-semibold text-espresso"
         >
           <CalendarCheck size={20} />
           Book Now

@@ -86,7 +86,7 @@ function WorkingHoursCard({ hours }: { hours: Hours[] }) {
             <button
               onClick={() => save(r.weekday)}
               disabled={pending}
-              className="ml-auto rounded-lg bg-gold-gradient px-3 py-1 text-xs font-semibold text-ink"
+              className="ml-auto rounded-lg bg-gold-gradient px-3 py-1 text-xs font-semibold text-espresso"
             >
               {savedDay === r.weekday ? "Saved" : "Save"}
             </button>
@@ -137,7 +137,7 @@ function SettingsCard({ settings }: { settings: Settings }) {
       <button
         onClick={save}
         disabled={pending}
-        className="mt-4 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-ink"
+        className="mt-4 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso"
       >
         {pending && <Loader2 size={14} className="animate-spin" />}
         {saved ? "Saved" : "Save Settings"}
@@ -201,7 +201,7 @@ function BlockedSlotsCard({ blocks }: { blocks: Block[] }) {
         <button
           onClick={add}
           disabled={pending || !start || !end}
-          className="flex items-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-espresso disabled:opacity-40"
         >
           <Plus size={14} /> Block this window
         </button>

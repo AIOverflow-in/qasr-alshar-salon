@@ -6,22 +6,25 @@
    ========================================================================== */
 
 @theme {
-  /* Brand — warm blacks */
-  --color-ink: #0b0a08;
-  --color-ink-soft: #14110c;
-  --color-ink-card: #1a160f;
-  --color-ink-line: #2a2417;
+  /* Light theme — warm whites used as surfaces (token names kept for reuse) */
+  --color-ink: #fbf8f1;        /* page background — warm white */
+  --color-ink-soft: #f4ecdd;   /* alternating sections — soft cream */
+  --color-ink-card: #ffffff;   /* cards / inputs */
+  --color-ink-line: #e7dcc6;   /* hairline borders */
 
-  /* Brand — gold spectrum */
-  --color-gold: #c8a24c;
-  --color-gold-bright: #e7c878;
-  --color-gold-pale: #f3e2b0;
-  --color-gold-deep: #9a7a2e;
+  /* Brand — gold spectrum (tuned for contrast on white) */
+  --color-gold: #b1842f;
+  --color-gold-bright: #d6ad52;
+  --color-gold-pale: #e6c478;
+  --color-gold-deep: #7c5d20;
 
-  /* Neutrals / text */
-  --color-cream: #f6f0e2;
-  --color-sand: #cabfa6;
-  --color-muted: #8c8267;
+  /* Neutrals / text — dark on light */
+  --color-cream: #211c14;      /* primary text — espresso */
+  --color-sand: #4d4534;       /* secondary text */
+  --color-muted: #7c715a;      /* tertiary text */
+
+  /* Dark ink used for text/elements sitting ON gold surfaces */
+  --color-espresso: #211c14;
 
   /* Semantic */
   --color-background: var(--color-ink);
@@ -65,7 +68,7 @@
 
 /* ---------------------------------------------------------------- base ---- */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
@@ -102,7 +105,7 @@ h1, h2, h3, h4, .font-display {
 
 ::selection {
   background: var(--color-gold);
-  color: var(--color-ink);
+  color: var(--color-espresso);
 }
 
 /* ----------------------------------------------------------- utilities ---- */

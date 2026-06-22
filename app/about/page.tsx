@@ -30,7 +30,7 @@ export default function AboutPage() {
         eyebrow="Our Story"
         title="Dubai's Crown of Beauty"
         subtitle="Where every guest leaves feeling like royalty."
-        image="/gallery/about.jpg"
+        image="/salon/salon-styling.jpg"
         crumbs={[{ name: "About", href: "/about" }]}
       />
 
@@ -38,7 +38,7 @@ export default function AboutPage() {
         <div className="container-x grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-ink-line">
-              <Image src="/gallery/hero.jpg" alt="Inside Qasr Alshar Salon Dubai" fill sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" />
+              <Image src="/salon/salon-main.jpg" alt="Inside Qasr Alshar Salon Dubai" fill sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" />
             </div>
           </Reveal>
           <Reveal delay={100}>

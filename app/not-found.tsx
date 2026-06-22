@@ -9,7 +9,7 @@ export default function NotFound() {
         <h1 className="mt-6 font-display text-6xl text-gold-gradient">404</h1>
         <p className="mt-2 text-lg text-sand/80">This page has wandered off.</p>
         <div className="mt-8 flex justify-center gap-3">
-          <Link href="/" className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-ink">
+          <Link href="/" className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-espresso">
             Go Home
           </Link>
           <Link href="/book" className="rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10">

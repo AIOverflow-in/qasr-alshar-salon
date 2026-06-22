@@ -52,15 +52,15 @@ export function HeaderClient({
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-500",
+        "fixed inset-x-0 top-0 z-50 bg-white transition-all duration-300",
         scrolled
-          ? "bg-ink/85 backdrop-blur-xl border-b border-ink-line"
-          : "bg-gradient-to-b from-ink/80 to-transparent"
+          ? "shadow-md"
+          : "border-b border-stone-100"
       )}
     >
-      <div className="container-x flex h-18 items-center justify-between py-3">
-        <Link href="/" aria-label="Qasr Alshar home" className="shrink-0">
-          <Logo />
+      <div className="container-x flex h-18 items-center justify-between gap-2 py-3">
+        <Link href="/" aria-label="Qasr Alshar home" className="min-w-0 shrink-0">
+          <Logo className="max-w-[160px] sm:max-w-none" />
         </Link>
 
         {/* desktop nav */}
@@ -70,7 +70,7 @@ export function HeaderClient({
               key={l.href}
               href={l.href}
               className={cn(
-                "relative text-sm tracking-wide text-sand/90 transition-colors hover:text-gold",
+                "relative text-sm tracking-wide text-neutral-600 transition-colors hover:text-gold",
                 "after:absolute after:-bottom-1.5 after:left-0 after:h-px after:w-0 after:bg-gold after:transition-all hover:after:w-full",
                 pathname.startsWith(l.href) && "text-gold after:w-full"
               )}
@@ -87,7 +87,7 @@ export function HeaderClient({
           </ButtonLink>
           <button
             onClick={() => setOpen((v) => !v)}
-            className="rounded-full border border-ink-line p-2 text-cream lg:hidden"
+            className="rounded-full border border-stone-200 p-2 text-neutral-700 hover:border-gold hover:text-gold transition-colors lg:hidden"
             aria-label={open ? "Close menu" : "Open menu"}
           >
             {open ? <X size={20} /> : <Menu size={20} />}

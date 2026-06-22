@@ -14,23 +14,17 @@ export const metadata: Metadata = pageMeta({
   path: "/gallery",
 });
 
+// Real photos of the Qasr Alshar salon
 const SHOTS = [
-  { src: "/gallery/knotless.jpg", label: "Knotless Braids" },
-  { src: "/gallery/locs.jpg", label: "Locs & Microlocs" },
-  { src: "/gallery/braiding.jpg", label: "Cornrows" },
-  { src: "/gallery/natural.jpg", label: "Natural Hair" },
-  { src: "/gallery/weaving.jpg", label: "Sew-ins & Wigs" },
-  { src: "/gallery/henna-feature.jpg", label: "Bridal Henna" },
-  { src: "/gallery/henna.jpg", label: "Henna Art" },
-  { src: "/gallery/makeup.jpg", label: "Bridal Makeup" },
-  { src: "/gallery/nails.jpg", label: "Nails" },
-  { src: "/gallery/lashes.jpg", label: "Lashes" },
-  { src: "/gallery/hair.jpg", label: "Hair & Styling" },
-  { src: "/gallery/facial.jpg", label: "Facials" },
-  { src: "/gallery/waxing.jpg", label: "Spa & Waxing" },
-  { src: "/gallery/threading.jpg", label: "Threading" },
-  { src: "/gallery/massage.jpg", label: "Massage" },
-  { src: "/gallery/about.jpg", label: "Our Salon" },
+  { src: "/salon/salon-main.jpg", label: "The Salon" },
+  { src: "/salon/salon-styling.jpg", label: "Styling Studio" },
+  { src: "/salon/salon-nailbar.jpg", label: "Nail Bar" },
+  { src: "/salon/salon-nails.jpg", label: "Nail Studio" },
+  { src: "/salon/salon-facial.jpg", label: "Facial Suite" },
+  { src: "/salon/salon-makeup.jpg", label: "Makeup Studio" },
+  { src: "/salon/salon-pedicure.jpg", label: "Pedicure Lounge" },
+  { src: "/salon/salon-pedicure-2.jpg", label: "Relax & Unwind" },
+  { src: "/salon/salon-pedicure-stations.jpg", label: "Pedicure Stations" },
 ];
 
 export default function GalleryPage() {
@@ -41,7 +35,7 @@ export default function GalleryPage() {
         eyebrow="Gallery"
         title="The Styles We Create"
         subtitle="A look at the services we specialise in — from braids and locs to henna and bridal glam. For our latest real client looks, follow us on Instagram."
-        image="/gallery/makeup.jpg"
+        image="/salon/salon-makeup.jpg"
         crumbs={[{ name: "Gallery", href: "/gallery" }]}
       />
 
@@ -61,8 +55,8 @@ export default function GalleryPage() {
                   sizes="(max-width:768px) 50vw, 25vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ink/85 via-ink/10 to-transparent p-4">
-                  <span className="font-display text-base text-gold drop-shadow">{s.label}</span>
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 via-black/15 to-transparent p-4">
+                  <span className="font-display text-base text-white drop-shadow">{s.label}</span>
                 </div>
               </Reveal>
             ))}
