@@ -20,7 +20,7 @@ export function Logo({
           <span className="truncate text-gold-gradient font-display text-lg font-semibold tracking-wide sm:text-xl">
             Qasr Alshar
           </span>
-          <span className="hidden text-[0.6rem] uppercase tracking-[0.32em] text-muted sm:block">
+          <span className="hidden text-[0.6rem] uppercase tracking-[0.32em] text-neutral-400 sm:block">
             Beauty Salon · Dubai
           </span>
         </span>
