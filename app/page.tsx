@@ -341,20 +341,20 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* OUR WORK — real salon photos */}
+      {/* OUR WORK — real client results */}
       <section className="section-y">
         <div className="container-x">
-          <SectionHeading eyebrow="Our Work" title="Real results, real clients" subtitle="Taken at our salon in Dubai — every style shown is our own work." />
+          <SectionHeading eyebrow="Our Work" title="Real results, real clients" subtitle="Every style shown was done at our salon in Dubai — braiding, nails, henna and more." />
           <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {[
-              { src: "/salon/salon-styling.jpg", label: "Braiding & Styling" },
-              { src: "/salon/salon-nailbar.jpg", label: "Nail Bar" },
-              { src: "/salon/salon-makeup.jpg", label: "Makeup Studio" },
-              { src: "/salon/salon-facial.jpg", label: "Facial Room" },
-              { src: "/salon/salon-nails.jpg", label: "Nail Art" },
-              { src: "/salon/salon-pedicure.jpg", label: "Pedicure Lounge" },
-              { src: "/salon/salon-pedicure-2.jpg", label: "Relax & Unwind" },
-              { src: "/salon/salon-pedicure-stations.jpg", label: "Pedicure Stations" },
+              { src: "/work/hair/braiding-knotless-boho-curly-ends.jpg",  label: "Knotless Boho Braids" },
+              { src: "/work/nails/nail-art-gold-chrome-french-tips.jpg",  label: "Gold Chrome Nails" },
+              { src: "/work/henna/henna-floral-swirl-both-hands.jpg",     label: "Floral Henna" },
+              { src: "/work/hair/braiding-cornrows-geometric-crown.jpg",  label: "Geometric Cornrows" },
+              { src: "/work/nails/nail-art-leopard-print-stiletto.jpg",   label: "Leopard Stiletto Nails" },
+              { src: "/work/henna/henna-floral-arabesque-both-hands.jpg", label: "Arabesque Mehndi" },
+              { src: "/work/hair/braiding-locs-updo-gold-charms.jpg",     label: "Locs with Gold Charms" },
+              { src: "/work/nails/nail-art-pink-ombre-mani-pedi.jpg",     label: "Pink Ombré Mani-Pedi" },
             ].map((shot, i) => (
               <Reveal key={shot.src} delay={i * 40}>
                 <Link href="/gallery" className="group relative block aspect-square overflow-hidden rounded-2xl border border-ink-line">
@@ -363,7 +363,7 @@ export default async function HomePage() {
                     alt={`${shot.label} at Qasr Alshar Salon Dubai`}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
                   <div className="absolute bottom-0 left-0 right-0 translate-y-full p-3 transition-transform group-hover:translate-y-0">
@@ -376,7 +376,7 @@ export default async function HomePage() {
             ))}
           </div>
           <div className="mt-10 text-center">
-            <ButtonLink href="/gallery" variant="outline">View Full Gallery</ButtonLink>
+            <ButtonLink href="/gallery" variant="outline">View Full Gallery — 60+ Looks</ButtonLink>
           </div>
         </div>
       </section>

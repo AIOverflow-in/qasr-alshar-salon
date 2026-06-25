@@ -77,7 +77,59 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* TEAM */}
       <section className="section-y">
+        <div className="container-x">
+          <SectionHeading
+            eyebrow="Our Team"
+            title="Meet Our Crown Artists"
+            subtitle="Specialists in braiding, hair, nails, henna, makeup and more — every one trained to make you feel like royalty."
+          />
+          <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {[
+              "/staff/staff-portrait-qasr-alshar-uniform-smiling.jpg",
+              "/staff/staff-portrait-red-locs-updo.jpg",
+              "/staff/staff-portrait-navy-wavy-hair.jpg",
+              "/staff/staff-portrait-red-arms-crossed-2.jpg",
+              "/staff/staff-portrait-male-navy-smiling.jpg",
+              "/staff/staff-portrait-red-wavy-bob.jpg",
+              "/staff/staff-portrait-navy-arms-crossed.jpg",
+              "/staff/staff-portrait-male-red-smiling.jpg",
+              "/staff/staff-portrait-red-polo-updo.jpg",
+              "/staff/staff-portrait-red-polo-arms-crossed.jpg",
+              "/staff/staff-portrait-locs-updo-red-uniform.jpg",
+              "/staff/staff-portrait-curly-bob-uniform.jpg",
+              "/staff/staff-portrait-red-gold-bracelet.jpg",
+              "/staff/staff-portrait-red-polo-smiling.jpg",
+              "/staff/staff-portrait-red-uniform-arms-crossed.jpg",
+              "/staff/staff-portrait-navy-natural-hair.jpg",
+              "/staff/staff-portrait-male-stylist-branded-polo.jpg",
+              "/staff/staff-portrait-lab-coat-pectiv.jpg",
+              "/staff/staff-portrait-holding-pectiv-product.jpg",
+              "/staff/staff-portrait-male-red-uniform.jpg",
+              "/staff/staff-portrait-qasr-alshar-uniform.jpg",
+            ].map((src, i) => (
+              <Reveal key={src} delay={(i % 6) * 50}>
+                <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-ink-line bg-ink-soft">
+                  <Image
+                    src={src}
+                    alt="Qasr Alshar Crown Artist"
+                    fill
+                    sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 16vw"
+                    className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+              </Reveal>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-sand/60">Select your preferred Crown Artist when you book online.</p>
+          <div className="mt-4 text-center">
+            <ButtonLink href="/book">Book With Your Favourite Artist</ButtonLink>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-y border-t border-ink-line">
         <div className="container-x max-w-3xl text-center">
           <SectionHeading
             eyebrow="Visit Us"

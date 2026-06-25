@@ -24,24 +24,23 @@ export const SITE = {
   },
 
   phones: [
+    { label: "+971 4 272 7616", value: "+97142727616" },
     { label: "+971 58 245 7913", value: "+971582457913" },
     { label: "+971 58 891 3535", value: "+971588913535" },
     { label: "+971 50 623 0567", value: "+971506230567" },
-    { label: "+971 4 272 7616", value: "+97142727616" },
   ],
   // Primary booking / WhatsApp line
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "+971506230567",
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "+97142727616",
   email: "hello@qasralshar.ae",
 
   social: {
-    instagram: "https://instagram.com/qasr.alshar",
+    instagram: "https://www.instagram.com/qasr.alshar?igsh=N3Z0MG1lb2YwMTVs&utm_source=qr",
     instagramHandle: "@qasr.alshar",
     tiktok: "https://www.tiktok.com/@qasralsharsalon",
     tiktokHandle: "@qasralsharsalon",
-    facebook: "https://www.facebook.com/p/Qasr-Alshar-Salon-61583884163475/",
+    facebook: "https://www.facebook.com/profile.php?id=61583884163475",
     facebookHandle: "Qasr Alshar Salon",
-    // TODO: confirm exact handles/links with the owner
-    snapchat: process.env.NEXT_PUBLIC_SNAPCHAT_URL || "https://www.snapchat.com/add/qasralshar",
+    snapchat: "https://snapchat.com/t/tlRZdF42",
     snapchatHandle: "@qasralshar",
     googleBusiness:
       process.env.NEXT_PUBLIC_GOOGLE_BUSINESS_URL ||
