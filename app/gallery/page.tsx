@@ -9,7 +9,7 @@ import { JsonLd } from "@/components/JsonLd";
 export const metadata: Metadata = pageMeta({
   title: "Gallery",
   description:
-    "See the real work of Qasr Alshar Salon Dubai — braiding, knotless braids, henna, nail art, locs and more. Book your appointment online.",
+    "See the real work of Qasr Alshar Salon Dubai — 80+ braiding, knotless braids, henna, nail art, locs and more. Book your appointment online.",
   path: "/gallery",
 });
 
@@ -34,6 +34,22 @@ const PHOTOS = [
   { src: "/work/hair/braiding-cornrow-feedin-salon.jpg",        label: "Feed-In Cornrows in Salon",  category: "hair" },
   { src: "/work/hair/braiding-knotless-box-bun-shop.jpg",       label: "Box Braid Bun",              category: "hair" },
   { src: "/work/hair/braiding-cornrows-swirl-pattern-side.jpg", label: "Swirl Cornrows Side View",  category: "hair" },
+  { src: "/work/hair/braiding-cornrow-updo-sleek-pink-bg.jpg",  label: "Sleek Cornrow Updo",         category: "hair" },
+  { src: "/work/hair/braiding-cornrow-bun-collage-two-styles.jpg", label: "Two-Style Collage",       category: "hair" },
+  { src: "/work/hair/braiding-knotless-box-kid-long-curly.jpg", label: "Knotless Box Long Curly",    category: "hair" },
+  { src: "/work/hair/braiding-knotless-feedin-gold-cuffs.jpg",  label: "Knotless Feed-In Gold Cuffs",category: "hair" },
+  { src: "/work/hair/braiding-cornrow-bun-brown-two-tone.jpg",  label: "Brown Two-Tone Cornrow Bun", category: "hair" },
+  { src: "/work/hair/braiding-cornrow-bun-black-honey-side.jpg",label: "Black & Honey Cornrow Bun",  category: "hair" },
+  { src: "/work/hair/braiding-swirl-cornrow-top-view.jpg",      label: "Swirl Cornrow Top View",     category: "hair" },
+  { src: "/work/hair/braiding-swirl-geometric-cornrow-side-view.jpg", label: "Geometric Swirl Cornrows", category: "hair" },
+  { src: "/work/hair/braiding-feedin-swirl-cornrow-long-back.jpg", label: "Swirl Feed-In Long Back",  category: "hair" },
+  { src: "/work/hair/braiding-locs-updo-bun-gold-star-charms.jpg", label: "Locs Bun with Star Charms", category: "hair" },
+  { src: "/work/hair/braiding-locs-twisted-updo-brown.jpg",     label: "Twisted Locs Updo Brown",    category: "hair" },
+  { src: "/work/hair/braiding-knotless-boho-curly-bob-medium.jpg", label: "Knotless Boho Curly Bob", category: "hair" },
+  { src: "/work/hair/braiding-feedin-cornrows-salon-client-front.jpg", label: "Salon Feed-In Cornrows Front", category: "hair" },
+  { src: "/work/hair/braiding-feedin-cornrows-salon-side.jpg",   label: "Salon Feed-In Cornrows Side", category: "hair" },
+  { src: "/work/hair/braiding-cornrow-geometric-dome-full-head.jpg", label: "Geometric Dome Cornrows", category: "hair" },
+  { src: "/work/hair/braiding-knotless-bun-shop-back.jpg",       label: "Knotless Bun Back View",    category: "hair" },
   // ── Nails ────────────────────────────────────────────────────────────────
   { src: "/work/nails/nail-art-gold-chrome-french-tips.jpg",    label: "Gold Chrome French Tips",   category: "nails" },
   { src: "/work/nails/nail-art-leopard-print-stiletto.jpg",     label: "Leopard Print Stiletto",     category: "nails" },
@@ -54,6 +70,11 @@ const PHOTOS = [
   { src: "/work/nails/pedicure-french-tip-toes.jpg",            label: "French Tip Pedicure",        category: "nails" },
   { src: "/work/nails/nail-art-hot-pink-leopard-closeup.jpg",   label: "Hot Pink Leopard Close-Up",  category: "nails" },
   { src: "/work/nails/pedicure-french-tip-clean.jpg",           label: "Clean French Pedicure",      category: "nails" },
+  { src: "/work/nails/nail-art-hot-pink-leopard-coffin-both-hands.jpg", label: "Hot Pink Leopard Both Hands", category: "nails" },
+  { src: "/work/nails/nail-art-hot-pink-leopard-coffin-single.jpg", label: "Hot Pink Leopard Single Hand", category: "nails" },
+  { src: "/work/nails/pedicure-french-tip-white-both-feet.jpg", label: "White French Tip Both Feet",   category: "nails" },
+  { src: "/work/nails/nail-art-burgundy-wine-square-short.jpg", label: "Burgundy Wine Square",         category: "nails" },
+  { src: "/work/nails/nail-art-oxblood-maroon-square-short.jpg",label: "Oxblood Maroon Square",        category: "nails" },
   // ── Henna ────────────────────────────────────────────────────────────────
   { src: "/work/henna/henna-floral-swirl-both-hands.jpg",       label: "Floral Swirl Both Hands",    category: "henna" },
   { src: "/work/henna/henna-floral-arabesque-both-hands.jpg",   label: "Arabesque Both Hands",       category: "henna" },

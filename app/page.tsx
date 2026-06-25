@@ -376,7 +376,7 @@ export default async function HomePage() {
             ))}
           </div>
           <div className="mt-10 text-center">
-            <ButtonLink href="/gallery" variant="outline">View Full Gallery — 60+ Looks</ButtonLink>
+            <ButtonLink href="/gallery" variant="outline">View Full Gallery — 80+ Looks</ButtonLink>
           </div>
         </div>
       </section>
