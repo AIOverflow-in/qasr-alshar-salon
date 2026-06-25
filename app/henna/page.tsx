@@ -15,7 +15,7 @@ export const metadata: Metadata = pageMeta({
   description:
     "Henna by Qasr — exquisite bridal, traditional, floral, western & festive mehndi in Dubai. Book your henna session at Qasr Alshar Salon near Union Metro.",
   path: "/henna",
-  images: ["/gallery/henna-feature.jpg"],
+  images: ["/work/henna/henna-floral-arabesque-both-hands.jpg"],
   keywords: ["henna Dubai", "bridal henna Dubai", "mehndi artist Dubai", "henna near Union Metro"],
 });
 
@@ -45,7 +45,7 @@ export default function HennaPage() {
         eyebrow="Henna by Qasr"
         title="The Art of Henna"
         subtitle="Crafted with care and drawn with passion — to make you feel radiant on every special occasion."
-        image="/gallery/henna-feature.jpg"
+        image="/work/henna/henna-floral-swirl-both-hands.jpg"
         crumbs={[{ name: "Henna", href: "/henna" }]}
       />
 
@@ -53,7 +53,7 @@ export default function HennaPage() {
         <div className="container-x grid items-center gap-12 lg:grid-cols-2">
           <Reveal>
             <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-ink-line">
-              <Image src="/gallery/henna.jpg" alt="Henna design in Dubai" fill sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" />
+              <Image src="/work/henna/henna-floral-arabesque-both-hands.jpg" alt="Henna design in Dubai" fill sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" />
             </div>
           </Reveal>
           <Reveal delay={100}>
@@ -79,10 +79,53 @@ export default function HennaPage() {
         </div>
       </section>
 
-      <section className="section-y border-t border-ink-line bg-ink-soft">
+      <section className="section-y border-t border-ink-line">
         <div className="container-x">
+          <SectionHeading eyebrow="Our Work" title="Real Henna by Qasr" subtitle="Every design done at our salon in Dubai — book yours today." />
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[
+              { src: "/work/henna/henna-floral-arabesque-both-hands.jpg",   label: "Arabesque Both Hands" },
+              { src: "/work/henna/henna-floral-swirl-both-hands.jpg",       label: "Floral Swirl Both Hands" },
+              { src: "/work/henna/henna-floral-both-hands.jpg",             label: "Floral Henna Both Hands" },
+              { src: "/work/henna/henna-floral-back-of-hands-duo.jpg",      label: "Henna Duo — Fresh & Dried" },
+              { src: "/work/henna/henna-floral-back-of-hand.jpg",           label: "Traditional Floral Mehndi" },
+              { src: "/work/henna/henna-floral-hand-back.jpg",              label: "Intricate Hand Mehndi" },
+            ].map((p, i) => (
+              <Reveal key={p.src} delay={i * 60}>
+                <div className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink-line">
+                  <Image
+                    src={p.src}
+                    alt={`${p.label} — Qasr Alshar Henna, Dubai`}
+                    fill
+                    sizes="(max-width:640px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-transparent to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    <span className="font-display text-sm text-white drop-shadow">{p.label}</span>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-y border-t border-ink-line bg-ink-soft">
+        <div className="container-x grid items-start gap-10 lg:grid-cols-[1fr_2fr]">
+          <Reveal>
+            <div className="relative aspect-[9/16] overflow-hidden rounded-3xl border border-ink-line shadow-lg">
+              <Image
+                src="/brand/poster-henna.jpg"
+                alt="Qasr Alshar henna styles poster"
+                fill
+                sizes="(max-width:1024px) 100vw, 33vw"
+                className="object-cover"
+              />
+            </div>
+          </Reveal>
+          <div>
           <SectionHeading eyebrow="Styles" title="Henna for every occasion" />
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2">
             {STYLES.map((s, i) => (
               <Reveal key={s.name} delay={i * 60}>
                 <div className="surface surface-hover h-full rounded-2xl p-6">
@@ -91,6 +134,7 @@ export default function HennaPage() {
                 </div>
               </Reveal>
             ))}
+          </div>
           </div>
         </div>
       </section>

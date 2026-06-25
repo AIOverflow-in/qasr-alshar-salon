@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { PageHero } from "@/components/PageHero";
 import { ButtonLink } from "@/components/ui/Button";
 import { Reveal } from "@/components/Reveal";
@@ -30,6 +31,17 @@ export default function PackagesPage() {
 
       <section className="section-y">
         <div className="container-x">
+          <Reveal className="mb-10">
+            <div className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-3xl border border-ink-line shadow-lg sm:aspect-[3/4]">
+              <Image
+                src="/brand/packages.jpg"
+                alt="Qasr Alshar Salon packages poster"
+                fill
+                sizes="(max-width:640px) 100vw, 400px"
+                className="object-cover"
+              />
+            </div>
+          </Reveal>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {PACKAGES.map((p, i) => (
               <Reveal key={p.name} delay={i * 50}>

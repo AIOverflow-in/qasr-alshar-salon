@@ -41,7 +41,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "sister locks Dubai",
       "Afro hair salon Dubai",
     ],
-    image: "/salon/salon-styling.jpg",
+    image: "/work/hair/braiding-knotless-boho-curly-ends.jpg",
     items: [
       { name: "Cornrow Updo (Line Updo)", price: 200, duration: 240 },
       { name: "Cornrows Down (Downdo)", price: 100, duration: 150 },
@@ -129,7 +129,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "gel nails Dubai",
       "nail extensions Dubai",
     ],
-    image: "/salon/salon-nailbar.jpg",
+    image: "/work/nails/nail-art-gold-chrome-french-tips.jpg",
     items: [
       { name: "Regular Manicure", price: 30, duration: 45 },
       { name: "Manicure Gelish", price: 70, duration: 60 },
@@ -193,7 +193,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "mehndi artist Dubai",
       "henna design Dubai",
     ],
-    image: "/gallery/henna.jpg",
+    image: "/work/henna/henna-floral-arabesque-both-hands.jpg",
     items: [
       { name: "Henna — One Side", price: 100, duration: 45 },
       { name: "Henna — Leg", price: 100, duration: 45 },
