@@ -6,15 +6,15 @@ import { SITE } from "@/lib/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const HERO_SLIDES: Slide[] = [
-  { src: "/salon/hero-01-floor.jpg", alt: "Qasr Alshar Salon main floor with floral ceiling — Union Metro, Dubai" },
-  { src: "/salon/hero-02-styling.jpg", alt: "Styling stations with arched gold mirrors at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-03-shampoo.jpg", alt: "Shampoo lounge at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-04-nails.jpg", alt: "Nail bar at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-05-pedicure.jpg", alt: "Pedicure lounge at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-06-facial.jpg", alt: "Facial treatment room at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-07-makeup.jpg", alt: "Makeup studio at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-08-styling2.jpg", alt: "Styling area at Qasr Alshar Salon, Dubai" },
-  { src: "/salon/hero-09-wash.jpg", alt: "Wash & care lounge at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-01-floor.jpg", alt: "Qasr Alshar Salon main floor with floral ceiling — Union Metro, Dubai" },
+  { src: "/salon/hero/hero-02-styling.jpg", alt: "Styling stations with arched gold mirrors at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-03-shampoo.jpg", alt: "Shampoo lounge at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-04-nails.jpg", alt: "Nail bar at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-05-pedicure.jpg", alt: "Pedicure lounge at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-06-facial.jpg", alt: "Facial treatment room at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-07-makeup.jpg", alt: "Makeup studio at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-08-styling2.jpg", alt: "Styling area at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero/hero-09-wash.jpg", alt: "Wash & care lounge at Qasr Alshar Salon, Dubai" },
 ];
 
 export function Hero({ t }: { t: Dictionary }) {
