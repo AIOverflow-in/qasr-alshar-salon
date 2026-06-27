@@ -33,7 +33,8 @@ export async function loginAction(_prev: unknown, formData: FormData) {
   const user = await verifyCredentials(email, password);
   if (!user) return { error: "Invalid email or password." };
   await createSession({ id: user.id, email: user.email, role: user.role });
-  redirect(user.role === "RECEPTION" || user.role === "STYLIST" ? "/erp" : "/admin");
+  // Everyone lands in the full ERP — it adapts to the role (POS, finance, etc.).
+  redirect("/erp");
 }
 
 export async function logoutAction() {

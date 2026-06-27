@@ -60,3 +60,74 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, newQty, productName: product.name });
 }
+
+async function requireManager() {
+  const session = await getSession();
+  if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) return null;
+  return session;
+}
+
+const createSchema = z.object({
+  name: z.string().min(1).max(200),
+  category: z.string().max(120).default("Retail / Aftercare"),
+  barcode: z.string().max(64).optional().nullable(),
+  qty: z.number().int().nonnegative().default(0),
+  costAED: z.number().int().nonnegative().optional().nullable(),
+  saleAED: z.number().int().nonnegative().optional().nullable(),
+  reorderAt: z.number().int().nonnegative().default(3),
+  retail: z.boolean().optional(),
+});
+
+// PUT /api/erp/inventory — create a new product
+export async function PUT(req: Request) {
+  if (!(await requireManager())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  let body: unknown;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = createSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const d = parsed.data;
+
+  const product = await prisma.product.create({
+    data: {
+      name: d.name.trim(),
+      category: d.category.trim() || "Retail / Aftercare",
+      barcode: d.barcode?.trim() || null,
+      qty: d.qty,
+      costAED: d.costAED ?? null,
+      saleAED: d.saleAED ?? null,
+      reorderAt: d.reorderAt,
+      retail: d.retail ?? false,
+    },
+  });
+  // Record the opening stock as a movement for the audit trail.
+  if (d.qty > 0) {
+    await prisma.stockMovement.create({ data: { productId: product.id, kind: "STOCK_IN", qty: d.qty, note: "Opening stock" } });
+  }
+  return NextResponse.json({ ok: true, product });
+}
+
+const editSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  category: z.string().max(120).optional(),
+  barcode: z.string().max(64).optional().nullable(),
+  costAED: z.number().int().nonnegative().optional().nullable(),
+  saleAED: z.number().int().nonnegative().optional().nullable(),
+  reorderAt: z.number().int().nonnegative().optional(),
+  retail: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
+
+// PATCH /api/erp/inventory — update product fields (not qty; use POST for stock)
+export async function PATCH(req: Request) {
+  if (!(await requireManager())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  let body: unknown;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  const parsed = editSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const { id, ...data } = parsed.data;
+  if (data.name) data.name = data.name.trim();
+  if (data.barcode !== undefined) data.barcode = data.barcode?.trim() || null;
+  const product = await prisma.product.update({ where: { id }, data });
+  return NextResponse.json({ ok: true, product });
+}
