@@ -20,6 +20,7 @@ import {
   Newspaper,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
+import { NotificationBell } from "@/components/erp/NotificationBell";
 import { logoutAction } from "@/lib/actions/admin";
 import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
@@ -101,6 +102,7 @@ export function ErpShell({
 
   return (
     <div className="min-h-svh bg-ink">
+      <NotificationBell />
       <div className="flex items-center justify-between border-b border-ink-line p-4 lg:hidden">
         <Link href="/erp" className="flex items-center gap-2">
           <Emblem className="h-8 w-auto" />
