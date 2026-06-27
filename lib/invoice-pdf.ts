@@ -30,7 +30,7 @@ export type InvoiceOrder = {
   vatAED: number;
   totalAED: number;
   notes: string | null;
-  lines: { description: string; qty: number; unitAED: number; lineAED: number }[];
+  lines: { description: string; qty: number; unitAED: number; lineAED: number; staffNames?: string[] }[];
   client: { name: string; phone: string | null; email: string | null } | null;
   staff: { name: string } | null;
 };
@@ -115,6 +115,8 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
 
   y = drawTableHeader(page, y);
   for (const line of order.lines) {
+    const artists = (line.staffNames ?? []).filter(Boolean);
+    const rowH = artists.length ? 27 : 16;
     if (y < 170) {
       page = pdf.addPage([PAGE_W, PAGE_H]);
       y = drawHeader(page);
@@ -126,7 +128,11 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
     rt(page, String(line.qty), M + 330, y, 9, reg, INK);
     rt(page, num(line.unitAED), M + 410, y, 9, reg, INK);
     rt(page, num(line.lineAED), RIGHT - 8, y, 9, reg, INK);
-    y -= 16;
+    if (artists.length) {
+      const by = `by ${artists.join(", ")}`;
+      page.drawText(by.length > 70 ? by.slice(0, 69) + "…" : by, { x: M + 8, y: y - 11, size: 7.5, font: reg, color: GREY });
+    }
+    y -= rowH;
     page.drawLine({ start: { x: M, y: y + 5 }, end: { x: RIGHT, y: y + 5 }, thickness: 0.3, color: HAIR });
   }
   y -= 8;

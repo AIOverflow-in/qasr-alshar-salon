@@ -20,6 +20,7 @@ export default async function ErpBookings() {
       take: 300,
       include: {
         staff: { select: { name: true } },
+        items: { select: { serviceId: true } },
         salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
       },
     }),
@@ -54,26 +55,33 @@ export default async function ErpBookings() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-line/60">
-                {bookings.map((b) => (
-                  <BookingRow
-                    key={b.id}
-                    id={b.id}
-                    when={whenLabel(b.startAt)}
-                    name={b.customerName}
-                    phone={b.phone}
-                    email={b.email}
-                    service={b.serviceName}
-                    price={aed(b.priceAED)}
-                    notes={b.notes}
-                    status={b.status}
-                    staffName={b.staff?.name ?? null}
-                    serviceMode={b.serviceMode}
-                    address={b.address}
-                    customRequest={b.customRequest}
-                    orderId={b.salesOrders[0]?.id ?? null}
-                    invoiceNo={b.salesOrders[0]?.invoiceNo ?? null}
-                  />
-                ))}
+                {bookings.map((b) => {
+                  const billed = !!b.salesOrders[0];
+                  const canEditServices = b.status === "CONFIRMED" && !billed && b.startAt.getTime() > Date.now();
+                  return (
+                    <BookingRow
+                      key={b.id}
+                      id={b.id}
+                      when={whenLabel(b.startAt)}
+                      name={b.customerName}
+                      phone={b.phone}
+                      email={b.email}
+                      service={b.serviceName}
+                      price={aed(b.priceAED)}
+                      notes={b.notes}
+                      status={b.status}
+                      staffName={b.staff?.name ?? null}
+                      serviceMode={b.serviceMode}
+                      address={b.address}
+                      customRequest={b.customRequest}
+                      orderId={b.salesOrders[0]?.id ?? null}
+                      invoiceNo={b.salesOrders[0]?.invoiceNo ?? null}
+                      services={services}
+                      currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
+                      canEditServices={canEditServices}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           </div>

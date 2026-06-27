@@ -9,10 +9,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
+  if (!allowed.includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const barcode = searchParams.get("barcode");
-  if (!barcode) return NextResponse.json({ error: "barcode required" }, { status: 400 });
+  if (!barcode || barcode.length > 64) return NextResponse.json({ error: "Invalid barcode" }, { status: 400 });
 
   const product = await prisma.product.findFirst({
     where: { barcode, active: true },
@@ -45,20 +47,28 @@ export async function POST(req: Request) {
 
   const { productId, kind, qty, note } = parsed.data;
 
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, qty: true, name: true } });
-  if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
-
-  const newQty = product.qty + qty;
-  if (newQty < 0) return NextResponse.json({ error: "Stock cannot go below 0" }, { status: 409 });
-
-  await prisma.$transaction([
-    prisma.product.update({ where: { id: productId }, data: { qty: newQty } }),
-    prisma.stockMovement.create({
-      data: { productId, kind, qty, note: note ?? null, staffId: null },
-    }),
-  ]);
-
-  return NextResponse.json({ ok: true, newQty, productName: product.name });
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      // Atomic: for a decrement, only succeed if enough stock remains (no race, no negative).
+      const res = await tx.product.updateMany({
+        where: qty < 0 ? { id: productId, qty: { gte: -qty } } : { id: productId },
+        data: { qty: { increment: qty } },
+      });
+      if (res.count === 0) {
+        const exists = await tx.product.findUnique({ where: { id: productId }, select: { id: true } });
+        throw new Error(exists ? "NEGATIVE" : "NOT_FOUND");
+      }
+      await tx.stockMovement.create({ data: { productId, kind, qty, note: note ?? null, staffId: null } });
+      const p = await tx.product.findUnique({ where: { id: productId }, select: { qty: true, name: true } });
+      return p!;
+    }, { isolationLevel: "Serializable" });
+    return NextResponse.json({ ok: true, newQty: updated.qty, productName: updated.name });
+  } catch (e) {
+    if (e instanceof Error && e.message === "NOT_FOUND") return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    if (e instanceof Error && e.message === "NEGATIVE") return NextResponse.json({ error: "Stock cannot go below 0" }, { status: 409 });
+    console.error("[inventory] adjust failed:", e);
+    return NextResponse.json({ error: "Could not adjust stock." }, { status: 500 });
+  }
 }
 
 async function requireManager() {

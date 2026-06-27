@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 
@@ -18,14 +18,14 @@ type LineItem = {
   qty: number;
   unitAED: number;
   productId?: string | null;
-  staffId?: string | null; // artist who did this line (overrides the main artist)
+  staffIds: string[]; // artist(s) who did this line (empty = main artist); commission splits equally
 };
 
 export type PosPrefill = {
   bookingId?: string;
   orderId?: string; // editing an existing invoice
   invoiceNo?: string;
-  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT"; productId?: string | null; staffId?: string | null }[];
+  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT"; productId?: string | null; staffId?: string | null; staffIds?: string[] }[];
   staffId?: string;
   marketerId?: string;
   paymentMethod?: "CASH" | "CARD" | "TRANSFER";
@@ -50,7 +50,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
       qty: l.qty,
       unitAED: l.unitAED,
       productId: l.productId ?? null,
-      staffId: l.staffId ?? null,
+      staffIds: l.staffIds ?? (l.staffId ? [l.staffId] : []),
     }))
   );
   const [query, setQuery] = useState("");
@@ -66,6 +66,9 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [bookingId] = useState<string | undefined>(prefill?.bookingId);
   const [orderId] = useState<string | undefined>(prefill?.orderId);
   const editing = !!orderId;
+  // Idempotency key for this sale — set on first charge, cleared on New Sale.
+  // Lets a network retry land on the same invoice instead of double-charging.
+  const requestIdRef = useRef<string | null>(null);
 
   // ── inline new-client ──────────────────────────────────────────────────
   const [showNewClient, setShowNewClient] = useState(false);
@@ -105,7 +108,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) return prev.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
-      return [...prev, { key, kind: "SERVICE", description: s.name, qty: 1, unitAED: s.priceAED }];
+      return [...prev, { key, kind: "SERVICE", description: s.name, qty: 1, unitAED: s.priceAED, staffIds: [] }];
     });
   }
 
@@ -114,13 +117,13 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     setLines((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) return prev.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
-      return [...prev, { key, kind: "PRODUCT", description: p.name, qty: 1, unitAED: p.saleAED ?? 0, productId: p.id }];
+      return [...prev, { key, kind: "PRODUCT", description: p.name, qty: 1, unitAED: p.saleAED ?? 0, productId: p.id, staffIds: [] }];
     });
   }
 
   function addCustomLine() {
     const key = `custom-${lines.length}-${Math.round(subtotal)}`;
-    setLines((prev) => [...prev, { key: `${key}-${prev.length}`, kind: "SERVICE", description: "Custom item", qty: 1, unitAED: 0 }]);
+    setLines((prev) => [...prev, { key: `${key}-${prev.length}`, kind: "SERVICE", description: "Custom item", qty: 1, unitAED: 0, staffIds: [] }]);
   }
 
   function updateLine(key: string, patch: Partial<LineItem>) {
@@ -166,10 +169,13 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     setError(null);
     setLastInvoice(null);
     setQuery("");
+    requestIdRef.current = null; // fresh idempotency key for the next sale
   }
 
   async function checkout() {
     if (lines.length === 0) { setError("Add at least one item."); return; }
+    if (submitting) return;
+    if (!editing && !requestIdRef.current) requestIdRef.current = crypto.randomUUID();
     setError(null);
     setSubmitting(true);
     try {
@@ -177,14 +183,14 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(editing ? { orderId } : {}),
+          ...(editing ? { orderId } : { clientRequestId: requestIdRef.current }),
           paymentMethod,
           staffId: selectedStaff || null,
           marketerId: selectedMarketer || null,
           clientId: selectedClient || null,
           bookingId: bookingId || null,
           notes: notes || null,
-          lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffId ?? null })),
+          lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffIds[0] ?? null, staffIds: l.staffIds })),
         }),
       });
       const data = await res.json();
@@ -448,14 +454,33 @@ export function PosTerminal({ services, staff, clients: initialClients, products
                 </button>
               </div>
               {staff.length > 0 && (
-                <select
-                  value={l.staffId ?? ""}
-                  onChange={(e) => updateLine(l.key, { staffId: e.target.value || null })}
-                  className="w-full rounded border border-ink-line/40 bg-transparent px-2 py-1 text-xs text-muted outline-none focus:border-gold/40"
-                >
-                  <option value="">By: main artist</option>
-                  {staff.map((s) => <option key={s.id} value={s.id}>By: {s.name}</option>)}
-                </select>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {l.staffIds.map((id) => {
+                    const s = staff.find((x) => x.id === id);
+                    if (!s) return null;
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[0.7rem] text-gold">
+                        {s.name}
+                        <button
+                          onClick={() => updateLine(l.key, { staffIds: l.staffIds.filter((x) => x !== id) })}
+                          className="hover:text-gold-deep"
+                          aria-label={`Remove ${s.name}`}
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) updateLine(l.key, { staffIds: [...l.staffIds, e.target.value] }); }}
+                    className="rounded border border-ink-line/40 bg-transparent px-2 py-1 text-[0.7rem] text-muted outline-none focus:border-gold/40"
+                  >
+                    <option value="">{l.staffIds.length ? "+ Add artist" : "By: main artist"}</option>
+                    {staff.filter((s) => !l.staffIds.includes(s.id)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  {l.staffIds.length > 1 && <span className="text-[0.65rem] text-muted">· commission split equally</span>}
+                </div>
               )}
             </div>
           ))}

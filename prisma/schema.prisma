@@ -68,10 +68,12 @@ model Booking {
   staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
   client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   salesOrders  SalesOrder[]
+  items        BookingItem[]
 
   @@index([startAt])
   @@index([status])
   @@index([staffId])
+  @@index([createdAt])
 }
 
 /// Weekly opening hours. weekday: 0 = Sunday … 6 = Saturday.
@@ -252,6 +254,9 @@ model SalesOrder {
   marketerId    String?       // Staff who referred this client (gets a referral %)
   marketerPct   Int           @default(5)
 
+  // idempotency: one cart submit = one order, even if the request is retried
+  clientRequestId String?     @unique
+
   subtotalAED   Int           @default(0)
   vatPct        Int           @default(5)
   vatAED        Int           @default(0)
@@ -270,6 +275,23 @@ model SalesOrder {
   @@index([status])
   @@index([staffId])
   @@index([createdAt])
+  @@index([bookingId])
+}
+
+/// One service within a multi-service booking. Booking keeps summary totals; items hold the detail.
+model BookingItem {
+  id          String   @id @default(cuid())
+  bookingId   String
+  serviceId   String?
+  serviceName String
+  priceAED    Int
+  durationMin Int
+  staffId     String?  // preferred artist for this specific service
+  createdAt   DateTime @default(now())
+
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
 }
 
 model OrderLine {
@@ -280,7 +302,8 @@ model OrderLine {
   qty         Int        @default(1)
   unitAED     Int
   lineAED     Int
-  staffId     String?    // the Crown Artist who performed THIS line (multi-staff per order)
+  staffId     String?    // legacy single artist (kept for back-compat)
+  staffIds    String[]   @default([]) // Crown Artists who performed THIS line (commission splits equally)
 
   productId   String?
   product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)

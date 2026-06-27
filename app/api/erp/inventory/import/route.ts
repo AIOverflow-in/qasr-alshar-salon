@@ -22,6 +22,10 @@ export async function POST(req: Request) {
   if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Cap the payload so a huge upload can't exhaust memory on the function.
+  const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLength > 5 * 1024 * 1024) return NextResponse.json({ error: "File too large (max 5 MB)." }, { status: 413 });
+
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const parsed = schema.safeParse(body);

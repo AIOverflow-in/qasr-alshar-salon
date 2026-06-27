@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 type Booking = { id: string; customerName: string; serviceName: string; startAt: string; createdAt: string; serviceMode: string; source: string };
 
 const SEEN_KEY = "qa_notif_seen";
-const POLL_MS = 25000;
+const POLL_MS = 60000; // 60s — keeps DB/serverless load low with many admins open (re-polls on tab focus)
 
 function whenLabel(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));

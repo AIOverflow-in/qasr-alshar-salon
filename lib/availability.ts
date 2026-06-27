@@ -32,26 +32,42 @@ function minutesToHm(min: number): string {
 
 export type Slot = { time: string; iso: string };
 
+const DAY_PREFIX = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+/** Map a staff off-day label ("Wednesdays", "Tue", …) to a weekday number, or -1. */
+function offDayWeekday(label?: string | null): number {
+  if (!label) return -1;
+  const t = label.trim().toLowerCase();
+  return DAY_PREFIX.findIndex((d) => t.startsWith(d));
+}
+
 /**
  * Compute bookable start times for a service on a given Dubai date.
- * A slot is available when, for the whole [start, start+duration) window,
- * fewer than `capacity` CONFIRMED bookings overlap and no BlockedSlot overlaps.
+ * When `staffId` is given, capacity is 1 (that artist can do one client at a time)
+ * and their day-off is excluded. Otherwise salon-wide `capacity` applies.
  */
 export async function getAvailableSlots(
   dateISO: string,
-  durationMin: number
+  durationMin: number,
+  staffId?: string | null
 ): Promise<Slot[]> {
   const [settings, hours] = await Promise.all([
     prisma.salonSettings.findUnique({ where: { id: "singleton" } }),
     prisma.workingHours.findUnique({ where: { weekday: dubaiWeekday(dateISO) } }),
   ]);
 
-  const capacity = settings?.capacity ?? 3;
   const slotMinutes = settings?.slotMinutes ?? 30;
   const leadTime = settings?.leadTimeMinutes ?? 60;
   const maxAdvance = settings?.maxAdvanceDays ?? 60;
 
   if (!hours || hours.closed) return [];
+
+  // Per-stylist: capacity 1, and skip the stylist's day-off entirely.
+  let capacity = settings?.capacity ?? 3;
+  if (staffId) {
+    const staff = await prisma.staff.findUnique({ where: { id: staffId }, select: { offDay: true } });
+    capacity = 1;
+    if (staff && offDayWeekday(staff.offDay) === dubaiWeekday(dateISO)) return [];
+  }
 
   const dayStart = dubaiInstant(dateISO, hours.open);
   const dayEnd = dubaiInstant(dateISO, hours.close);
@@ -59,13 +75,14 @@ export async function getAvailableSlots(
   const earliest = addMinutes(now, leadTime);
   const horizon = addMinutes(now, maxAdvance * 24 * 60);
 
-  // Pull bookings + blocks that could overlap this day.
+  // Pull bookings + blocks that could overlap this day (scoped to the stylist when set).
   const [bookings, blocks] = await Promise.all([
     prisma.booking.findMany({
       where: {
         status: BookingStatus.CONFIRMED,
         startAt: { lt: dayEnd },
         endAt: { gt: dayStart },
+        ...(staffId ? { staffId } : {}),
       },
       select: { startAt: true, endAt: true },
     }),
@@ -89,9 +106,7 @@ export async function getAvailableSlots(
     const blocked = blocks.some((b) => b.startAt < end && b.endAt > start);
     if (blocked) continue;
 
-    const overlapping = bookings.filter(
-      (b) => b.startAt < end && b.endAt > start
-    ).length;
+    const overlapping = bookings.filter((b) => b.startAt < end && b.endAt > start).length;
     if (overlapping >= capacity) continue;
 
     slots.push({ time, iso: start.toISOString() });
@@ -103,7 +118,8 @@ export async function getAvailableSlots(
 /** Server-side re-validation used at booking time (guards against races). */
 export async function isSlotBookable(
   startISO: string,
-  durationMin: number
+  durationMin: number,
+  staffId?: string | null
 ): Promise<{ ok: boolean; reason?: string }> {
   const start = new Date(startISO);
   if (Number.isNaN(start.getTime())) return { ok: false, reason: "Invalid time" };
@@ -115,7 +131,9 @@ export async function isSlotBookable(
     day: "2-digit",
   }).format(start);
 
-  const slots = await getAvailableSlots(dateISO, durationMin);
+  const slots = await getAvailableSlots(dateISO, durationMin, staffId);
   const ok = slots.some((s) => s.iso === start.toISOString());
-  return ok ? { ok } : { ok: false, reason: "That time was just taken. Please pick another slot." };
+  return ok
+    ? { ok }
+    : { ok: false, reason: staffId ? "That artist isn't free then. Please pick another slot." : "That time was just taken. Please pick another slot." };
 }

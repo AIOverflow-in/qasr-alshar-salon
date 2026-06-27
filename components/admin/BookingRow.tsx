@@ -6,6 +6,9 @@ import { Receipt } from "lucide-react";
 import { setBookingStatus } from "@/lib/actions/admin";
 import type { BookingStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
+import { EditBookingServices } from "@/components/erp/EditBookingServices";
+
+type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {
@@ -31,6 +34,9 @@ export function BookingRow({
   customRequest,
   orderId,
   invoiceNo,
+  services = [],
+  currentServiceIds = [],
+  canEditServices = false,
 }: {
   id: string;
   when: string;
@@ -47,6 +53,9 @@ export function BookingRow({
   customRequest?: string | null;
   orderId?: string | null;
   invoiceNo?: string | null;
+  services?: ServiceOpt[];
+  currentServiceIds?: string[];
+  canEditServices?: boolean;
 }) {
   const [current, setCurrent] = useState<BookingStatus>(status);
   const [pending, start] = useTransition();
@@ -75,6 +84,11 @@ export function BookingRow({
         {staffName && <div className="mt-0.5 text-xs text-muted">{staffName}</div>}
         {customRequest && <div className="mt-0.5 text-xs italic text-muted">Request: {customRequest}</div>}
         {serviceMode === "HOME" && address && <div className="mt-0.5 text-xs text-muted">{address}</div>}
+        {canEditServices && services.length > 0 && (
+          <div className="mt-1.5">
+            <EditBookingServices bookingId={id} services={services} initialServiceIds={currentServiceIds} />
+          </div>
+        )}
       </td>
       <td className="p-4 text-cream">{price}</td>
       <td className="p-4">

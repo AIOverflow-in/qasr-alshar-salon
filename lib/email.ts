@@ -56,11 +56,15 @@ function detailsTable(b: BookingEmail) {
   </table>`;
 }
 
-/** Confirmation to the customer + alert to the salon. Never throws. */
-export async function sendBookingEmails(b: BookingEmail) {
+/**
+ * Confirmation to the customer + alert to the salon. Never throws.
+ * Returns whether the customer confirmation actually went out, so the caller
+ * can surface a soft "confirmation may be delayed" note.
+ */
+export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmailed: boolean }> {
   if (!resend) {
     console.warn("[email] RESEND_API_KEY not set — skipping emails");
-    return;
+    return { customerEmailed: false };
   }
 
   const customerHtml = shell(
@@ -97,6 +101,8 @@ export async function sendBookingEmails(b: BookingEmail) {
     if (r.status === "rejected")
       console.error(`[email] ${i === 0 ? "customer" : "salon"} send failed:`, r.reason);
   });
+
+  return { customerEmailed: results[0].status === "fulfilled" };
 }
 
 type InvoiceEmail = {

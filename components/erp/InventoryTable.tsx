@@ -53,37 +53,45 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
   }
 
   async function handleImport(file: File) {
+    if (file.size > 5 * 1024 * 1024) { setImportMsg("File too large (max 5 MB)."); return; }
     setImportMsg("Reading…");
     try {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length < 2) { setImportMsg("CSV looks empty."); return; }
-      const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      // One-pass CSV parse: handles quoted commas, escaped quotes ("") and quoted newlines.
+      const parseCsv = (input: string): string[][] => {
+        const out: string[][] = [];
+        let row: string[] = [], cur = "", inQ = false;
+        for (let i = 0; i < input.length; i++) {
+          const ch = input[i];
+          if (inQ) {
+            if (ch === '"') { if (input[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+            else cur += ch;
+          } else if (ch === '"') inQ = true;
+          else if (ch === ",") { row.push(cur); cur = ""; }
+          else if (ch === "\n") { row.push(cur); out.push(row); row = []; cur = ""; }
+          else if (ch !== "\r") cur += ch;
+        }
+        if (cur.length || row.length) { row.push(cur); out.push(row); }
+        return out.filter((r) => r.some((c) => c.trim() !== ""));
+      };
+      const allRows = parseCsv(text);
+      if (allRows.length < 2) { setImportMsg("CSV looks empty."); return; }
+      const header = allRows[0].map((h) => h.trim().toLowerCase());
       const idx = (k: string) => header.indexOf(k);
       const ci = { name: idx("name"), category: idx("category"), barcode: idx("barcode"), qty: idx("qty"), cost: idx("costaed"), sale: idx("saleaed"), reorder: idx("reorderat") };
       if (ci.name < 0) { setImportMsg("CSV needs a 'name' column."); return; }
-      const parseRow = (line: string) => {
-        // simple CSV split honoring quotes
-        const cells: string[] = []; let cur = "", inQ = false;
-        for (const ch of line) {
-          if (ch === '"') inQ = !inQ;
-          else if (ch === "," && !inQ) { cells.push(cur); cur = ""; }
-          else cur += ch;
-        }
-        cells.push(cur);
-        return cells.map((c) => c.trim().replace(/^"|"$/g, ""));
-      };
       const num = (v: string | undefined) => { const n = parseInt((v ?? "").replace(/[^\d-]/g, "")); return Number.isFinite(n) ? n : null; };
-      const rows = lines.slice(1).map(parseRow).filter((c) => c[ci.name]?.trim()).map((c) => ({
+      const rows = allRows.slice(1).filter((c) => c[ci.name]?.trim()).map((c) => ({
         name: c[ci.name].trim(),
-        category: ci.category >= 0 ? c[ci.category] : null,
-        barcode: ci.barcode >= 0 ? c[ci.barcode] : null,
+        category: ci.category >= 0 ? c[ci.category]?.trim() ?? null : null,
+        barcode: ci.barcode >= 0 ? c[ci.barcode]?.trim() ?? null : null,
         qty: ci.qty >= 0 ? num(c[ci.qty]) : null,
         costAED: ci.cost >= 0 ? num(c[ci.cost]) : null,
         saleAED: ci.sale >= 0 ? num(c[ci.sale]) : null,
         reorderAt: ci.reorder >= 0 ? num(c[ci.reorder]) : null,
       }));
       if (!rows.length) { setImportMsg("No valid rows found."); return; }
+      if (rows.length > 5000) { setImportMsg("Too many rows (max 5000 per import)."); return; }
       setImportMsg(`Importing ${rows.length}…`);
       const res = await fetch("/api/erp/inventory/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
       const data = await res.json();

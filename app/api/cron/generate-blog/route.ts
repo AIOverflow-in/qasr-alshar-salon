@@ -7,7 +7,9 @@ export const maxDuration = 60;
 
 function authorized(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // allow if unset (dev)
+  // Fail CLOSED in production: a missing secret must never leave the endpoint open
+  // (it triggers paid OpenAI calls). In dev, allow without a secret for convenience.
+  if (!secret) return process.env.NODE_ENV !== "production";
   const auth = req.headers.get("authorization");
   const url = new URL(req.url);
   const token = url.searchParams.get("secret") || auth?.replace(/^Bearer\s+/i, "");

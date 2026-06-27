@@ -13,12 +13,16 @@ import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
 import type { BookingStatus } from "@prisma/client";
 
-async function requireAdmin() {
+/** Front-desk operations: bookings/POS-adjacent. Excludes read-only INVESTOR and STYLIST. */
+async function requireReception() {
   const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) {
+    throw new Error("Forbidden");
+  }
   return session;
 }
 
+/** Management-only: services, hours, settings, staff, blog. SUPER_ADMIN / ADMIN. */
 async function requireManager() {
   const session = await getSession();
   if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
@@ -45,7 +49,7 @@ export async function logoutAction() {
 
 // ---- bookings ----
 export async function setBookingStatus(id: string, status: BookingStatus) {
-  await requireAdmin();
+  await requireReception();
   const booking = await prisma.booking.update({ where: { id }, data: { status } });
 
   // On completion, send an aftercare recommendation email (best-effort).
@@ -78,7 +82,7 @@ export async function updateService(
   id: string,
   data: { priceAED: number; durationMin: number; active: boolean }
 ) {
-  await requireAdmin();
+  await requireManager();
   await prisma.service.update({ where: { id }, data });
   revalidatePath("/admin/services");
 }
@@ -121,7 +125,7 @@ export async function updateWorkingHours(
   weekday: number,
   data: { open: string; close: string; closed: boolean }
 ) {
-  await requireAdmin();
+  await requireManager();
   await prisma.workingHours.update({ where: { weekday }, data });
   revalidatePath("/admin/hours");
 }
@@ -132,7 +136,7 @@ export async function updateSettings(data: {
   leadTimeMinutes: number;
   maxAdvanceDays: number;
 }) {
-  await requireAdmin();
+  await requireManager();
   await prisma.salonSettings.upsert({
     where: { id: "singleton" },
     update: data,
@@ -142,7 +146,7 @@ export async function updateSettings(data: {
 }
 
 export async function addBlockedSlot(startISO: string, endISO: string, reason: string) {
-  await requireAdmin();
+  await requireManager();
   await prisma.blockedSlot.create({
     data: { startAt: new Date(startISO), endAt: new Date(endISO), reason: reason || null },
   });
@@ -150,14 +154,14 @@ export async function addBlockedSlot(startISO: string, endISO: string, reason: s
 }
 
 export async function removeBlockedSlot(id: string) {
-  await requireAdmin();
+  await requireManager();
   await prisma.blockedSlot.delete({ where: { id } });
   revalidatePath("/admin/hours");
 }
 
 // ---- blog ----
 export async function generatePostNow() {
-  await requireAdmin();
+  await requireManager();
   const post = await generateBlogPost();
   if (post) {
     revalidatePath("/admin/blog");
@@ -170,7 +174,7 @@ export async function generatePostNow() {
 }
 
 export async function togglePostStatus(id: string) {
-  await requireAdmin();
+  await requireManager();
   const post = await prisma.blogPost.findUnique({ where: { id } });
   if (!post) return;
   await prisma.blogPost.update({
@@ -183,7 +187,7 @@ export async function togglePostStatus(id: string) {
 }
 
 export async function deletePost(id: string) {
-  await requireAdmin();
+  await requireManager();
   await prisma.blogPost.delete({ where: { id } });
   revalidatePath("/admin/blog");
   revalidatePath("/erp/blog");

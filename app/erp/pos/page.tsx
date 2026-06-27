@@ -41,12 +41,12 @@ export default async function PosPage({
         paymentMethod: order.paymentMethod as "CASH" | "CARD" | "TRANSFER",
         staffId: order.staffId ?? undefined,
         marketerId: order.marketerId ?? undefined,
-        lines: order.lines.map((l) => ({ description: l.description, qty: l.qty, unitAED: l.unitAED, kind: l.kind as "SERVICE" | "PRODUCT", productId: l.productId, staffId: l.staffId })),
+        lines: order.lines.map((l) => ({ description: l.description, qty: l.qty, unitAED: l.unitAED, kind: l.kind as "SERVICE" | "PRODUCT", productId: l.productId, staffId: l.staffId, staffIds: l.staffIds })),
         client: order.client ? { id: order.client.id, name: order.client.name, phone: order.client.phone, email: order.client.email } : undefined,
       };
     }
   } else if (bookingId) {
-    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { items: true } });
     if (booking) {
       // Try to match an existing client by phone (fall back to email).
       const matched = booking.phone
@@ -55,10 +55,20 @@ export default async function PosPage({
       const whenLabel = new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true,
       }).format(booking.startAt);
+      // One POS line per booked service (multi-service bookings), carrying each line's artist.
+      const lines = booking.items.length
+        ? booking.items.map((it) => ({
+            description: it.serviceName,
+            qty: 1,
+            unitAED: it.priceAED,
+            kind: "SERVICE" as const,
+            staffId: it.staffId ?? booking.staffId ?? null,
+          }))
+        : [{ description: booking.serviceName, qty: 1, unitAED: booking.priceAED, kind: "SERVICE" as const, staffId: booking.staffId ?? null }];
       prefill = {
         bookingId: booking.id,
         bookingLabel: `${booking.customerName} · ${whenLabel}`,
-        lines: [{ description: booking.serviceName, qty: 1, unitAED: booking.priceAED, kind: "SERVICE" }],
+        lines,
         staffId: booking.staffId ?? undefined,
         client: matched
           ? { id: matched.id, name: matched.name, phone: matched.phone, email: matched.email }

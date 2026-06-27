@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { getMonthlyRevenue } from "@/lib/finance";
 
@@ -29,10 +29,11 @@ const REVENUE_TARGET = 100_000;
 
 export default async function ErpDashboard() {
   const session = await getSession();
+  const canSeeFinance = !!session && FINANCE_ROLES.includes(session.role);
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();
 
-  const [todayCount, upcoming, clients, products, staffCount, lowStock, revenue] =
+  const [todayCount, upcoming, clients, products, staffCount, lowStock] =
     await Promise.all([
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: todayStart, lt: todayEnd } } }),
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: now } } }),
@@ -40,10 +41,11 @@ export default async function ErpDashboard() {
       prisma.product.count({ where: { active: true } }),
       prisma.staff.count({ where: { active: true } }),
       prisma.product.findMany({ where: { active: true, qty: { lte: 3 } }, take: 8, orderBy: { qty: "asc" } }),
-      getMonthlyRevenue(),
     ]);
 
-  const monthRevenue = revenue.gross;
+  // Revenue/finance is only loaded + shown for finance roles (not RECEPTION/STYLIST).
+  const revenue = canSeeFinance ? await getMonthlyRevenue() : null;
+  const monthRevenue = revenue?.gross ?? 0;
   const pct = Math.min(100, Math.round((monthRevenue / REVENUE_TARGET) * 100));
 
   const stats = [
@@ -62,23 +64,25 @@ export default async function ErpDashboard() {
         <p className="text-sm text-muted">Qasr Alshar control centre · {session?.email}</p>
       </div>
 
-      {/* revenue vs target */}
-      <div className="surface rounded-2xl p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl text-cream">This Month</h2>
-          <span className="text-sm text-muted">Target {aed(REVENUE_TARGET)}</span>
+      {/* revenue vs target — finance roles only */}
+      {canSeeFinance && revenue && (
+        <div className="surface rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl text-cream">This Month</h2>
+            <span className="text-sm text-muted">Target {aed(REVENUE_TARGET)}</span>
+          </div>
+          <div className="mt-3 flex items-end gap-3">
+            <span className="font-display text-4xl text-gold-gradient">{aed(monthRevenue)}</span>
+            <span className="pb-1 text-sm text-muted">{pct}% of monthly goal</span>
+          </div>
+          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-ink-card">
+            <div className="h-full rounded-full bg-gold-gradient" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            {revenue.orders} paid {revenue.orders === 1 ? "invoice" : "invoices"} this month · {aed(revenue.net)} net + {aed(revenue.vat)} VAT. Every POS bill updates this in real time.
+          </p>
         </div>
-        <div className="mt-3 flex items-end gap-3">
-          <span className="font-display text-4xl text-gold-gradient">{aed(monthRevenue)}</span>
-          <span className="pb-1 text-sm text-muted">{pct}% of monthly goal</span>
-        </div>
-        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-ink-card">
-          <div className="h-full rounded-full bg-gold-gradient" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="mt-2 text-xs text-muted">
-          {revenue.orders} paid {revenue.orders === 1 ? "invoice" : "invoices"} this month · {aed(revenue.net)} net + {aed(revenue.vat)} VAT. Every POS bill updates this in real time.
-        </p>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {stats.map((s) => (

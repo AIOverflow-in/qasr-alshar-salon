@@ -7,6 +7,8 @@ import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "qa_admin";
 
+const VALID_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
+
 function getSecret() {
   const s = process.env.AUTH_SECRET;
   if (!s || s.length < 32) {
@@ -47,10 +49,14 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
+    // Reject a token whose role claim is missing or not a known role — never
+    // silently grant elevated access on a malformed/legacy token.
+    const role = payload.role as Role | undefined;
+    if (!role || !VALID_ROLES.includes(role)) return null;
     return {
       sub: String(payload.sub),
       email: String(payload.email),
-      role: (payload.role as Role) ?? "SUPER_ADMIN",
+      role,
     };
   } catch {
     return null;

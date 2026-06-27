@@ -26,25 +26,39 @@ export default async function BookPage({
 }) {
   const { service: serviceParam, category: categoryParam } = await searchParams;
   const { locale, t } = await getI18n();
-  const [services, stylists] = await Promise.all([
-    prisma.service.findMany({
-      where: { active: true },
-      orderBy: { order: "asc" },
-      select: {
-        id: true,
-        name: true,
-        priceAED: true,
-        durationMin: true,
-        category: true,
-        categorySlug: true,
-      },
-    }),
-    prisma.staff.findMany({
-      where: { active: true },
-      orderBy: { order: "asc" },
-      select: { id: true, name: true, role: true, offDay: true },
-    }),
-  ]);
+
+  let services: { id: string; name: string; priceAED: number; durationMin: number; category: string; categorySlug: string }[];
+  let stylists: { id: string; name: string; role: string; offDay: string | null }[];
+  try {
+    [services, stylists] = await Promise.all([
+      prisma.service.findMany({
+        where: { active: true },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, priceAED: true, durationMin: true, category: true, categorySlug: true },
+      }),
+      prisma.staff.findMany({
+        where: { active: true },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, role: true, offDay: true },
+      }),
+    ]);
+  } catch (e) {
+    // Neon free-tier can briefly cold-start; show a friendly retry instead of a 500.
+    console.error("[book] services unavailable (DB cold-start?):", e);
+    return (
+      <div className="grid min-h-svh place-items-center bg-ink px-6 text-center">
+        <div className="max-w-md">
+          <Logo />
+          <h1 className="mt-6 font-display text-2xl text-cream">Just a moment…</h1>
+          <p className="mt-2 text-sand/80">Our booking system is waking up. Please refresh in a few seconds — or message us on WhatsApp and we&apos;ll book you in right away.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/book" className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-espresso">Refresh</Link>
+            <Link href="/" className="rounded-full border border-ink-line px-6 py-3 text-sand hover:text-gold">Home</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Resolve a deep-linked service (by id or slug) or category for pre-selection.
   const preselected =

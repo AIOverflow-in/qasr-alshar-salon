@@ -74,8 +74,14 @@ export function BookingWizard({
     : null;
   const [step, setStep] = useState(preselected ? 2 : 1);
   const [query, setQuery] = useState(initialCategory ?? "");
-  const [service, setService] = useState<Service | null>(preselected);
+  const [selected, setSelected] = useState<Service[]>(preselected ? [preselected] : []);
   const [stylist, setStylist] = useState<Stylist | null>(null);
+
+  const totalDuration = selected.reduce((sum, s) => sum + s.durationMin, 0);
+  const totalPrice = selected.reduce((sum, s) => sum + s.priceAED, 0);
+  function toggleService(s: Service) {
+    setSelected((prev) => (prev.some((x) => x.id === s.id) ? prev.filter((x) => x.id !== s.id) : [...prev, s]));
+  }
 
   const todayISO = useMemo(
     () =>
@@ -104,15 +110,15 @@ export function BookingWizard({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME" } | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null } | null>(null);
 
-  // fetch availability whenever date / service changes on step 3
+  // fetch availability whenever date / selection changes on step 3
   useEffect(() => {
-    if (step !== 3 || !service) return;
+    if (step !== 3 || selected.length === 0) return;
     let active = true;
     setLoadingSlots(true);
     setSlot(null);
-    const params = new URLSearchParams({ date, duration: String(service.durationMin) });
+    const params = new URLSearchParams({ date, duration: String(totalDuration) });
     if (stylist) params.set("staffId", stylist.id);
     fetch(`/api/availability?${params}`)
       .then((r) => r.json())
@@ -124,7 +130,7 @@ export function BookingWizard({
     return () => {
       active = false;
     };
-  }, [step, date, service, stylist]);
+  }, [step, date, totalDuration, selected.length, stylist]);
 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,7 +150,7 @@ export function BookingWizard({
   }, [services, query, categoryOrder]);
 
   async function submit() {
-    if (!service || !slot) return;
+    if (selected.length === 0 || !slot || submitting) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -152,7 +158,7 @@ export function BookingWizard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId: service.id,
+          serviceIds: selected.map((s) => s.id),
           startISO: slot.iso,
           customerName: form.name,
           email: form.email,
@@ -176,6 +182,7 @@ export function BookingWizard({
         whenLabel: data.booking.whenLabel,
         priceAED: data.booking.priceAED,
         serviceMode: form.serviceMode,
+        emailWarning: data.emailWarning ?? null,
       });
       setStep(5);
     } catch {
@@ -207,6 +214,11 @@ export function BookingWizard({
             ? "No payment now. Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp."
             : "No payment now — pay at the salon. We'll message you on WhatsApp to confirm."}
         </p>
+        {done.emailWarning && (
+          <p className="mx-auto mt-3 max-w-md rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-xs text-gold">
+            {done.emailWarning}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
             href={whatsappLink(
@@ -276,31 +288,46 @@ export function BookingWizard({
               className="w-full rounded-full border border-ink-line bg-ink-card py-3 pl-11 pr-4 text-cream outline-none placeholder:text-muted focus:border-gold/60"
             />
           </div>
-          <div className="max-h-[60svh] space-y-6 overflow-y-auto pr-1">
+          <p className="mb-4 text-sm text-muted">Pick one or more services — book them together in a single visit.</p>
+          <div className="max-h-[55svh] space-y-6 overflow-y-auto pr-1">
             {grouped.map(([cat, items]) => (
               <div key={cat}>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gold">
                   {cat}
                 </h3>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {items.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setService(s);
-                        setStep(2);
-                      }}
-                      className="surface surface-hover flex items-center justify-between rounded-xl p-3.5 text-start"
-                    >
-                      <span>
-                        <span className="block text-cream">{s.name}</span>
-                        <span className="flex items-center gap-1 text-xs text-muted">
-                          <Clock size={12} /> {s.durationMin} min
+                  {items.map((s) => {
+                    const isOn = selected.some((x) => x.id === s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => toggleService(s)}
+                        aria-pressed={isOn}
+                        className={cn(
+                          "surface surface-hover flex items-center justify-between rounded-xl p-3.5 text-start transition-colors",
+                          isOn && "border-gold bg-gold/10"
+                        )}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <span
+                            className={cn(
+                              "grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors",
+                              isOn ? "border-gold bg-gold-gradient text-espresso" : "border-ink-line text-transparent"
+                            )}
+                          >
+                            <CheckCircle2 size={12} />
+                          </span>
+                          <span>
+                            <span className="block text-cream">{s.name}</span>
+                            <span className="flex items-center gap-1 text-xs text-muted">
+                              <Clock size={12} /> {s.durationMin} min
+                            </span>
+                          </span>
                         </span>
-                      </span>
-                      <span className="font-semibold text-gold">{aed(s.priceAED)}</span>
-                    </button>
-                  ))}
+                        <span className="font-semibold text-gold">{aed(s.priceAED)}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -308,13 +335,27 @@ export function BookingWizard({
               <p className="text-center text-muted">No services match “{query}”.</p>
             )}
           </div>
+
+          {selected.length > 0 && (
+            <div className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 rounded-2xl border border-gold/30 bg-ink-card/95 p-3.5 backdrop-blur">
+              <div className="min-w-0 text-sm">
+                <div className="text-cream">
+                  {selected.length} service{selected.length > 1 ? "s" : ""} · {totalDuration} min
+                </div>
+                <div className="text-xs text-muted">Total {aed(totalPrice)} · incl. VAT</div>
+              </div>
+              <Button onClick={() => setStep(2)}>
+                {dict.next} <ChevronRight size={16} />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
       {/* STEP 2 — stylist selection */}
-      {step === 2 && service && (
+      {step === 2 && selected.length > 0 && (
         <div>
-          <SelectedService service={service} />
+          <SelectionSummary services={selected} />
           <div className="mt-6">
             <h3 className="mb-1 font-display text-xl text-cream">Choose your Crown Artist</h3>
             <p className="mb-4 text-sm text-muted">All our artists are fully trained. If you have no preference, choose &ldquo;Any Available&rdquo; for the first open slot.</p>
@@ -353,9 +394,9 @@ export function BookingWizard({
       )}
 
       {/* STEP 3 — date & time */}
-      {step === 3 && service && (
+      {step === 3 && selected.length > 0 && (
         <div>
-          <SelectedService service={service} stylistName={stylist?.name ?? "Any Available"} />
+          <SelectionSummary services={selected} stylistName={stylist?.name ?? "Any Available"} />
           <h3 className="mb-3 mt-6 flex items-center gap-2 font-display text-lg text-cream">
             <CalendarDays size={18} className="text-gold" /> {dict.date}
           </h3>
@@ -418,9 +459,9 @@ export function BookingWizard({
       )}
 
       {/* STEP 4 — details */}
-      {step === 4 && service && slot && (
+      {step === 4 && selected.length > 0 && slot && (
         <div>
-          <SelectedService service={service} stylistName={stylist?.name ?? "Any Available"} when={`${dayLabel(date).weekday} ${dayLabel(date).day} ${dayLabel(date).month} · ${timeLabel(slot.time)}`} />
+          <SelectionSummary services={selected} stylistName={stylist?.name ?? "Any Available"} when={`${dayLabel(date).weekday} ${dayLabel(date).day} ${dayLabel(date).month} · ${timeLabel(slot.time)}`} />
           <div className="mt-6 space-y-4">
             <Field label={dict.name} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label={dict.email} type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
@@ -535,18 +576,34 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function SelectedService({ service, stylistName, when }: { service: Service; stylistName?: string; when?: string }) {
+function SelectionSummary({ services, stylistName, when }: { services: Service[]; stylistName?: string; when?: string }) {
+  const totalDuration = services.reduce((sum, s) => sum + s.durationMin, 0);
+  const totalPrice = services.reduce((sum, s) => sum + s.priceAED, 0);
   return (
-    <div className="surface flex items-center justify-between rounded-xl p-4">
-      <div>
-        <div className="text-cream">{service.name}</div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
-          <span className="flex items-center gap-1"><Clock size={12} /> {service.durationMin} min</span>
-          {stylistName && <span>· {stylistName}</span>}
-          {when && <span>· {when}</span>}
+    <div className="surface rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-cream">
+            {services.length === 1 ? services[0].name : `${services.length} services`}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+            <span className="flex items-center gap-1"><Clock size={12} /> {totalDuration} min</span>
+            {stylistName && <span>· {stylistName}</span>}
+            {when && <span>· {when}</span>}
+          </div>
         </div>
+        <span className="whitespace-nowrap font-semibold text-gold">{aed(totalPrice)}</span>
       </div>
-      <span className="font-semibold text-gold">{aed(service.priceAED)}</span>
+      {services.length > 1 && (
+        <ul className="mt-2 space-y-0.5 border-t border-ink-line/50 pt-2 text-xs">
+          {services.map((s) => (
+            <li key={s.id} className="flex justify-between gap-2 text-sand">
+              <span>{s.name}</span>
+              <span className="text-muted">{aed(s.priceAED)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

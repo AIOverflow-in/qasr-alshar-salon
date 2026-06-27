@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { isSlotBookable } from "@/lib/availability";
 import { sendBookingEmails } from "@/lib/email";
+import { resolveClientId } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
 
@@ -45,21 +46,16 @@ export async function POST(req: Request) {
   const start = new Date(d.startISO);
   const end = new Date(start.getTime() + service.durationMin * 60_000);
 
-  // Availability is enforced for normal bookings; reception can override for walk-ins/phone.
+  // Availability is enforced (per-stylist) for normal bookings; reception can override for walk-ins/phone.
   if (d.enforceAvailability) {
-    const check = await isSlotBookable(d.startISO, service.durationMin);
+    const check = await isSlotBookable(d.startISO, service.durationMin, d.staffId || undefined);
     if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 409 });
   }
 
-  // Resolve the client: use the chosen one, else find-or-create from the details.
+  // Resolve the client: use the chosen one, else dedupe-create from the details.
   const phone = (d.phone ?? "").trim();
   const email = (d.email ?? "").trim().toLowerCase();
-  let clientId = d.clientId ?? null;
-  if (!clientId) {
-    const or = [phone ? { phone } : null, email ? { email } : null].filter(Boolean) as { phone?: string; email?: string }[];
-    const existing = or.length ? await prisma.client.findFirst({ where: { OR: or }, select: { id: true } }) : null;
-    clientId = existing?.id ?? (await prisma.client.create({ data: { name: d.customerName.trim(), phone: phone || null, email: email || null } })).id;
-  }
+  const clientId = d.clientId ?? (await resolveClientId({ name: d.customerName, phone, email }));
 
   const booking = await prisma.booking.create({
     data: {
@@ -68,6 +64,7 @@ export async function POST(req: Request) {
       notes: d.notes?.trim() || null, startAt: start, endAt: end, status: "CONFIRMED",
       staffId: d.staffId || null, clientId, source: "WALKIN",
       serviceMode: d.serviceMode, address: d.serviceMode === "HOME" ? d.address?.trim() || null : null,
+      items: { create: [{ serviceId: service.id, serviceName: service.name, priceAED: service.priceAED, durationMin: service.durationMin, staffId: d.staffId || null }] },
     },
   });
 

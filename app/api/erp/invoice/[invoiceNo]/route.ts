@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { renderInvoice } from "@/lib/invoice";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export async function GET(
 
   if (!order) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
-  const bytes = await buildInvoicePdf(order);
+  const bytes = await renderInvoice(order);
 
   return new Response(Buffer.from(bytes), {
     headers: {
