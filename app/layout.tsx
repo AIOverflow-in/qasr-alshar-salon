@@ -10,6 +10,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBookingBar } from "@/components/MobileBookingBar";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { headers } from "next/headers";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -82,6 +83,10 @@ export default async function RootLayout({
   const locale = await getLocale();
   const dir = dirFor(locale);
 
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") ?? "";
+  const isInternal = pathname.startsWith("/admin") || pathname.startsWith("/erp");
+
   return (
     <html
       lang={locale}
@@ -90,12 +95,11 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-ink text-cream">
         <JsonLd data={localBusinessSchema()} />
-        <Header />
-        {/* pb on mobile so the fixed booking bar never covers footer/CTAs */}
+        {!isInternal && <Header />}
         <main className="flex-1 pb-24 lg:pb-0">{children}</main>
-        <Footer />
-        <MobileBookingBar />
-        <WhatsAppFab />
+        {!isInternal && <Footer />}
+        {!isInternal && <MobileBookingBar />}
+        {!isInternal && <WhatsAppFab />}
       </body>
     </html>
   );

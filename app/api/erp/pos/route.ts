@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { invoiceToken } from "@/lib/invoice-token";
+import { sendInvoiceEmail } from "@/lib/email";
+import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +144,32 @@ export async function POST(req: Request) {
 
     return created;
   });
+
+  // Auto-send the invoice to the client (PDF attached + shareable link). Never blocks/breaks checkout.
+  try {
+    const full = await prisma.salesOrder.findUnique({
+      where: { id: order.id },
+      include: {
+        lines: true,
+        client: { select: { name: true, phone: true, email: true } },
+        staff: { select: { name: true } },
+      },
+    });
+    if (full?.client?.email) {
+      const pdf = await buildInvoicePdf(full);
+      const token = invoiceToken(full.invoiceNo);
+      await sendInvoiceEmail({
+        invoiceNo: full.invoiceNo,
+        clientName: full.client.name,
+        clientEmail: full.client.email,
+        totalAED: full.totalAED,
+        publicUrl: `${SITE.url}/api/invoice/${full.invoiceNo}?t=${token}`,
+        pdf,
+      });
+    }
+  } catch (e) {
+    console.error("[pos] invoice auto-send failed (non-fatal):", e);
+  }
 
   return NextResponse.json({ ok: true, order: { id: order.id, invoiceNo: order.invoiceNo, totalAED: order.totalAED } });
 }

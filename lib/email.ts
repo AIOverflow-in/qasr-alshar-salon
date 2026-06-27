@@ -16,6 +16,9 @@ type BookingEmail = {
   priceAED: number;
   whenLabel: string; // human readable Dubai time
   notes?: string | null;
+  serviceMode?: string | null; // SALON | HOME
+  address?: string | null;
+  customRequest?: string | null;
 };
 
 function shell(title: string, body: string) {
@@ -38,13 +41,17 @@ function shell(title: string, body: string) {
 function detailsTable(b: BookingEmail) {
   const row = (k: string, v: string) =>
     `<tr><td style="padding:8px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
+  const isHome = b.serviceMode === "HOME";
   return `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
     ${row("Service", b.serviceName)}
+    ${row("Location", isHome ? "Home service" : "At the salon")}
+    ${isHome && b.address ? row("Address", b.address) : ""}
     ${row("Date &amp; Time", b.whenLabel)}
     ${row("Price", `AED ${b.priceAED}`)}
     ${row("Name", b.customerName)}
     ${row("Phone", b.phone)}
     ${row("Email", b.email)}
+    ${b.customRequest ? row("Custom request", b.customRequest) : ""}
     ${b.notes ? row("Notes", b.notes) : ""}
   </table>`;
 }
@@ -90,4 +97,44 @@ export async function sendBookingEmails(b: BookingEmail) {
     if (r.status === "rejected")
       console.error(`[email] ${i === 0 ? "customer" : "salon"} send failed:`, r.reason);
   });
+}
+
+type InvoiceEmail = {
+  invoiceNo: string;
+  clientName: string;
+  clientEmail: string;
+  totalAED: number;
+  publicUrl: string; // token-gated, shareable
+  pdf: Uint8Array;
+};
+
+/** Email the finished invoice (PDF attached + shareable link) to the client. Never throws. */
+export async function sendInvoiceEmail(inv: InvoiceEmail) {
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not set — skipping invoice email");
+    return;
+  }
+
+  const html = shell(
+    "Your invoice from Qasr Alshar 🧾",
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${inv.clientName}, thank you for visiting Qasr Alshar Salon. Your invoice <b style="color:#f6f0e2;">${inv.invoiceNo}</b> is attached as a PDF.</p>
+     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+       <tr><td style="padding:8px 0;color:#8c8267;width:38%;">Invoice</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${inv.invoiceNo}</td></tr>
+       <tr><td style="padding:8px 0;color:#8c8267;">Total paid</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">AED ${inv.totalAED.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+     </table>
+     <a href="${inv.publicUrl}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">View / download invoice</a>
+     <p style="margin-top:18px;font-size:13px;color:#8c8267;">We'd love to see you again soon. Book anytime at <a href="${SITE.url}/book" style="color:#e7c878;">${SITE.url.replace(/^https?:\/\//, "")}/book</a>.</p>`
+  );
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: inv.clientEmail,
+      subject: `Your Qasr Alshar invoice ${inv.invoiceNo}`,
+      html,
+      attachments: [{ filename: `${inv.invoiceNo}.pdf`, content: Buffer.from(inv.pdf) }],
+    });
+  } catch (e) {
+    console.error("[email] invoice send failed:", e);
+  }
 }

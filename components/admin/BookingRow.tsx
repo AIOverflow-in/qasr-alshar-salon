@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Receipt } from "lucide-react";
 import { setBookingStatus } from "@/lib/actions/admin";
 import type { BookingStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
@@ -56,20 +58,31 @@ export function BookingRow({
       <td className="p-4 text-sand">{service}</td>
       <td className="p-4 text-cream">{price}</td>
       <td className="p-4">
-        <select
-          value={current}
-          onChange={(e) => change(e.target.value as BookingStatus)}
-          className={cn(
-            "rounded-lg border border-ink-line bg-ink-card px-2.5 py-1.5 text-xs outline-none focus:border-gold/60",
-            color[current]
+        <div className="flex items-center gap-2">
+          <select
+            value={current}
+            onChange={(e) => change(e.target.value as BookingStatus)}
+            className={cn(
+              "rounded-lg border border-ink-line bg-ink-card px-2.5 py-1.5 text-xs outline-none focus:border-gold/60",
+              color[current]
+            )}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s} className="bg-ink text-cream">
+                {s.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+          {(current === "COMPLETED" || current === "CONFIRMED") && (
+            <Link
+              href={`/erp/pos?bookingId=${id}`}
+              className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"
+              title="Generate bill for this booking"
+            >
+              <Receipt size={13} /> Bill
+            </Link>
           )}
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s} className="bg-ink text-cream">
-              {s.replace("_", " ")}
-            </option>
-          ))}
-        </select>
+        </div>
       </td>
     </tr>
   );

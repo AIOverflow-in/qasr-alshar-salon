@@ -56,6 +56,10 @@ model Booking {
   // ERP: which Crown Artist + how the booking came in
   staffId      String?
   source       String        @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP
+  // service delivery: at the salon vs. home/clinic visit (needs salon confirmation)
+  serviceMode   String       @default("SALON") // SALON | HOME
+  address       String?      // home-service address (when serviceMode = HOME)
+  customRequest String?      // free-text request when the client can't find a service
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -316,4 +320,44 @@ model Commission {
   @@index([staffId])
   @@index([orderId])
   @@index([paid])
+}
+
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  SALARIES
+  VISA
+  SUPPLIES
+  MARKETING
+  MAINTENANCE
+  OTHER
+}
+
+/// Operating expense entry — feeds the finance P&L + dividend calculation.
+model Expense {
+  id          String          @id @default(cuid())
+  category    ExpenseCategory @default(OTHER)
+  description String
+  amountAED   Int
+  incurredOn  DateTime        @default(now())
+  recurring   Boolean         @default(false) // monthly recurring (rent, salaries)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([incurredOn])
+  @@index([category])
+}
+
+/// Capital / investment entry — investor contributions tracked against dividends.
+model CapitalEntry {
+  id            String   @id @default(cuid())
+  investor      String
+  amountAED     Int
+  contributedOn DateTime @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contributedOn])
 }

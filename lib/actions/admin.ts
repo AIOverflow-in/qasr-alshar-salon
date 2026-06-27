@@ -18,6 +18,14 @@ async function requireAdmin() {
   return session;
 }
 
+async function requireManager() {
+  const session = await getSession();
+  if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
+    throw new Error("Forbidden");
+  }
+  return session;
+}
+
 // ---- auth ----
 export async function loginAction(_prev: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").trim();
@@ -49,6 +57,39 @@ export async function updateService(
   await requireAdmin();
   await prisma.service.update({ where: { id }, data });
   revalidatePath("/admin/services");
+}
+
+// ---- staff + commissions ----
+export async function updateStaff(
+  id: string,
+  data: {
+    role?: string;
+    hours?: string;
+    offDay?: string | null;
+    commissionPct?: number;
+    referralPct?: number;
+    active?: boolean;
+  }
+) {
+  await requireManager();
+  const clean = {
+    ...data,
+    offDay: data.offDay?.trim() ? data.offDay.trim() : null,
+    commissionPct: data.commissionPct != null ? Math.max(0, Math.min(100, Math.round(data.commissionPct))) : undefined,
+    referralPct: data.referralPct != null ? Math.max(0, Math.min(100, Math.round(data.referralPct))) : undefined,
+  };
+  await prisma.staff.update({ where: { id }, data: clean });
+  revalidatePath("/erp/staff");
+}
+
+/** Mark every unpaid commission for a staff member as paid (payroll settle). */
+export async function settleCommissions(staffId: string) {
+  await requireManager();
+  await prisma.commission.updateMany({
+    where: { staffId, paid: false },
+    data: { paid: true, paidAt: new Date() },
+  });
+  revalidatePath("/erp/staff");
 }
 
 // ---- working hours + settings ----
@@ -96,6 +137,7 @@ export async function generatePostNow() {
   const post = await generateBlogPost();
   if (post) {
     revalidatePath("/admin/blog");
+    revalidatePath("/erp/blog");
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
     return { ok: true, title: post.title };
@@ -112,6 +154,7 @@ export async function togglePostStatus(id: string) {
     data: { status: post.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED" },
   });
   revalidatePath("/admin/blog");
+  revalidatePath("/erp/blog");
   revalidatePath("/blog");
 }
 
@@ -119,5 +162,6 @@ export async function deletePost(id: string) {
   await requireAdmin();
   await prisma.blogPost.delete({ where: { id } });
   revalidatePath("/admin/blog");
+  revalidatePath("/erp/blog");
   revalidatePath("/blog");
 }

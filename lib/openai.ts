@@ -8,7 +8,7 @@ const client = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-5";
+const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-4.1";
 
 /** Map a topic to the most relevant existing hero image. */
 function pickHeroImage(text: string): string {
@@ -86,15 +86,23 @@ export async function generateBlogPost(opts?: {
   const title = topic?.title ?? "Seasonal Beauty Tips from Qasr Alshar";
   const keywords = (topic?.keywords ?? []).join(", ");
 
-  const system = `You are an expert SEO content writer for "Qasr Alshar Salon", a luxury multicultural beauty salon in Dubai, UAE (located near Union Metro). The salon specializes in braiding, weaving, wigs, hair, nails, facials, makeup, henna, lashes, waxing, threading and massage, serving a diverse clientele. Write warm, authoritative, genuinely helpful articles that rank well on Google for UAE beauty searches. Naturally weave in Dubai/UAE context and a soft call-to-action to book at Qasr Alshar. Avoid keyword stuffing. Use Markdown with ## and ### headings, short paragraphs, and bullet lists where useful. Do NOT include the H1 title in the body.`;
+  const system = `You are a real beauty writer for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage.
 
-  const user = `Write a complete, original blog article.
+Write like a knowledgeable human, not an AI. Hard rules:
+- Sound 100% natural and human. NEVER use AI clichés or filler such as "In today's fast-paced world", "Look no further", "Nestled in", "Whether you're … or …", "Elevate", "Unlock", "delve", "In conclusion", "When it comes to". No em-dash overuse.
+- Be specific and concrete (real Dubai context, real product/technique names, real timeframes). Vary sentence length so it reads like a person wrote it.
+- Crisp and useful — no padding. Every sentence earns its place.
+- Markdown with ## headings and short bullet lists. Do NOT include the H1 title in the body.`;
+
+  const user = `Write a short, crisp blog post.
 Topic: "${title}"
 Target keywords: ${keywords || "Dubai beauty salon"}
 Requirements:
-- 700–1000 words, Markdown body only (no front matter, no H1).
-- Helpful, specific, locally relevant to Dubai/UAE.
-- End with a short call-to-action to book at Qasr Alshar (${SITE.url}/book).
+- 300–450 words, Markdown body only (no front matter, no H1).
+- 2–3 focused sections with ## headings.
+- Bullet points for any tips or lists (max 4 bullets per list).
+- One short closing call-to-action sentence linking to ${SITE.url}/book.
+- No generic filler ("In today's fast-paced world…"). Get straight to the point.
 Return ONLY JSON with keys:
 {"title": string (compelling, <=65 chars, may refine the topic),
  "metaDescription": string (<=155 chars, SEO),
@@ -124,7 +132,7 @@ Return ONLY JSON with keys:
   if (!parsed.title || !parsed.contentMarkdown) return null;
 
   const words = parsed.contentMarkdown.trim().split(/\s+/).length;
-  const readingMinutes = Math.max(2, Math.round(words / 200));
+  const readingMinutes = Math.max(1, Math.round(words / 200));
   const slug = await uniqueSlug(parsed.title);
 
   const post = await prisma.blogPost.create({

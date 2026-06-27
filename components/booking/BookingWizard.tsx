@@ -97,10 +97,14 @@ export function BookingWizard({
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Slot | null>(null);
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", notes: "" });
+  const [form, setForm] = useState({
+    name: "", email: "", phone: "", notes: "",
+    serviceMode: "SALON" as "SALON" | "HOME",
+    address: "", customRequest: "", agreed: false,
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number } | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME" } | null>(null);
 
   // fetch availability whenever date / service changes on step 3
   useEffect(() => {
@@ -156,6 +160,9 @@ export function BookingWizard({
           notes: form.notes || null,
           staffId: stylist?.id ?? null,
           locale,
+          serviceMode: form.serviceMode,
+          address: form.serviceMode === "HOME" ? form.address : null,
+          customRequest: form.customRequest || null,
         }),
       });
       const data = await res.json();
@@ -168,6 +175,7 @@ export function BookingWizard({
         serviceName: data.booking.serviceName,
         whenLabel: data.booking.whenLabel,
         priceAED: data.booking.priceAED,
+        serviceMode: form.serviceMode,
       });
       setStep(5);
     } catch {
@@ -192,10 +200,12 @@ export function BookingWizard({
           {stylist && <Row k="Crown Artist" v={stylist.name} />}
           <Row k={dict.date} v={done.whenLabel} />
           <Row k="Price" v={aed(done.priceAED)} />
-          <Row k="Location" v={`${SITE.address.line1}, ${SITE.address.city}`} />
+          <Row k="Location" v={done.serviceMode === "HOME" ? "Home service (we come to you)" : `${SITE.address.line1}, ${SITE.address.city}`} />
         </div>
         <p className="mt-4 text-sm text-muted">
-          No payment now — pay at the salon. We&apos;ll message you on WhatsApp to confirm.
+          {done.serviceMode === "HOME"
+            ? "No payment now. Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp."
+            : "No payment now — pay at the salon. We'll message you on WhatsApp to confirm."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
@@ -415,15 +425,74 @@ export function BookingWizard({
             <Field label={dict.name} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label={dict.email} type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
             <Field label={dict.phone} type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            {/* where: salon vs home */}
+            <div>
+              <label className="mb-1.5 block text-sm text-sand">Where would you like the service?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["SALON", "HOME"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setForm({ ...form, serviceMode: m })}
+                    className={cn(
+                      "rounded-xl border p-3 text-start transition-colors",
+                      form.serviceMode === m ? "border-gold bg-gold/10 text-cream" : "border-ink-line text-sand hover:border-gold/50"
+                    )}
+                  >
+                    <div className="font-semibold text-cream">{m === "SALON" ? "At the salon" : "Home service"}</div>
+                    <div className="mt-0.5 text-xs text-muted">{m === "SALON" ? "Union Metro, Deira" : "We come to you — confirmed first"}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {form.serviceMode === "HOME" && (
+              <div>
+                <label className="mb-1.5 block text-sm text-sand">Your address (area, building, contact)</label>
+                <textarea
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  rows={2}
+                  placeholder="e.g. Marina, Tower X, Apt 000 — gate code…"
+                  className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
+                />
+                <p className="mt-1 text-xs text-muted">Home &amp; clinic visits are confirmed by our team on WhatsApp before they&apos;re final. A minimum order may apply by area.</p>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block text-sm text-sand">Can&apos;t find a service, or want something specific?</label>
+              <textarea
+                value={form.customRequest}
+                onChange={(e) => setForm({ ...form, customRequest: e.target.value })}
+                rows={2}
+                placeholder="Describe the look or service you'd like and we'll arrange it."
+                className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
+              />
+            </div>
+
             <div>
               <label className="mb-1.5 block text-sm text-sand">{dict.notes}</label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={3}
+                rows={2}
                 className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
               />
             </div>
+
+            {/* terms */}
+            <label className="flex items-start gap-3 rounded-xl border border-ink-line bg-ink-card/50 p-3.5">
+              <input
+                type="checkbox"
+                checked={form.agreed}
+                onChange={(e) => setForm({ ...form, agreed: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#c8911f]"
+              />
+              <span className="text-xs leading-relaxed text-muted">
+                I agree to Qasr Alshar&apos;s booking terms: a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices include 5% VAT. Home/clinic visits are confirmed by the salon before they are final.
+              </span>
+            </label>
           </div>
 
           {error && (
@@ -438,7 +507,14 @@ export function BookingWizard({
             </Button>
             <Button
               onClick={submit}
-              disabled={submitting || form.name.length < 2 || !form.email.includes("@") || form.phone.length < 6}
+              disabled={
+                submitting ||
+                form.name.length < 2 ||
+                !form.email.includes("@") ||
+                form.phone.length < 6 ||
+                !form.agreed ||
+                (form.serviceMode === "HOME" && form.address.trim().length < 6)
+              }
             >
               {submitting ? <Loader2 className="animate-spin" size={16} /> : null}
               {dict.confirm}

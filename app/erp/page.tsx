@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { aed } from "@/lib/utils";
+import { getMonthlyRevenue } from "@/lib/finance";
 
 function dubaiDayRange(offsetDays = 0) {
   const todayISO = new Intl.DateTimeFormat("en-CA", {
@@ -23,11 +24,6 @@ function dubaiDayRange(offsetDays = 0) {
   const start = new Date(Date.UTC(y, m - 1, d + offsetDays) - 4 * 3600_000);
   return { start, end: new Date(start.getTime() + 24 * 3600_000) };
 }
-function monthStartUTC() {
-  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const [y, m] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, 1) - 4 * 3600_000);
-}
 
 const REVENUE_TARGET = 100_000;
 
@@ -36,7 +32,7 @@ export default async function ErpDashboard() {
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();
 
-  const [todayCount, upcoming, clients, products, staffCount, lowStock, monthAgg] =
+  const [todayCount, upcoming, clients, products, staffCount, lowStock, revenue] =
     await Promise.all([
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: todayStart, lt: todayEnd } } }),
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: now } } }),
@@ -44,13 +40,10 @@ export default async function ErpDashboard() {
       prisma.product.count({ where: { active: true } }),
       prisma.staff.count({ where: { active: true } }),
       prisma.product.findMany({ where: { active: true, qty: { lte: 3 } }, take: 8, orderBy: { qty: "asc" } }),
-      prisma.booking.aggregate({
-        _sum: { priceAED: true },
-        where: { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: monthStartUTC() } },
-      }),
+      getMonthlyRevenue(),
     ]);
 
-  const monthRevenue = monthAgg._sum.priceAED ?? 0;
+  const monthRevenue = revenue.gross;
   const pct = Math.min(100, Math.round((monthRevenue / REVENUE_TARGET) * 100));
 
   const stats = [
@@ -83,7 +76,7 @@ export default async function ErpDashboard() {
           <div className="h-full rounded-full bg-gold-gradient" style={{ width: `${pct}%` }} />
         </div>
         <p className="mt-2 text-xs text-muted">
-          Figures reflect bookings recorded in the system. Connect POS sales to capture walk-ins & retail.
+          {revenue.orders} paid {revenue.orders === 1 ? "invoice" : "invoices"} this month · {aed(revenue.net)} net + {aed(revenue.vat)} VAT. Every POS bill updates this in real time.
         </p>
       </div>
 

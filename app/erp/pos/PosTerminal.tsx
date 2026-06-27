@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
-import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 
 const VAT_PCT = 5;
@@ -19,21 +19,49 @@ type LineItem = {
   productId?: string | null;
 };
 
-export function PosTerminal({ services, staff, clients }: {
+export type PosPrefill = {
+  bookingId?: string;
+  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT" }[];
+  staffId?: string;
+  client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
+  bookingLabel?: string;
+};
+
+export function PosTerminal({ services, staff, clients: initialClients, prefill }: {
   services: Service[];
   staff: StaffMember[];
   clients: Client[];
+  prefill?: PosPrefill;
 }) {
-  const [lines, setLines] = useState<LineItem[]>([]);
+  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [lines, setLines] = useState<LineItem[]>(
+    (prefill?.lines ?? []).map((l, i) => ({
+      key: `pre-${i}`,
+      kind: l.kind ?? "SERVICE",
+      description: l.description,
+      qty: l.qty,
+      unitAED: l.unitAED,
+    }))
+  );
   const [query, setQuery] = useState("");
-  const [selectedStaff, setSelectedStaff] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>("");
-  const [clientQuery, setClientQuery] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<string>(prefill?.staffId ?? "");
+  const [selectedClient, setSelectedClient] = useState<string>(prefill?.client?.id ?? "");
+  const [clientQuery, setClientQuery] = useState(prefill?.client?.id ? prefill.client.name ?? "" : "");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number } | null>(null);
+  const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientEmail: string | null; clientPhone: string | null } | null>(null);
+  const [bookingId] = useState<string | undefined>(prefill?.bookingId);
+
+  // ── inline new-client ──────────────────────────────────────────────────
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: prefill?.client && !prefill.client.id ? prefill.client.name ?? "" : "",
+    phone: prefill?.client && !prefill.client.id ? prefill.client.phone ?? "" : "",
+    email: prefill?.client && !prefill.client.id ? prefill.client.email ?? "" : "",
+  });
+  const [creatingClient, setCreatingClient] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -46,6 +74,8 @@ export function PosTerminal({ services, staff, clients }: {
     if (!q) return clients.slice(0, 8);
     return clients.filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q)).slice(0, 8);
   }, [clients, clientQuery]);
+
+  const selectedClientObj = clients.find((c) => c.id === selectedClient) ?? null;
 
   const subtotal = lines.reduce((s, l) => s + l.qty * l.unitAED, 0);
   const vatAED = Math.round(subtotal * VAT_PCT / 100);
@@ -61,8 +91,8 @@ export function PosTerminal({ services, staff, clients }: {
   }
 
   function addCustomLine() {
-    const key = `custom-${Date.now()}`;
-    setLines((prev) => [...prev, { key, kind: "SERVICE", description: "Custom item", qty: 1, unitAED: 0 }]);
+    const key = `custom-${lines.length}-${Math.round(subtotal)}`;
+    setLines((prev) => [...prev, { key: `${key}-${prev.length}`, kind: "SERVICE", description: "Custom item", qty: 1, unitAED: 0 }]);
   }
 
   function updateLine(key: string, patch: Partial<LineItem>) {
@@ -71,6 +101,31 @@ export function PosTerminal({ services, staff, clients }: {
 
   function removeLine(key: string) {
     setLines((prev) => prev.filter((l) => l.key !== key));
+  }
+
+  async function createClient() {
+    if (!newClient.name.trim()) { setError("Client name is required."); return; }
+    setCreatingClient(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/erp/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newClient.name.trim(),
+          phone: newClient.phone.trim() || null,
+          email: newClient.email.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Could not add client."); return; }
+      const c: Client = { id: data.client.id, name: data.client.name, phone: data.client.phone };
+      setClients((prev) => [c, ...prev]);
+      setSelectedClient(c.id);
+      setClientQuery(c.name);
+      setShowNewClient(false);
+    } catch { setError("Network error adding client."); }
+    finally { setCreatingClient(false); }
   }
 
   function reset() {
@@ -97,18 +152,30 @@ export function PosTerminal({ services, staff, clients }: {
           paymentMethod,
           staffId: selectedStaff || null,
           clientId: selectedClient || null,
+          bookingId: bookingId || null,
           notes: notes || null,
           lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null })),
         }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Checkout failed."); return; }
-      setLastInvoice({ invoiceNo: data.order.invoiceNo, totalAED: data.order.totalAED });
+      setLastInvoice({
+        invoiceNo: data.order.invoiceNo,
+        totalAED: data.order.totalAED,
+        clientEmail: selectedClientObj?.phone ? null : null,
+        clientPhone: selectedClientObj?.phone ?? newClient.phone ?? null,
+      });
     } catch { setError("Network error — please try again."); }
     finally { setSubmitting(false); }
   }
 
   if (lastInvoice) {
+    const invoiceUrl = `/api/erp/invoice/${lastInvoice.invoiceNo}`;
+    const phone = (lastInvoice.clientPhone ?? "").replace(/\D/g, "");
+    const waText = encodeURIComponent(
+      `Hello from Qasr Alshar Salon 👑\nThank you for your visit! Your invoice ${lastInvoice.invoiceNo} for ${aed(lastInvoice.totalAED)} is ready.`
+    );
+    const waUrl = phone ? `https://wa.me/${phone}?text=${waText}` : null;
     return (
       <div className="mx-auto max-w-md text-center py-12">
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gold/15 text-gold">
@@ -117,18 +184,20 @@ export function PosTerminal({ services, staff, clients }: {
         <h2 className="mt-6 font-display text-3xl text-cream">Payment received</h2>
         <p className="mt-2 text-sand">{lastInvoice.invoiceNo}</p>
         <p className="mt-1 text-2xl font-semibold text-gold">{aed(lastInvoice.totalAED)} <span className="text-sm font-normal text-muted">incl. VAT 5%</span></p>
-        <div className="mt-8 flex justify-center gap-3">
-          <a
-            href={`/api/erp/invoice/${lastInvoice.invoiceNo}`}
-            target="_blank"
-            className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-5 py-2.5 text-sm text-gold hover:bg-gold/10"
-          >
-            <Printer size={15} /> Print Invoice
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <a href={invoiceUrl} target="_blank" className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-5 py-2.5 text-sm text-gold hover:bg-gold/10">
+            <Printer size={15} /> Print / PDF
           </a>
+          {waUrl && (
+            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-green-500/50 px-5 py-2.5 text-sm text-green-400 hover:bg-green-500/10">
+              <MessageCircle size={15} /> Send on WhatsApp
+            </a>
+          )}
           <button onClick={reset} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso">
             New Sale
           </button>
         </div>
+        <p className="mt-4 text-xs text-muted">A copy was emailed to the client automatically (if an email is on file).</p>
       </div>
     );
   }
@@ -137,6 +206,11 @@ export function PosTerminal({ services, staff, clients }: {
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       {/* Left — service picker */}
       <div className="space-y-4">
+        {bookingId && (
+          <div className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold">
+            <CalendarCheck size={16} /> Billing booking {prefill?.bookingLabel ? `· ${prefill.bookingLabel}` : ""} — add, drop or edit items below before charging.
+          </div>
+        )}
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -186,26 +260,80 @@ export function PosTerminal({ services, staff, clients }: {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted mb-1.5 block">Client (optional)</label>
-            <input
-              value={clientQuery}
-              onChange={(e) => setClientQuery(e.target.value)}
-              placeholder="Search by name or phone…"
-              className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
-            />
-            {clientQuery && filteredClients.length > 0 && (
-              <div className="mt-1 rounded-lg border border-ink-line bg-ink-card shadow-lg divide-y divide-ink-line/60">
-                {filteredClients.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => { setSelectedClient(c.id); setClientQuery(c.name); }}
-                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gold/5 text-start"
-                  >
-                    <span className="text-sm text-cream">{c.name}</span>
-                    <span className="text-xs text-muted">{c.phone ?? ""}</span>
-                  </button>
-                ))}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs text-muted">Client</label>
+              <button
+                onClick={() => setShowNewClient((v) => !v)}
+                className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-deep"
+              >
+                <UserPlus size={12} /> {showNewClient ? "Cancel" : "New client"}
+              </button>
+            </div>
+
+            {showNewClient ? (
+              <div className="space-y-2 rounded-lg border border-gold/30 bg-gold/5 p-3">
+                <input
+                  value={newClient.name}
+                  onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Full name *"
+                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
+                />
+                <input
+                  value={newClient.phone}
+                  onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="Phone"
+                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
+                />
+                <input
+                  value={newClient.email}
+                  onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="Email (for the invoice)"
+                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
+                />
+                <button
+                  onClick={createClient}
+                  disabled={creatingClient}
+                  className="w-full rounded-lg bg-gold-gradient py-2 text-sm font-semibold text-espresso disabled:opacity-50"
+                >
+                  {creatingClient ? "Adding…" : "Add & select client"}
+                </button>
               </div>
+            ) : (
+              <>
+                <input
+                  value={clientQuery}
+                  onChange={(e) => { setClientQuery(e.target.value); setSelectedClient(""); }}
+                  placeholder="Search by name or phone…"
+                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
+                />
+                {selectedClientObj && (
+                  <div className="mt-1.5 inline-flex items-center gap-2 rounded-full bg-gold/10 px-3 py-1 text-xs text-gold">
+                    <CheckCircle2 size={12} /> {selectedClientObj.name}
+                  </div>
+                )}
+                {clientQuery && !selectedClientObj && filteredClients.length > 0 && (
+                  <div className="mt-1 rounded-lg border border-ink-line bg-ink-card shadow-lg divide-y divide-ink-line/60">
+                    {filteredClients.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setSelectedClient(c.id); setClientQuery(c.name); }}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-gold/5 text-start"
+                      >
+                        <span className="text-sm text-cream">{c.name}</span>
+                        <span className="text-xs text-muted">{c.phone ?? ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {clientQuery && !selectedClientObj && filteredClients.length === 0 && (
+                  <button
+                    onClick={() => { setNewClient((p) => ({ ...p, name: clientQuery })); setShowNewClient(true); }}
+                    className="mt-1.5 text-xs text-gold hover:text-gold-deep"
+                  >
+                    + Add “{clientQuery}” as a new client
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -284,11 +412,11 @@ export function PosTerminal({ services, staff, clients }: {
           onClick={checkout}
           disabled={submitting || lines.length === 0 || total === 0}
           className={cn(
-            "w-full rounded-2xl py-4 font-semibold text-espresso transition-opacity text-base",
+            "w-full rounded-2xl py-4 font-semibold text-espresso transition-opacity text-base flex items-center justify-center gap-2",
             "bg-gold-gradient disabled:opacity-40"
           )}
         >
-          {submitting ? <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18} /> Processing…</span> : `Charge ${aed(total)}`}
+          {submitting ? <><Loader2 className="animate-spin" size={18} /> Processing…</> : <><Send size={16} /> {`Charge ${aed(total)}`}</>}
         </button>
       </div>
     </div>

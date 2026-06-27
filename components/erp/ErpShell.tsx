@@ -17,6 +17,7 @@ import {
   X,
   ExternalLink,
   ShoppingCart,
+  Newspaper,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { logoutAction } from "@/lib/actions/admin";
@@ -31,6 +32,7 @@ const NAV = [
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/staff", label: "Staff", icon: Scissors, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/finance", label: "Finance", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
+  { href: "/erp/blog", label: "Blog", icon: Newspaper, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/products", label: "Storefront", icon: ShoppingBag, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN"] },
 ] as const;

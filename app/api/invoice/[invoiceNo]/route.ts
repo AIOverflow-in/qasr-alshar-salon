@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { verifyInvoiceToken } from "@/lib/invoice-token";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Public, token-gated invoice PDF — the link we email/WhatsApp to clients.
+ * Requires a valid ?t= token; without it the invoice is not accessible here.
+ */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ invoiceNo: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const allowed: string[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
-  if (!allowed.includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const { invoiceNo } = await params;
+  const token = new URL(req.url).searchParams.get("t") ?? "";
+
+  if (!verifyInvoiceToken(invoiceNo, token)) {
+    return NextResponse.json({ error: "Invalid or missing token" }, { status: 403 });
+  }
 
   const order = await prisma.salesOrder.findUnique({
     where: { invoiceNo },
@@ -24,11 +28,9 @@ export async function GET(
       staff: { select: { name: true } },
     },
   });
-
   if (!order) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
   const bytes = await buildInvoicePdf(order);
-
   return new Response(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",

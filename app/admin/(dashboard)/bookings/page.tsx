@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { aed } from "@/lib/utils";
 import { BookingRow } from "@/components/admin/BookingRow";
+import { TableSearch } from "@/components/erp/TableSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -57,35 +58,37 @@ export default async function AdminBookings({
           No bookings found.
         </div>
       ) : (
-        <div className="surface overflow-x-auto rounded-2xl">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="border-b border-ink-line text-left text-muted">
-              <tr>
-                <th className="p-4 font-medium">When</th>
-                <th className="p-4 font-medium">Client</th>
-                <th className="p-4 font-medium">Service</th>
-                <th className="p-4 font-medium">Price</th>
-                <th className="p-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-line/60">
-              {bookings.map((b) => (
-                <BookingRow
-                  key={b.id}
-                  id={b.id}
-                  when={whenLabel(b.startAt)}
-                  name={b.customerName}
-                  phone={b.phone}
-                  email={b.email}
-                  service={b.serviceName}
-                  price={aed(b.priceAED)}
-                  notes={b.notes}
-                  status={b.status}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TableSearch placeholder="Search by client, phone, email or service…">
+          <div className="surface overflow-x-auto rounded-2xl">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="border-b border-ink-line text-left text-muted">
+                <tr>
+                  <th className="p-4 font-medium">When</th>
+                  <th className="p-4 font-medium">Client</th>
+                  <th className="p-4 font-medium">Service</th>
+                  <th className="p-4 font-medium">Price</th>
+                  <th className="p-4 font-medium">Status &amp; Bill</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-line/60">
+                {bookings.map((b) => (
+                  <BookingRow
+                    key={b.id}
+                    id={b.id}
+                    when={whenLabel(b.startAt)}
+                    name={b.customerName}
+                    phone={b.phone}
+                    email={b.email}
+                    service={b.serviceName}
+                    price={aed(b.priceAED)}
+                    notes={b.notes}
+                    status={b.status}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TableSearch>
       )}
     </div>
   );

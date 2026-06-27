@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { aed } from "@/lib/utils";
+import { TableSearch } from "@/components/erp/TableSearch";
+import { StaffEditRow } from "@/components/erp/StaffEditRow";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,7 @@ export default async function ErpStaff() {
         <p className="text-sm text-muted">{staff.filter((s) => s.active).length} active · {staff.length} total</p>
       </div>
 
+      <TableSearch placeholder="Search staff by name or role…">
       <div className="surface overflow-x-auto rounded-2xl">
         <table className="w-full min-w-[700px] text-sm">
           <thead className="border-b border-ink-line text-left text-muted">
@@ -59,24 +62,24 @@ export default async function ErpStaff() {
           </thead>
           <tbody className="divide-y divide-ink-line/60">
             {staff.map((s) => (
-              <tr key={s.id}>
-                <td className="p-4 font-medium text-cream">{s.name}</td>
-                <td className="p-4 text-sand">{s.role}</td>
-                <td className="p-4 text-muted text-xs">{s.hours}</td>
-                <td className="p-4 text-muted">{s.offDay ?? "—"}</td>
-                <td className="p-4 text-right text-sand">{bookMap.get(s.id) ?? 0}</td>
-                <td className="p-4 text-xs text-muted">{s.commissionPct}% split · {s.referralPct}% ref</td>
-                <td className="p-4 text-right font-semibold text-gold">{commMap.get(s.id) ? aed(commMap.get(s.id)!) : "—"}</td>
-                <td className="p-4">
-                  <span className={`rounded-full border px-2.5 py-1 text-xs ${s.active ? "border-green-500/40 text-green-400" : "border-muted/40 text-muted"}`}>
-                    {s.active ? "Active" : "Inactive"}
-                  </span>
-                </td>
-              </tr>
+              <StaffEditRow
+                key={s.id}
+                id={s.id}
+                name={s.name}
+                role={s.role}
+                hours={s.hours}
+                offDay={s.offDay}
+                commissionPct={s.commissionPct}
+                referralPct={s.referralPct}
+                active={s.active}
+                bookingsMTD={bookMap.get(s.id) ?? 0}
+                earnedMTD={commMap.get(s.id) ?? 0}
+              />
             ))}
           </tbody>
         </table>
       </div>
+      </TableSearch>
 
       {/* Commissions this month */}
       {commissions.length > 0 && (

@@ -37,6 +37,13 @@ yarn-error.log*
 # raw brand source files (large originals; optimized copies live in /public)
 /brand-assets-src
 
+# local working data & scratch — not part of the deployed app (large media, source sheets)
+/additional-data/
+/rough/
+/rough.txt
+/Client namesss.xlsx
+*.HEIC
+
 # vercel
 .vercel
 

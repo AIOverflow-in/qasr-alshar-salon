@@ -18,6 +18,11 @@ async function run(req: Request) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Only the public-facing deployment generates posts, so two projects sharing
+  // one DB never double-post. ("all" = single combined deployment.)
+  if ((process.env.DEPLOY_TARGET || "all") === "erp") {
+    return NextResponse.json({ ok: true, skipped: "erp deployment does not generate blog posts" });
+  }
   const post = await generateBlogPost();
   if (!post) {
     return NextResponse.json({ ok: false, error: "Generation failed" }, { status: 500 });

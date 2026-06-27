@@ -15,6 +15,9 @@ const schema = z.object({
   notes: z.string().max(800).optional().nullable(),
   staffId: z.string().optional().nullable(),
   locale: z.enum(["en", "ar"]).optional(),
+  serviceMode: z.enum(["SALON", "HOME"]).optional(),
+  address: z.string().max(400).optional().nullable(),
+  customRequest: z.string().max(800).optional().nullable(),
 });
 
 function dubaiLabel(d: Date) {
@@ -97,6 +100,9 @@ export async function POST(req: Request) {
             status: "CONFIRMED",
             locale: data.locale ?? "en",
             staffId: data.staffId || null,
+            serviceMode: data.serviceMode ?? "SALON",
+            address: data.serviceMode === "HOME" ? data.address?.trim() || null : null,
+            customRequest: data.customRequest?.trim() || null,
           },
         });
       },
@@ -124,6 +130,9 @@ export async function POST(req: Request) {
       priceAED: booking.priceAED,
       whenLabel: dubaiLabel(start),
       notes: booking.notes,
+      serviceMode: booking.serviceMode,
+      address: booking.address,
+      customRequest: booking.customRequest,
     });
   } catch (e) {
     console.error("[bookings] email send failed (booking still saved):", e);

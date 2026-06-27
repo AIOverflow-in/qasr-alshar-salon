@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 const LINKS = [
   { href: "/admin/services", label: "Services & Prices", icon: Scissors, desc: "Edit the service menu and pricing" },
   { href: "/admin/hours", label: "Hours, Capacity & Blocked Dates", icon: Clock, desc: "Opening hours and booking settings" },
-  { href: "/admin/blog", label: "Blog", icon: Newspaper, desc: "AI articles + generate now" },
+  { href: "/erp/blog", label: "Blog", icon: Newspaper, desc: "AI articles + generate now" },
 ];
 
 export default function ErpSettings() {
