@@ -16,7 +16,10 @@ export default async function ErpBookings() {
   const bookings = await prisma.booking.findMany({
     orderBy: { startAt: "desc" },
     take: 300,
-    include: { staff: { select: { name: true } } },
+    include: {
+      staff: { select: { name: true } },
+      salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
+    },
   });
 
   return (
@@ -58,6 +61,8 @@ export default async function ErpBookings() {
                     serviceMode={b.serviceMode}
                     address={b.address}
                     customRequest={b.customRequest}
+                    orderId={b.salesOrders[0]?.id ?? null}
+                    invoiceNo={b.salesOrders[0]?.invoiceNo ?? null}
                   />
                 ))}
               </tbody>

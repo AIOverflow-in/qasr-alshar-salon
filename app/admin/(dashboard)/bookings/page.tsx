@@ -29,6 +29,10 @@ export default async function AdminBookings({
     where,
     orderBy: { startAt: "desc" },
     take: 200,
+    include: {
+      staff: { select: { name: true } },
+      salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
+    },
   });
 
   const filters = ["ALL", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
@@ -83,6 +87,12 @@ export default async function AdminBookings({
                     price={aed(b.priceAED)}
                     notes={b.notes}
                     status={b.status}
+                    staffName={b.staff?.name ?? null}
+                    serviceMode={b.serviceMode}
+                    address={b.address}
+                    customRequest={b.customRequest}
+                    orderId={b.salesOrders[0]?.id ?? null}
+                    invoiceNo={b.salesOrders[0]?.invoiceNo ?? null}
                   />
                 ))}
               </tbody>

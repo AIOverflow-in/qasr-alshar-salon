@@ -7,6 +7,7 @@ import { cn, aed } from "@/lib/utils";
 const VAT_PCT = 5;
 
 type Service = { id: string; name: string; category: string; priceAED: number; durationMin: number };
+type ProductItem = { id: string; name: string; category: string; saleAED: number | null; qty: number };
 type StaffMember = { id: string; name: string };
 type Client = { id: string; name: string; phone: string | null };
 
@@ -21,19 +22,24 @@ type LineItem = {
 
 export type PosPrefill = {
   bookingId?: string;
-  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT" }[];
+  orderId?: string; // editing an existing invoice
+  invoiceNo?: string;
+  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT"; productId?: string | null }[];
   staffId?: string;
+  paymentMethod?: "CASH" | "CARD" | "TRANSFER";
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
 };
 
-export function PosTerminal({ services, staff, clients: initialClients, prefill }: {
+export function PosTerminal({ services, staff, clients: initialClients, products = [], prefill }: {
   services: Service[];
   staff: StaffMember[];
   clients: Client[];
+  products?: ProductItem[];
   prefill?: PosPrefill;
 }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const [pickerTab, setPickerTab] = useState<"service" | "product">("service");
   const [lines, setLines] = useState<LineItem[]>(
     (prefill?.lines ?? []).map((l, i) => ({
       key: `pre-${i}`,
@@ -41,18 +47,21 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
       description: l.description,
       qty: l.qty,
       unitAED: l.unitAED,
+      productId: l.productId ?? null,
     }))
   );
   const [query, setQuery] = useState("");
   const [selectedStaff, setSelectedStaff] = useState<string>(prefill?.staffId ?? "");
   const [selectedClient, setSelectedClient] = useState<string>(prefill?.client?.id ?? "");
   const [clientQuery, setClientQuery] = useState(prefill?.client?.id ? prefill.client.name ?? "" : "");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">(prefill?.paymentMethod ?? "CASH");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientEmail: string | null; clientPhone: string | null } | null>(null);
   const [bookingId] = useState<string | undefined>(prefill?.bookingId);
+  const [orderId] = useState<string | undefined>(prefill?.orderId);
+  const editing = !!orderId;
 
   // ── inline new-client ──────────────────────────────────────────────────
   const [showNewClient, setShowNewClient] = useState(false);
@@ -68,6 +77,12 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
     if (!q) return services.slice(0, 20);
     return services.filter((s) => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)).slice(0, 30);
   }, [services, query]);
+
+  const filteredProducts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q ? products.filter((p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)) : products;
+    return list.slice(0, 40);
+  }, [products, query]);
 
   const filteredClients = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
@@ -87,6 +102,15 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
       const existing = prev.find((l) => l.key === key);
       if (existing) return prev.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
       return [...prev, { key, kind: "SERVICE", description: s.name, qty: 1, unitAED: s.priceAED }];
+    });
+  }
+
+  function addProduct(p: ProductItem) {
+    const key = `prod-${p.id}`;
+    setLines((prev) => {
+      const existing = prev.find((l) => l.key === key);
+      if (existing) return prev.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
+      return [...prev, { key, kind: "PRODUCT", description: p.name, qty: 1, unitAED: p.saleAED ?? 0, productId: p.id }];
     });
   }
 
@@ -146,9 +170,10 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
     setSubmitting(true);
     try {
       const res = await fetch("/api/erp/pos", {
-        method: "POST",
+        method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(editing ? { orderId } : {}),
           paymentMethod,
           staffId: selectedStaff || null,
           clientId: selectedClient || null,
@@ -206,23 +231,42 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       {/* Left — service picker */}
       <div className="space-y-4">
-        {bookingId && (
+        {editing && (
+          <div className="flex items-center gap-2 rounded-xl border border-blue-400/40 bg-blue-400/10 px-4 py-2.5 text-sm text-blue-300">
+            <CalendarCheck size={16} /> Editing invoice {prefill?.invoiceNo ?? ""} — change items below and save to update the bill.
+          </div>
+        )}
+        {bookingId && !editing && (
           <div className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold">
             <CalendarCheck size={16} /> Billing booking {prefill?.bookingLabel ? `· ${prefill.bookingLabel}` : ""} — add, drop or edit items below before charging.
           </div>
         )}
+        {/* Services / Products toggle */}
+        <div className="flex gap-2">
+          {(["service", "product"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setPickerTab(t)}
+              className={cn("flex-1 rounded-xl border py-2 text-sm font-semibold capitalize transition-colors",
+                pickerTab === t ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-muted hover:border-gold/40"
+              )}
+            >
+              {t === "service" ? "Services" : `Products${products.length ? ` (${products.length})` : ""}`}
+            </button>
+          ))}
+        </div>
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search services…"
+            placeholder={pickerTab === "service" ? "Search services…" : "Search products…"}
             className="w-full rounded-xl border border-ink-line bg-ink-card py-2.5 pl-9 pr-4 text-cream placeholder:text-muted focus:border-gold/60 outline-none text-sm"
           />
         </div>
         <div className="surface rounded-2xl overflow-hidden">
           <div className="grid divide-y divide-ink-line/60 max-h-[50vh] overflow-y-auto">
-            {filtered.map((s) => (
+            {pickerTab === "service" && filtered.map((s) => (
               <button
                 key={s.id}
                 onClick={() => addService(s)}
@@ -238,7 +282,26 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
                 </div>
               </button>
             ))}
-            {filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted">No services found</div>}
+            {pickerTab === "service" && filtered.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted">No services found</div>}
+
+            {pickerTab === "product" && filteredProducts.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => addProduct(p)}
+                disabled={p.qty <= 0}
+                className="flex items-center justify-between px-4 py-3 text-start hover:bg-gold/5 transition-colors disabled:opacity-40"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-cream text-sm">{p.name}</div>
+                  <div className="text-xs text-muted">{p.category} · <span className={p.qty === 0 ? "text-red-400" : p.qty <= 3 ? "text-gold" : ""}>{p.qty} in stock</span></div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-gold text-sm font-semibold">{p.saleAED ? aed(p.saleAED) : "—"}</span>
+                  <Plus size={16} className="text-muted" />
+                </div>
+              </button>
+            ))}
+            {pickerTab === "product" && filteredProducts.length === 0 && <div className="px-4 py-8 text-center text-sm text-muted">No products found</div>}
           </div>
         </div>
         <button onClick={addCustomLine} className="text-sm text-muted hover:text-gold transition-colors">+ Add custom line</button>
@@ -416,7 +479,7 @@ export function PosTerminal({ services, staff, clients: initialClients, prefill 
             "bg-gold-gradient disabled:opacity-40"
           )}
         >
-          {submitting ? <><Loader2 className="animate-spin" size={18} /> Processing…</> : <><Send size={16} /> {`Charge ${aed(total)}`}</>}
+          {submitting ? <><Loader2 className="animate-spin" size={18} /> Processing…</> : <><Send size={16} /> {editing ? `Update invoice · ${aed(total)}` : `Charge ${aed(total)}`}</>}
         </button>
       </div>
     </div>
