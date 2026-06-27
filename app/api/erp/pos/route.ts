@@ -17,6 +17,7 @@ const lineSchema = z.object({
   qty: z.number().int().positive(),
   unitAED: z.number().int().nonnegative(),
   productId: z.string().optional().nullable(),
+  staffId: z.string().optional().nullable(), // artist who performed THIS line
 });
 
 const createSchema = z.object({
@@ -24,9 +25,40 @@ const createSchema = z.object({
   bookingId: z.string().optional().nullable(),
   clientId: z.string().optional().nullable(),
   staffId: z.string().optional().nullable(),
+  marketerId: z.string().optional().nullable(),
+  marketerPct: z.number().int().min(0).max(100).optional(),
   notes: z.string().max(500).optional().nullable(),
   lines: z.array(lineSchema).min(1),
 });
+
+/**
+ * Recompute commissions for an order inside a transaction:
+ * a SALES_SPLIT per artist (by their own line totals) + a REFERRAL for the marketer.
+ */
+async function writeCommissions(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  orderId: string,
+  lines: { lineAED: number; staffId?: string | null }[],
+  orderStaffId: string | null,
+  subtotal: number,
+  marketerId: string | null,
+  marketerPct: number,
+) {
+  const baseByStaff = new Map<string, number>();
+  for (const l of lines) {
+    const sid = l.staffId || orderStaffId;
+    if (sid) baseByStaff.set(sid, (baseByStaff.get(sid) ?? 0) + l.lineAED);
+  }
+  for (const [sid, base] of baseByStaff) {
+    const staff = await tx.staff.findUnique({ where: { id: sid }, select: { commissionPct: true } });
+    if (staff) {
+      await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: base, pct: staff.commissionPct, amountAED: Math.round(base * staff.commissionPct / 100) } });
+    }
+  }
+  if (marketerId) {
+    await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: subtotal, pct: marketerPct, amountAED: Math.round(subtotal * marketerPct / 100) } });
+  }
+}
 
 const editSchema = createSchema.extend({ orderId: z.string().min(1) });
 
@@ -105,6 +137,8 @@ export async function POST(req: Request) {
         bookingId: data.bookingId ?? null,
         clientId: data.clientId ?? null,
         staffId: data.staffId ?? null,
+        marketerId: data.marketerId ?? null,
+        marketerPct: data.marketerPct ?? 5,
         subtotalAED: subtotal,
         vatPct: VAT_PCT,
         vatAED,
@@ -119,6 +153,7 @@ export async function POST(req: Request) {
             unitAED: l.unitAED,
             lineAED: l.lineAED,
             productId: l.productId ?? null,
+            staffId: l.staffId ?? null,
           })),
         },
       },
@@ -150,23 +185,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // auto-compute commissions for the assigned stylist
-    if (data.staffId) {
-      const staff = await tx.staff.findUnique({ where: { id: data.staffId }, select: { commissionPct: true, referralPct: true } });
-      if (staff) {
-        const commAED = Math.round(subtotal * staff.commissionPct / 100);
-        await tx.commission.create({
-          data: {
-            staffId: data.staffId,
-            orderId: created.id,
-            type: "SALES_SPLIT",
-            baseAED: subtotal,
-            pct: staff.commissionPct,
-            amountAED: commAED,
-          },
-        });
-      }
-    }
+    // commissions: per-artist sales split (by their own lines) + marketer referral
+    await writeCommissions(tx, created.id, lines, data.staffId ?? null, subtotal, data.marketerId ?? null, data.marketerPct ?? 5);
 
     return created;
   });
@@ -217,9 +237,11 @@ export async function PATCH(req: Request) {
           paymentMethod: data.paymentMethod,
           clientId: data.clientId ?? null,
           staffId: data.staffId ?? null,
+          marketerId: data.marketerId ?? null,
+          marketerPct: data.marketerPct ?? 5,
           notes: data.notes ?? null,
           subtotalAED: subtotal, vatPct: VAT_PCT, vatAED, totalAED: total,
-          lines: { create: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, lineAED: l.lineAED, productId: l.productId ?? null })) },
+          lines: { create: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, lineAED: l.lineAED, productId: l.productId ?? null, staffId: l.staffId ?? null })) },
         },
       });
       // 4. Apply new product stock
@@ -231,13 +253,8 @@ export async function PATCH(req: Request) {
       if (data.clientId) {
         await tx.client.update({ where: { id: data.clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
       }
-      // 6. Recompute commission
-      if (data.staffId) {
-        const staff = await tx.staff.findUnique({ where: { id: data.staffId }, select: { commissionPct: true } });
-        if (staff) {
-          await tx.commission.create({ data: { staffId: data.staffId, orderId: existing.id, type: "SALES_SPLIT", baseAED: subtotal, pct: staff.commissionPct, amountAED: Math.round(subtotal * staff.commissionPct / 100) } });
-        }
-      }
+      // 6. Recompute commissions (per-artist split + marketer referral)
+      await writeCommissions(tx, existing.id, lines, data.staffId ?? null, subtotal, data.marketerId ?? null, data.marketerPct ?? 5);
     });
   } catch (e) {
     if (e instanceof Error && e.message === "NOT_FOUND") return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

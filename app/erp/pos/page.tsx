@@ -40,7 +40,8 @@ export default async function PosPage({
         invoiceNo: order.invoiceNo,
         paymentMethod: order.paymentMethod as "CASH" | "CARD" | "TRANSFER",
         staffId: order.staffId ?? undefined,
-        lines: order.lines.map((l) => ({ description: l.description, qty: l.qty, unitAED: l.unitAED, kind: l.kind as "SERVICE" | "PRODUCT", productId: l.productId })),
+        marketerId: order.marketerId ?? undefined,
+        lines: order.lines.map((l) => ({ description: l.description, qty: l.qty, unitAED: l.unitAED, kind: l.kind as "SERVICE" | "PRODUCT", productId: l.productId, staffId: l.staffId })),
         client: order.client ? { id: order.client.id, name: order.client.name, phone: order.client.phone, email: order.client.email } : undefined,
       };
     }

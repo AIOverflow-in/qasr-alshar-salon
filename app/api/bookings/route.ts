@@ -66,6 +66,30 @@ export async function POST(req: Request) {
   const start = new Date(data.startISO);
   const end = new Date(start.getTime() + service.durationMin * 60_000);
 
+  // Find-or-create the CRM client so every booking funnels into the customer list.
+  const phoneClean = data.phone.trim();
+  const emailClean = data.email.trim().toLowerCase();
+  let clientId: string | null = null;
+  try {
+    const orClauses = [
+      phoneClean ? { phone: phoneClean } : null,
+      emailClean ? { email: emailClean } : null,
+    ].filter(Boolean) as { phone?: string; email?: string }[];
+    const existing = orClauses.length
+      ? await prisma.client.findFirst({ where: { OR: orClauses }, select: { id: true } })
+      : null;
+    if (existing) {
+      clientId = existing.id;
+    } else {
+      const created = await prisma.client.create({
+        data: { name: data.customerName.trim(), phone: phoneClean || null, email: emailClean || null },
+      });
+      clientId = created.id;
+    }
+  } catch (e) {
+    console.error("[bookings] client link failed (booking continues):", e);
+  }
+
   // Create inside a serializable transaction that re-checks capacity, so two
   // simultaneous requests can never oversell the same slot (double-booking guard).
   let booking;
@@ -100,6 +124,7 @@ export async function POST(req: Request) {
             status: "CONFIRMED",
             locale: data.locale ?? "en",
             staffId: data.staffId || null,
+            clientId,
             serviceMode: data.serviceMode ?? "SALON",
             address: data.serviceMode === "HOME" ? data.address?.trim() || null : null,
             customRequest: data.customRequest?.trim() || null,

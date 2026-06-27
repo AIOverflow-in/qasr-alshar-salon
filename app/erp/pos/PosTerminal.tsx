@@ -18,14 +18,16 @@ type LineItem = {
   qty: number;
   unitAED: number;
   productId?: string | null;
+  staffId?: string | null; // artist who did this line (overrides the main artist)
 };
 
 export type PosPrefill = {
   bookingId?: string;
   orderId?: string; // editing an existing invoice
   invoiceNo?: string;
-  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT"; productId?: string | null }[];
+  lines?: { description: string; qty: number; unitAED: number; kind?: "SERVICE" | "PRODUCT"; productId?: string | null; staffId?: string | null }[];
   staffId?: string;
+  marketerId?: string;
   paymentMethod?: "CASH" | "CARD" | "TRANSFER";
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
@@ -48,10 +50,12 @@ export function PosTerminal({ services, staff, clients: initialClients, products
       qty: l.qty,
       unitAED: l.unitAED,
       productId: l.productId ?? null,
+      staffId: l.staffId ?? null,
     }))
   );
   const [query, setQuery] = useState("");
   const [selectedStaff, setSelectedStaff] = useState<string>(prefill?.staffId ?? "");
+  const [selectedMarketer, setSelectedMarketer] = useState<string>(prefill?.marketerId ?? "");
   const [selectedClient, setSelectedClient] = useState<string>(prefill?.client?.id ?? "");
   const [clientQuery, setClientQuery] = useState(prefill?.client?.id ? prefill.client.name ?? "" : "");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">(prefill?.paymentMethod ?? "CASH");
@@ -176,10 +180,11 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           ...(editing ? { orderId } : {}),
           paymentMethod,
           staffId: selectedStaff || null,
+          marketerId: selectedMarketer || null,
           clientId: selectedClient || null,
           bookingId: bookingId || null,
           notes: notes || null,
-          lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null })),
+          lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffId ?? null })),
         }),
       });
       const data = await res.json();
@@ -312,13 +317,25 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         {/* client + staff selectors */}
         <div className="surface rounded-2xl p-4 space-y-3">
           <div>
-            <label className="text-xs text-muted mb-1.5 block">Crown Artist</label>
+            <label className="text-xs text-muted mb-1.5 block">Crown Artist (main)</label>
             <select
               value={selectedStaff}
               onChange={(e) => setSelectedStaff(e.target.value)}
               className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
             >
               <option value="">— Any / walk-in —</option>
+              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <p className="mt-1 text-[0.65rem] text-muted">Used for any line without its own artist set below.</p>
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1.5 block">Marketer (referral 5%)</label>
+            <select
+              value={selectedMarketer}
+              onChange={(e) => setSelectedMarketer(e.target.value)}
+              className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
+            >
+              <option value="">— None —</option>
               {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
@@ -405,29 +422,41 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         <div className="surface rounded-2xl p-4 space-y-2 min-h-[160px]">
           {lines.length === 0 && <p className="text-center text-sm text-muted py-6">Add services from the list →</p>}
           {lines.map((l) => (
-            <div key={l.key} className="flex items-center gap-2">
-              <input
-                value={l.description}
-                onChange={(e) => updateLine(l.key, { description: e.target.value })}
-                className="flex-1 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-sm text-cream outline-none focus:border-gold/40 min-w-0"
-              />
-              <input
-                type="number"
-                value={l.qty}
-                min={1}
-                onChange={(e) => updateLine(l.key, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
-                className="w-12 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-center text-sm text-cream outline-none"
-              />
-              <input
-                type="number"
-                value={l.unitAED}
-                min={0}
-                onChange={(e) => updateLine(l.key, { unitAED: parseInt(e.target.value) || 0 })}
-                className="w-20 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-right text-sm text-gold outline-none"
-              />
-              <button onClick={() => removeLine(l.key)} className="text-muted hover:text-red-400 transition-colors flex-shrink-0">
-                <Trash2 size={14} />
-              </button>
+            <div key={l.key} className="rounded-lg border border-ink-line/40 p-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  value={l.description}
+                  onChange={(e) => updateLine(l.key, { description: e.target.value })}
+                  className="flex-1 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-sm text-cream outline-none focus:border-gold/40 min-w-0"
+                />
+                <input
+                  type="number"
+                  value={l.qty}
+                  min={1}
+                  onChange={(e) => updateLine(l.key, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
+                  className="w-12 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-center text-sm text-cream outline-none"
+                />
+                <input
+                  type="number"
+                  value={l.unitAED}
+                  min={0}
+                  onChange={(e) => updateLine(l.key, { unitAED: parseInt(e.target.value) || 0 })}
+                  className="w-20 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-right text-sm text-gold outline-none"
+                />
+                <button onClick={() => removeLine(l.key)} className="text-muted hover:text-red-400 transition-colors flex-shrink-0">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {staff.length > 0 && (
+                <select
+                  value={l.staffId ?? ""}
+                  onChange={(e) => updateLine(l.key, { staffId: e.target.value || null })}
+                  className="w-full rounded border border-ink-line/40 bg-transparent px-2 py-1 text-xs text-muted outline-none focus:border-gold/40"
+                >
+                  <option value="">By: main artist</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>By: {s.name}</option>)}
+                </select>
+              )}
             </div>
           ))}
         </div>

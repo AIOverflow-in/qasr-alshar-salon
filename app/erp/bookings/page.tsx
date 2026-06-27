@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { aed } from "@/lib/utils";
 import { TableSearch } from "@/components/erp/TableSearch";
 import { BookingRow } from "@/components/admin/BookingRow";
+import { NewBookingButton } from "@/components/erp/NewBookingButton";
 
 export const dynamic = "force-dynamic";
 
@@ -13,20 +14,28 @@ function whenLabel(d: Date) {
 }
 
 export default async function ErpBookings() {
-  const bookings = await prisma.booking.findMany({
-    orderBy: { startAt: "desc" },
-    take: 300,
-    include: {
-      staff: { select: { name: true } },
-      salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
-    },
-  });
+  const [bookings, services, staff, clients] = await Promise.all([
+    prisma.booking.findMany({
+      orderBy: { startAt: "desc" },
+      take: 300,
+      include: {
+        staff: { select: { name: true } },
+        salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
+      },
+    }),
+    prisma.service.findMany({ where: { active: true }, orderBy: { category: "asc" }, select: { id: true, name: true, category: true, priceAED: true } }),
+    prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true } }),
+    prisma.client.findMany({ orderBy: { updatedAt: "desc" }, take: 2000, select: { id: true, name: true, phone: true, email: true } }),
+  ]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl text-cream">Bookings</h1>
-        <p className="text-sm text-muted">Update a status or generate a bill — all in one place.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl text-cream">Bookings</h1>
+          <p className="text-sm text-muted">Update a status or generate a bill — all in one place.</p>
+        </div>
+        <NewBookingButton services={services} staff={staff} clients={clients} />
       </div>
 
       {bookings.length === 0 ? (
