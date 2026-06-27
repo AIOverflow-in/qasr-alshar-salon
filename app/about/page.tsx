@@ -22,6 +22,21 @@ const STATS = [
   { n: "10–10", l: "Open Late, Daily" },
 ];
 
+// Real Crown Artists — portraits in /public/staff/team, mapping confirmed by the salon.
+const TEAM = [
+  { slug: "ruth-amizo-osome", name: "Ruth Amizo Osome", role: "Crown Artist" },
+  { slug: "sarah-gatibaro", name: "Sarah Gatibaro", role: "Crown Artist" },
+  { slug: "najima-riziki-matano", name: "Najima Riziki Matano", role: "Crown Artist" },
+  { slug: "clovis-maniratunga", name: "Clovis Maniratunga", role: "Crown Artist" },
+  { slug: "brian-gichuki-mugo", name: "Brian Gichuki Mugo", role: "Crown Artist" },
+  { slug: "ann-wanjiru", name: "Ann Wanjiru", role: "Crown Artist" },
+  { slug: "grace-mwangi", name: "Grace Mwangi", role: "Aesthete" },
+  { slug: "sarah-ngigi", name: "Sarah Ngigi", role: "Crown Artist" },
+  { slug: "winnifrida-ohalla-agatha", name: "Winnifrida Ohalla Agatha", role: "Crown Artist" },
+  { slug: "kamara-kadiatu", name: "Kamara Kadiatu", role: "Crown Artist" },
+  { slug: "gifty-afriyie", name: "Gifty Afriyie", role: "Head of Comms" },
+];
+
 export default function AboutPage() {
   return (
     <>
@@ -83,46 +98,31 @@ export default function AboutPage() {
           <SectionHeading
             eyebrow="Our Team"
             title="Meet Our Crown Artists"
-            subtitle="Specialists in braiding, hair, nails, henna, makeup and more — every one trained to make you feel like royalty."
+            subtitle="The talented hands behind every look — specialists in braiding, hair, nails, henna, makeup and more, each trained to make you feel like royalty."
           />
-          <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {[
-              "/staff/staff-portrait-qasr-alshar-uniform-smiling.jpg",
-              "/staff/staff-portrait-red-locs-updo.jpg",
-              "/staff/staff-portrait-navy-wavy-hair.jpg",
-              "/staff/staff-portrait-red-arms-crossed-2.jpg",
-              "/staff/staff-portrait-male-navy-smiling.jpg",
-              "/staff/staff-portrait-red-wavy-bob.jpg",
-              "/staff/staff-portrait-navy-arms-crossed.jpg",
-              "/staff/staff-portrait-male-red-smiling.jpg",
-              "/staff/staff-portrait-red-polo-updo.jpg",
-              "/staff/staff-portrait-red-polo-arms-crossed.jpg",
-              "/staff/staff-portrait-locs-updo-red-uniform.jpg",
-              "/staff/staff-portrait-curly-bob-uniform.jpg",
-              "/staff/staff-portrait-red-gold-bracelet.jpg",
-              "/staff/staff-portrait-red-polo-smiling.jpg",
-              "/staff/staff-portrait-red-uniform-arms-crossed.jpg",
-              "/staff/staff-portrait-navy-natural-hair.jpg",
-              "/staff/staff-portrait-male-stylist-branded-polo.jpg",
-              "/staff/staff-portrait-lab-coat-pectiv.jpg",
-              "/staff/staff-portrait-holding-pectiv-product.jpg",
-              "/staff/staff-portrait-male-red-uniform.jpg",
-              "/staff/staff-portrait-qasr-alshar-uniform.jpg",
-            ].map((src, i) => (
-              <Reveal key={src} delay={(i % 6) * 50}>
-                <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-ink-line bg-ink-soft">
-                  <Image
-                    src={src}
-                    alt="Qasr Alshar Crown Artist"
-                    fill
-                    sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 16vw"
-                    className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
+          <div className="mt-12 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+            {TEAM.map((m, i) => (
+              <Reveal key={m.slug} delay={(i % 4) * 60}>
+                <figure className="group text-center">
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-ink-line bg-ink-soft shadow-sm">
+                    <Image
+                      src={`/staff/team/${m.slug}.jpg`}
+                      alt={`${m.name} — ${m.role} at Qasr Alshar Salon, Dubai`}
+                      fill
+                      sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60" />
+                  </div>
+                  <figcaption className="mt-3">
+                    <div className="font-display text-base leading-tight text-cream">{m.name}</div>
+                    <div className="mt-0.5 text-xs uppercase tracking-wider text-gold">{m.role}</div>
+                  </figcaption>
+                </figure>
               </Reveal>
             ))}
           </div>
-          <p className="mt-8 text-center text-sm text-sand/60">Select your preferred Crown Artist when you book online.</p>
+          <p className="mt-10 text-center text-sm text-sand/60">Choose your preferred Crown Artist by name when you book online.</p>
           <div className="mt-4 text-center">
             <ButtonLink href="/book">Book With Your Favourite Artist</ButtonLink>
           </div>
