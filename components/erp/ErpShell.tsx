@@ -118,7 +118,7 @@ export function ErpShell({
             {sidebar}
           </aside>
         )}
-        <main className="min-w-0 flex-1 p-5 md:p-8">{children}</main>
+        <main className="min-w-0 flex-1 p-5 md:p-8 lg:pt-20">{children}</main>
       </div>
     </div>
   );
