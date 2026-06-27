@@ -22,13 +22,24 @@ export default async function ErpStaff() {
   const [staff, commissions] = await Promise.all([
     prisma.staff.findMany({ orderBy: { order: "asc" } }),
     prisma.commission.groupBy({
-      by: ["staffId"],
+      by: ["staffId", "paid"],
       _sum: { amountAED: true },
       where: { createdAt: { gte: monthStart } },
     }),
   ]);
 
-  const commMap = new Map(commissions.map((c) => [c.staffId, c._sum.amountAED ?? 0]));
+  const earnedMap = new Map<string, number>();
+  const paidMap = new Map<string, number>();
+  for (const c of commissions) {
+    const amt = c._sum.amountAED ?? 0;
+    earnedMap.set(c.staffId, (earnedMap.get(c.staffId) ?? 0) + amt);
+    if (c.paid) paidMap.set(c.staffId, (paidMap.get(c.staffId) ?? 0) + amt);
+  }
+  const commMap = earnedMap;
+  const totalEarned = [...earnedMap.values()].reduce((a, b) => a + b, 0);
+  const totalPaid = [...paidMap.values()].reduce((a, b) => a + b, 0);
+  const totalOutstanding = totalEarned - totalPaid;
+  const staffWithComm = staff.filter((s) => (earnedMap.get(s.id) ?? 0) > 0);
 
   // per-stylist booking count this month
   const bookingCounts = await prisma.booking.groupBy({
@@ -40,9 +51,12 @@ export default async function ErpStaff() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl text-cream">Staff</h1>
-        <p className="text-sm text-muted">{staff.filter((s) => s.active).length} active · {staff.length} total</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl text-cream">Staff &amp; Payroll</h1>
+          <p className="text-sm text-muted">{staff.filter((s) => s.active).length} active · {staff.length} total</p>
+        </div>
+        <a href="/api/erp/payroll/export" className="rounded-full border border-gold/40 px-4 py-2 text-sm text-gold hover:bg-gold/10">Export payroll (CSV)</a>
       </div>
 
       <TableSearch placeholder="Search staff by name or role…">
@@ -81,24 +95,39 @@ export default async function ErpStaff() {
       </div>
       </TableSearch>
 
-      {/* Commissions this month */}
-      {commissions.length > 0 && (
+      {/* Commissions & payroll this month */}
+      {staffWithComm.length > 0 && (
         <div className="surface rounded-2xl p-5">
-          <h2 className="font-display text-lg text-cream mb-3">Commissions This Month</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {commissions.map((c) => {
-              const staffMember = staff.find((s) => s.id === c.staffId);
-              if (!staffMember) return null;
+          <div className="mb-4 grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-ink-line p-4">
+              <div className="font-display text-2xl text-gold-gradient">{aed(totalEarned)}</div>
+              <div className="text-xs text-muted">Earned this month</div>
+            </div>
+            <div className="rounded-xl border border-ink-line p-4">
+              <div className="font-display text-2xl text-green-400">{aed(totalPaid)}</div>
+              <div className="text-xs text-muted">Paid</div>
+            </div>
+            <div className="rounded-xl border border-ink-line p-4">
+              <div className="font-display text-2xl text-gold">{aed(totalOutstanding)}</div>
+              <div className="text-xs text-muted">Outstanding</div>
+            </div>
+          </div>
+          <h2 className="font-display text-lg text-cream mb-3">By Crown Artist</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {staffWithComm.map((s) => {
+              const earned = earnedMap.get(s.id) ?? 0;
+              const paid = paidMap.get(s.id) ?? 0;
+              const outstanding = earned - paid;
               return (
-                <div key={c.staffId} className="rounded-xl border border-ink-line p-4">
-                  <div className="text-sm text-cream">{staffMember.name}</div>
-                  <div className="mt-1 font-display text-xl text-gold">{aed(c._sum.amountAED ?? 0)}</div>
-                  <div className="text-xs text-muted">{staffMember.commissionPct}% of sales</div>
+                <div key={s.id} className="rounded-xl border border-ink-line p-4">
+                  <div className="text-sm text-cream">{s.name}</div>
+                  <div className="mt-1 font-display text-xl text-gold">{aed(earned)}</div>
+                  <div className="mt-1 text-xs text-muted">{outstanding > 0 ? `${aed(outstanding)} outstanding` : "All settled ✓"}</div>
                 </div>
               );
             })}
           </div>
-          <p className="mt-3 text-xs text-muted">Commissions are auto-computed from POS sales. Payroll export coming next.</p>
+          <p className="mt-3 text-xs text-muted">Auto-computed from POS sales (per-artist split + marketer referral). Use the row "settle" to mark a stylist paid, or export the CSV above.</p>
         </div>
       )}
     </div>
