@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Plus, Minus, Pencil, PackagePlus, Boxes, Loader2, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Plus, Minus, Pencil, PackagePlus, Boxes, Loader2, X, Upload, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type Product = {
@@ -15,35 +15,82 @@ const empty = { name: "", category: "Retail / Aftercare", barcode: "", qty: "0",
 
 export function InventoryTable({ products, categories }: { products: Product[]; categories: string[] }) {
   const router = useRouter();
+  const [items, setItems] = useState<Product[]>(products);
+  useEffect(() => { setItems(products); }, [products]); // resync after a server refresh
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [page, setPage] = useState(0);
-  const [busy, setBusy] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [edit, setEdit] = useState<Product | null>(null);
   const [stockFor, setStockFor] = useState<Product | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return products.filter((p) =>
+    return items.filter((p) =>
       (!cat || p.category === cat) &&
       (!s || p.name.toLowerCase().includes(s) || (p.barcode ?? "").includes(s))
     );
-  }, [products, q, cat]);
+  }, [items, q, cat]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const safePage = Math.min(page, pages - 1);
   const slice = filtered.slice(safePage * PAGE, safePage * PAGE + PAGE);
 
   async function adjust(p: Product, delta: number) {
-    setBusy(p.id);
+    // optimistic: update the cell instantly, persist in the background, revert on failure
+    setItems((prev) => prev.map((x) => x.id === p.id ? { ...x, qty: x.qty + delta } : x));
     try {
-      await fetch("/api/erp/inventory", {
+      const res = await fetch("/api/erp/inventory", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: p.id, kind: delta > 0 ? "STOCK_IN" : "STOCK_OUT", qty: delta, note: "Quick adjust" }),
       });
+      if (!res.ok) setItems((prev) => prev.map((x) => x.id === p.id ? { ...x, qty: x.qty - delta } : x));
+    } catch {
+      setItems((prev) => prev.map((x) => x.id === p.id ? { ...x, qty: x.qty - delta } : x));
+    }
+  }
+
+  async function handleImport(file: File) {
+    setImportMsg("Reading…");
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) { setImportMsg("CSV looks empty."); return; }
+      const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const idx = (k: string) => header.indexOf(k);
+      const ci = { name: idx("name"), category: idx("category"), barcode: idx("barcode"), qty: idx("qty"), cost: idx("costaed"), sale: idx("saleaed"), reorder: idx("reorderat") };
+      if (ci.name < 0) { setImportMsg("CSV needs a 'name' column."); return; }
+      const parseRow = (line: string) => {
+        // simple CSV split honoring quotes
+        const cells: string[] = []; let cur = "", inQ = false;
+        for (const ch of line) {
+          if (ch === '"') inQ = !inQ;
+          else if (ch === "," && !inQ) { cells.push(cur); cur = ""; }
+          else cur += ch;
+        }
+        cells.push(cur);
+        return cells.map((c) => c.trim().replace(/^"|"$/g, ""));
+      };
+      const num = (v: string | undefined) => { const n = parseInt((v ?? "").replace(/[^\d-]/g, "")); return Number.isFinite(n) ? n : null; };
+      const rows = lines.slice(1).map(parseRow).filter((c) => c[ci.name]?.trim()).map((c) => ({
+        name: c[ci.name].trim(),
+        category: ci.category >= 0 ? c[ci.category] : null,
+        barcode: ci.barcode >= 0 ? c[ci.barcode] : null,
+        qty: ci.qty >= 0 ? num(c[ci.qty]) : null,
+        costAED: ci.cost >= 0 ? num(c[ci.cost]) : null,
+        saleAED: ci.sale >= 0 ? num(c[ci.sale]) : null,
+        reorderAt: ci.reorder >= 0 ? num(c[ci.reorder]) : null,
+      }));
+      if (!rows.length) { setImportMsg("No valid rows found."); return; }
+      setImportMsg(`Importing ${rows.length}…`);
+      const res = await fetch("/api/erp/inventory/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
+      const data = await res.json();
+      if (!res.ok) { setImportMsg(data.error ?? "Import failed."); return; }
+      setImportMsg(`✓ ${data.created} added, ${data.updated} updated.`);
       router.refresh();
-    } finally { setBusy(null); }
+    } catch { setImportMsg("Could not read the file."); }
   }
 
   return (
@@ -60,10 +107,18 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <a href="/api/erp/inventory/export" className="inline-flex items-center gap-1.5 rounded-full border border-ink-line px-3.5 py-2 text-sm text-sand hover:border-gold/50">
+          <Download size={15} /> Export
+        </a>
+        <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-3.5 py-2 text-sm text-gold hover:bg-gold/10">
+          <Upload size={15} /> Import CSV
+        </button>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
         <button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso">
           <PackagePlus size={15} /> Add product
         </button>
       </div>
+      {importMsg && <p className="text-sm text-gold">{importMsg} <span className="text-xs text-muted">· CSV columns: name, category, barcode, qty, costAED, saleAED, reorderAt</span></p>}
 
       <div className="surface overflow-x-auto rounded-2xl">
         <table className="w-full min-w-[720px] text-sm">
@@ -79,15 +134,15 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
           </thead>
           <tbody className="divide-y divide-ink-line/60">
             {slice.map((p) => (
-              <tr key={p.id} className={cn(p.qty === 0 && "bg-red-500/5", busy === p.id && "opacity-50")}>
+              <tr key={p.id} className={cn(p.qty === 0 && "bg-red-500/5")}>
                 <td className="p-3 text-cream">{p.name}</td>
                 <td className="p-3 text-xs text-muted">{p.category}</td>
                 <td className="p-3 font-mono text-xs text-muted">{p.barcode ?? "—"}</td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1.5">
-                    <button onClick={() => adjust(p, -1)} disabled={p.qty <= 0 || busy === p.id} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50 disabled:opacity-30"><Minus size={12} /></button>
+                    <button onClick={() => adjust(p, -1)} disabled={p.qty <= 0} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50 disabled:opacity-30"><Minus size={12} /></button>
                     <span className={cn("w-8 text-center font-semibold", p.qty === 0 ? "text-red-400" : p.qty <= p.reorderAt ? "text-gold" : "text-sand")}>{p.qty}</span>
-                    <button onClick={() => adjust(p, 1)} disabled={busy === p.id} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50"><Plus size={12} /></button>
+                    <button onClick={() => adjust(p, 1)} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50"><Plus size={12} /></button>
                     <button onClick={() => setStockFor(p)} title="Bulk stock in/out" className="ml-1 grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50"><Boxes size={12} /></button>
                   </div>
                 </td>
