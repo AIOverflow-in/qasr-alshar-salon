@@ -1,26 +1,31 @@
-import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Clock, ArrowRight } from "lucide-react";
 import { ButtonLink } from "../ui/Button";
+import { HeroSlideshow, type Slide } from "./HeroSlideshow";
 import { SITE } from "@/lib/site";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
+
+const HERO_SLIDES: Slide[] = [
+  { src: "/salon/hero-01-floor.jpg", alt: "Qasr Alshar Salon main floor with floral ceiling — Union Metro, Dubai" },
+  { src: "/salon/hero-02-styling.jpg", alt: "Styling stations with arched gold mirrors at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-03-shampoo.jpg", alt: "Shampoo lounge at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-04-nails.jpg", alt: "Nail bar at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-05-pedicure.jpg", alt: "Pedicure lounge at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-06-facial.jpg", alt: "Facial treatment room at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-07-makeup.jpg", alt: "Makeup studio at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-08-styling2.jpg", alt: "Styling area at Qasr Alshar Salon, Dubai" },
+  { src: "/salon/hero-09-wash.jpg", alt: "Wash & care lounge at Qasr Alshar Salon, Dubai" },
+];
 
 export function Hero({ t }: { t: Dictionary }) {
   return (
     <section className="flex min-h-[100svh] flex-col lg:flex-row">
 
-      {/* ── Right panel: full-vivid photo, no overlay ─────────────────── */}
+      {/* ── Right panel: auto-sliding salon showcase ──────────────────── */}
       <div className="relative h-[56vw] shrink-0 sm:h-[480px] lg:h-auto lg:w-[52%]">
-        <Image
-          src="/salon/hero-salon.jpg"
-          alt="Qasr Alshar Salon interior — gold-accented styling chairs and floral ceiling, near Union Metro, Dubai"
-          fill
-          priority
-          sizes="(max-width: 1024px) 100vw, 52vw"
-          className="object-cover"
-        />
+        <HeroSlideshow slides={HERO_SLIDES} />
         {/* subtle bottom fade so the panel meets the white section below on mobile */}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-ink lg:hidden" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-b from-transparent to-ink lg:hidden" />
       </div>
 
       {/* ── Left panel: text on warm white ────────────────────────────── */}
