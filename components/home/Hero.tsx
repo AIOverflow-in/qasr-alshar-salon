@@ -12,8 +12,8 @@ export function Hero({ t }: { t: Dictionary }) {
       {/* ── Right panel: full-vivid photo, no overlay ─────────────────── */}
       <div className="relative h-[56vw] shrink-0 sm:h-[480px] lg:h-auto lg:w-[52%]">
         <Image
-          src="/salon/salon-main.jpg"
-          alt="Qasr Alshar Salon interior — Union Metro, Dubai"
+          src="/salon/hero-salon.jpg"
+          alt="Qasr Alshar Salon interior — gold-accented styling chairs and floral ceiling, near Union Metro, Dubai"
           fill
           priority
           sizes="(max-width: 1024px) 100vw, 52vw"

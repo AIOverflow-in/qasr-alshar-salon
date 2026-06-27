@@ -46,8 +46,9 @@ export async function logoutAction() {
 export async function setBookingStatus(id: string, status: BookingStatus) {
   await requireAdmin();
   await prisma.booking.update({ where: { id }, data: { status } });
-  revalidatePath("/admin");
   revalidatePath("/admin/bookings");
+  revalidatePath("/erp/bookings");
+  revalidatePath("/erp");
 }
 
 // ---- services ----

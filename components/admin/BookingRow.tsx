@@ -25,6 +25,10 @@ export function BookingRow({
   price,
   notes,
   status,
+  staffName,
+  serviceMode,
+  address,
+  customRequest,
 }: {
   id: string;
   when: string;
@@ -35,6 +39,10 @@ export function BookingRow({
   price: string;
   notes: string | null;
   status: BookingStatus;
+  staffName?: string | null;
+  serviceMode?: string | null;
+  address?: string | null;
+  customRequest?: string | null;
 }) {
   const [current, setCurrent] = useState<BookingStatus>(status);
   const [pending, start] = useTransition();
@@ -55,7 +63,15 @@ export function BookingRow({
         </div>
         {notes && <div className="mt-1 text-xs italic text-muted">“{notes}”</div>}
       </td>
-      <td className="p-4 text-sand">{service}</td>
+      <td className="p-4 text-sand">
+        <div className="flex flex-wrap items-center gap-2">
+          {service}
+          {serviceMode === "HOME" && <span className="rounded-full border border-gold/40 px-2 py-0.5 text-[0.6rem] text-gold">🏠 Home</span>}
+        </div>
+        {staffName && <div className="mt-0.5 text-xs text-muted">{staffName}</div>}
+        {customRequest && <div className="mt-0.5 text-xs italic text-muted">Request: {customRequest}</div>}
+        {serviceMode === "HOME" && address && <div className="mt-0.5 text-xs text-muted">{address}</div>}
+      </td>
       <td className="p-4 text-cream">{price}</td>
       <td className="p-4">
         <div className="flex items-center gap-2">
