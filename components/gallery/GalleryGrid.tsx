@@ -9,23 +9,39 @@ type Photo = { src: string; label: string; category: string; description?: strin
 
 const TABS = [
   { key: "all", label: "All" },
-  { key: "hair", label: "Braiding & Hair" },
+  { key: "braids", label: "Braids" },
+  { key: "cornrows", label: "Cornrows" },
+  { key: "boho", label: "Boho & Goddess" },
+  { key: "locs", label: "Locs & Dreadlocks" },
   { key: "nails", label: "Nails" },
   { key: "henna", label: "Henna" },
   { key: "salon", label: "Salon" },
 ];
 
 const CTX: Record<string, string> = {
-  hair: "Expert braiding & protective styling for Afro-textured hair at Qasr Alshar Salon, Dubai — near Union Metro, Deira.",
+  braids: "Knotless & box braids by Qasr Alshar Salon, Dubai — gentle, protective styling for Afro-textured hair near Union Metro, Deira.",
+  cornrows: "Cornrows & feed-in braids at Qasr Alshar Salon, Dubai — crisp, precise lines near Union Metro, Deira.",
+  boho: "Boho & goddess braids at Qasr Alshar Salon, Dubai — soft curly-end styling near Union Metro, Deira.",
+  locs: "Locs, sister locks & dreadlock styling at Qasr Alshar Salon, Dubai — near Union Metro, Deira.",
   nails: "Gel manicures, pedicures, nail art & extensions at Qasr Alshar Salon, Dubai — near Union Metro, Deira.",
   henna: "Natural bridal & traditional henna (mehndi) artistry by Qasr Alshar, Dubai — near Union Metro, Deira.",
   salon: "Inside Qasr Alshar — a premium multicultural beauty salon in Deira, Dubai, near Union Metro.",
 };
 
+/** Fine-grained category derived from the photo's path + label (for service-based tabs). */
+function catOf(p: Photo): string {
+  if (p.category === "nails" || p.category === "henna" || p.category === "salon") return p.category;
+  const t = `${p.src} ${p.label}`.toLowerCase();
+  if (t.includes("loc") || t.includes("dread") || t.includes("sister")) return "locs";
+  if (t.includes("boho") || t.includes("goddess")) return "boho";
+  if (t.includes("cornrow") || t.includes("feedin") || t.includes("feed-in") || t.includes("fulani")) return "cornrows";
+  return "braids"; // knotless / box / twists / other braiding
+}
+
 /** SEO-rich caption woven from the photo's label + its category context. */
 function describe(p: Photo): string {
   if (p.description) return p.description;
-  return `${p.label} — ${CTX[p.category] ?? "Qasr Alshar Salon, Dubai."}`;
+  return `${p.label} — ${CTX[catOf(p)] ?? "Qasr Alshar Salon, Dubai."}`;
 }
 
 export function GalleryGrid({ photos }: { photos: Photo[] }) {
@@ -39,7 +55,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
   }, [photos]);
 
   const visible = useMemo(
-    () => (active === "all" ? deduped : deduped.filter((p) => p.category === active)),
+    () => (active === "all" ? deduped : deduped.filter((p) => catOf(p) === active)),
     [deduped, active]
   );
 

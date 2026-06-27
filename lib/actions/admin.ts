@@ -10,6 +10,7 @@ import {
   verifyCredentials,
 } from "@/lib/auth";
 import { generateBlogPost } from "@/lib/openai";
+import { sendAftercareEmail } from "@/lib/email";
 import type { BookingStatus } from "@prisma/client";
 
 async function requireAdmin() {
@@ -45,7 +46,28 @@ export async function logoutAction() {
 // ---- bookings ----
 export async function setBookingStatus(id: string, status: BookingStatus) {
   await requireAdmin();
-  await prisma.booking.update({ where: { id }, data: { status } });
+  const booking = await prisma.booking.update({ where: { id }, data: { status } });
+
+  // On completion, send an aftercare recommendation email (best-effort).
+  if (status === "COMPLETED" && booking.email) {
+    try {
+      const products = await prisma.product.findMany({
+        where: { active: true, category: { contains: "Retail", mode: "insensitive" }, qty: { gt: 0 } },
+        orderBy: { updatedAt: "desc" },
+        take: 4,
+        select: { name: true },
+      });
+      await sendAftercareEmail({
+        customerName: booking.customerName,
+        email: booking.email,
+        serviceName: booking.serviceName,
+        products: products.map((p) => p.name),
+      });
+    } catch (e) {
+      console.error("[aftercare] send failed (non-fatal):", e);
+    }
+  }
+
   revalidatePath("/admin/bookings");
   revalidatePath("/erp/bookings");
   revalidatePath("/erp");

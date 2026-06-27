@@ -138,3 +138,29 @@ export async function sendInvoiceEmail(inv: InvoiceEmail) {
     console.error("[email] invoice send failed:", e);
   }
 }
+
+type AftercareEmail = { customerName: string; email: string; serviceName: string; products: string[] };
+
+/** Sent after a booking is completed — aftercare tips + product recommendations. Never throws. */
+export async function sendAftercareEmail(a: AftercareEmail) {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping aftercare email"); return; }
+
+  const list = a.products.length
+    ? `<p style="margin-top:16px;color:#cabfa6;">Recommended aftercare to keep your look fresh:</p>
+       <ul style="color:#f6f0e2;line-height:1.9;padding-left:18px;">${a.products.map((p) => `<li>${p}</li>`).join("")}</ul>`
+    : "";
+
+  const html = shell(
+    "Caring for your new look 💛",
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${a.customerName}, thank you for visiting Qasr Alshar Salon! To keep your <b style="color:#f6f0e2;">${a.serviceName}</b> looking its best, here are a few aftercare tips and products we love.</p>
+     ${list}
+     <p style="margin-top:16px;color:#cabfa6;">Message us on WhatsApp anytime for product advice or to reserve any of these — we'll set them aside for you.</p>
+     <a href="${SITE.url}/book" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Book your next visit</a>`
+  );
+
+  try {
+    await resend.emails.send({ from: FROM, to: a.email, subject: `Aftercare for your ${a.serviceName} — Qasr Alshar`, html });
+  } catch (e) {
+    console.error("[email] aftercare send failed:", e);
+  }
+}
