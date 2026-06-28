@@ -110,7 +110,7 @@ export function BookingWizard({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null } | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null; ref?: string | null } | null>(null);
 
   // fetch availability whenever date / selection changes on step 3
   useEffect(() => {
@@ -183,6 +183,7 @@ export function BookingWizard({
         priceAED: data.booking.priceAED,
         serviceMode: form.serviceMode,
         emailWarning: data.emailWarning ?? null,
+        ref: data.booking.ref ?? null,
       });
       setStep(5);
     } catch {
@@ -203,6 +204,7 @@ export function BookingWizard({
         <h2 className="mt-6 font-display text-3xl text-cream">{dict.successTitle}</h2>
         <p className="mt-3 text-sand/80">{dict.successBody}</p>
         <div className="surface mt-8 rounded-2xl p-6 text-start">
+          {done.ref && <Row k="Booking Ref" v={done.ref} />}
           <Row k={dict.step1} v={done.serviceName} />
           {stylist && <Row k="Crown Artist" v={stylist.name} />}
           <Row k={dict.date} v={done.whenLabel} />

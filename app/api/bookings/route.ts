@@ -114,12 +114,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not complete booking. Please try again." }, { status: 500 });
   }
 
+  const ref = "QA-" + booking.id.slice(-8).toUpperCase();
+
   let customerEmailed = false;
   try {
     const r = await sendBookingEmails({
       customerName: booking.customerName, email: booking.email, phone: booking.phone,
       serviceName: services.map((s) => s.name).join(", "), priceAED: booking.priceAED,
       whenLabel: dubaiLabel(start), notes: booking.notes, serviceMode: booking.serviceMode, address: booking.address, customRequest: booking.customRequest,
+      ref,
     });
     customerEmailed = r.customerEmailed;
   } catch (e) { console.error("[bookings] email send failed (booking still saved):", e); }
@@ -127,6 +130,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     emailWarning: customerEmailed ? null : "Your booking is saved, but the confirmation email may be delayed — we'll also reach you on WhatsApp.",
-    booking: { id: booking.id, serviceName: booking.serviceName, whenLabel: dubaiLabel(start), priceAED: booking.priceAED },
+    booking: { id: booking.id, ref, serviceName: booking.serviceName, whenLabel: dubaiLabel(start), priceAED: booking.priceAED },
   });
 }

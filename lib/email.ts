@@ -19,6 +19,7 @@ type BookingEmail = {
   serviceMode?: string | null; // SALON | HOME
   address?: string | null;
   customRequest?: string | null;
+  ref?: string | null; // short customer-facing booking reference
 };
 
 function shell(title: string, body: string) {
@@ -43,6 +44,7 @@ function detailsTable(b: BookingEmail) {
     `<tr><td style="padding:8px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
   const isHome = b.serviceMode === "HOME";
   return `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    ${b.ref ? row("Booking Ref", b.ref) : ""}
     ${row("Service", b.serviceName)}
     ${row("Location", isHome ? "Home service" : "At the salon")}
     ${isHome && b.address ? row("Address", b.address) : ""}
