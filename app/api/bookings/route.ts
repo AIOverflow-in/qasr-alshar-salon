@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
   // Per-stylist (or salon-wide) slot validation against the combined duration.
   const check = await isSlotBookable(data.startISO, totalDuration, data.staffId || undefined);
-  if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 409 });
+  if (!check.ok) return NextResponse.json({ error: check.reason, code: "SLOT_TAKEN" }, { status: 409 });
 
   const phoneClean = data.phone.trim();
   const emailClean = data.email.trim().toLowerCase();
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   // Block a second booking while the customer still has an active (upcoming) one.
   if (await hasActiveBooking({ phone: phoneClean, email: emailClean })) {
     return NextResponse.json(
-      { error: "You already have an upcoming booking with us. Please complete or cancel it before booking again — or call us to adjust it." },
+      { error: "You already have an upcoming booking with us. Please complete or cancel it before booking again — or message us on WhatsApp to adjust it.", code: "ACTIVE_BOOKING" },
       { status: 409 }
     );
   }
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg === "CAPACITY_FULL" || msg.includes("40001") || msg.includes("could not serialize")) {
-      return NextResponse.json({ error: check.reason ?? "That time was just taken. Please pick another slot." }, { status: 409 });
+      return NextResponse.json({ error: check.reason ?? "That time was just taken. Please pick another slot.", code: "SLOT_TAKEN" }, { status: 409 });
     }
     console.error("[bookings] create failed:", e);
     return NextResponse.json({ error: "Could not complete booking. Please try again." }, { status: 500 });

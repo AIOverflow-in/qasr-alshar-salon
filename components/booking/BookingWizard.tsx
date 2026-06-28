@@ -10,6 +10,9 @@ import {
   Loader2,
   CheckCircle2,
   CalendarDays,
+  CalendarClock,
+  MessageCircle,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Locale } from "@/lib/i18n/config";
@@ -110,6 +113,7 @@ export function BookingWizard({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeBookingMsg, setActiveBookingMsg] = useState<string | null>(null);
   const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null; ref?: string | null } | null>(null);
 
   // fetch availability whenever date / selection changes on step 3
@@ -173,8 +177,11 @@ export function BookingWizard({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Something went wrong. Please try again.");
-        if (res.status === 409) setStep(2); // slot taken → re-pick
+        const msg = data.error || "Something went wrong. Please try again.";
+        // Already has an upcoming booking → friendly popup, stay on this step.
+        if (data.code === "ACTIVE_BOOKING") { setActiveBookingMsg(msg); return; }
+        // Slot/capacity conflict → show the reason here; they can go Back to re-pick a time.
+        setError(msg);
         return;
       }
       setDone({
@@ -562,6 +569,50 @@ export function BookingWizard({
               {submitting ? <Loader2 className="animate-spin" size={16} /> : null}
               {dict.confirm}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Already-has-a-booking popup */}
+      {activeBookingMsg && (
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setActiveBookingMsg(null)}
+        >
+          <div
+            className="surface relative w-full max-w-sm rounded-2xl border border-gold/30 p-7 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setActiveBookingMsg(null)}
+              aria-label="Close"
+              className="absolute right-3 top-3 text-muted hover:text-cream"
+            >
+              <X size={18} />
+            </button>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-gold/15 text-gold">
+              <CalendarClock size={30} />
+            </div>
+            <h3 className="mt-5 font-display text-2xl text-cream">You already have a booking</h3>
+            <p className="mt-2.5 text-sm leading-relaxed text-sand/80">{activeBookingMsg}</p>
+            <div className="mt-6 flex flex-col gap-2.5">
+              <a
+                href={whatsappLink(SITE.whatsapp, "Hi Qasr Alshar! I'd like to adjust or cancel my upcoming booking.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gold-gradient px-5 py-3 text-sm font-semibold text-espresso"
+              >
+                <MessageCircle size={16} /> Message us on WhatsApp
+              </a>
+              <button
+                onClick={() => setActiveBookingMsg(null)}
+                className="rounded-full border border-ink-line px-5 py-3 text-sm text-sand hover:text-gold"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}
