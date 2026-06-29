@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { aed } from "@/lib/utils";
+import { dubaiDayRange } from "@/lib/finance";
 import { TableSearch } from "@/components/erp/TableSearch";
 import { BookingRow } from "@/components/admin/BookingRow";
 import { NewBookingButton } from "@/components/erp/NewBookingButton";
+import { BookingsFilters, type BookingCounts } from "@/components/erp/BookingsFilters";
+import type { BookingStatus, Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -13,43 +16,108 @@ function whenLabel(d: Date) {
   }).format(d);
 }
 
-export default async function ErpBookings() {
-  const [bookings, services, staff, clients] = await Promise.all([
-    prisma.booking.findMany({
-      orderBy: { startAt: "desc" },
-      take: 300,
-      include: {
-        staff: { select: { name: true } },
-        items: { select: { serviceId: true } },
-        salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
-      },
-    }),
-    prisma.service.findMany({ where: { active: true }, orderBy: { category: "asc" }, select: { id: true, name: true, category: true, priceAED: true } }),
-    prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true } }),
-    prisma.client.findMany({ orderBy: { updatedAt: "desc" }, take: 2000, select: { id: true, name: true, phone: true, email: true } }),
-  ]);
+const STATUS_MAP: Record<string, BookingStatus> = {
+  confirmed: "CONFIRMED", completed: "COMPLETED", cancelled: "CANCELLED", noshow: "NO_SHOW",
+};
+const SOURCE_MAP: Record<string, string> = {
+  online: "ONLINE", walkin: "WALKIN", phone: "PHONE", whatsapp: "WHATSAPP",
+};
+
+export default async function ErpBookings({
+  searchParams,
+}: {
+  searchParams: Promise<{ when?: string; status?: string; source?: string }>;
+}) {
+  const sp = await searchParams;
+  const when = ["today", "tomorrow", "next2w", "all"].includes(sp.when ?? "") ? sp.when! : "today";
+  const status = sp.status && STATUS_MAP[sp.status] ? sp.status : "all";
+  const source = sp.source && SOURCE_MAP[sp.source] ? sp.source : "all";
+
+  // Date window for the chosen "when"
+  const today = dubaiDayRange(0);
+  const tomorrow = dubaiDayRange(1);
+  const next2wEnd = dubaiDayRange(13).end;
+  const windowFor: Record<string, { gte: Date; lt: Date } | null> = {
+    today: { gte: today.start, lt: today.end },
+    tomorrow: { gte: tomorrow.start, lt: tomorrow.end },
+    next2w: { gte: today.start, lt: next2wEnd },
+    all: null,
+  };
+
+  const where: Prisma.BookingWhereInput = {
+    ...(windowFor[when] ? { startAt: windowFor[when]! } : {}),
+    ...(STATUS_MAP[status] ? { status: STATUS_MAP[status] } : {}),
+    ...(SOURCE_MAP[source] ? { source: SOURCE_MAP[source] } : {}),
+  };
+
+  const [bookings, services, staff, clients, total, statusGroup, sourceGroup, cToday, cTomorrow, cNext2w] =
+    await Promise.all([
+      prisma.booking.findMany({
+        where,
+        orderBy: { startAt: when === "all" ? "desc" : "asc" },
+        take: 500,
+        include: {
+          staff: { select: { name: true } },
+          items: { select: { serviceId: true } },
+          salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
+        },
+      }),
+      prisma.service.findMany({ where: { active: true }, orderBy: { category: "asc" }, select: { id: true, name: true, category: true, priceAED: true } }),
+      prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true } }),
+      prisma.client.findMany({ orderBy: { updatedAt: "desc" }, take: 2000, select: { id: true, name: true, phone: true, email: true } }),
+      prisma.booking.count(),
+      prisma.booking.groupBy({ by: ["status"], _count: true }),
+      prisma.booking.groupBy({ by: ["source"], _count: true }),
+      prisma.booking.count({ where: { startAt: { gte: today.start, lt: today.end } } }),
+      prisma.booking.count({ where: { startAt: { gte: tomorrow.start, lt: tomorrow.end } } }),
+      prisma.booking.count({ where: { startAt: { gte: today.start, lt: next2wEnd } } }),
+    ]);
+
+  const statusCount = (s: BookingStatus) => statusGroup.find((g) => g.status === s)?._count ?? 0;
+  const sourceCount = (s: string) => sourceGroup.find((g) => g.source === s)?._count ?? 0;
+
+  const counts: BookingCounts = {
+    when: { today: cToday, tomorrow: cTomorrow, next2w: cNext2w, all: total },
+    status: {
+      all: total,
+      confirmed: statusCount("CONFIRMED"),
+      completed: statusCount("COMPLETED"),
+      cancelled: statusCount("CANCELLED"),
+      noshow: statusCount("NO_SHOW"),
+    },
+    source: {
+      all: total,
+      online: sourceCount("ONLINE"),
+      walkin: sourceCount("WALKIN"),
+      phone: sourceCount("PHONE"),
+      whatsapp: sourceCount("WHATSAPP"),
+    },
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl text-cream">Bookings</h1>
-          <p className="text-sm text-muted">Update a status or generate a bill — all in one place.</p>
+          <p className="text-sm text-muted">Filter by day, status or source — update a status or generate a bill.</p>
         </div>
         <NewBookingButton services={services} staff={staff} clients={clients} />
       </div>
 
+      <BookingsFilters when={when} status={status} source={source} counts={counts} />
+
       {bookings.length === 0 ? (
-        <div className="surface rounded-2xl p-10 text-center text-muted">No bookings yet.</div>
+        <div className="surface rounded-2xl p-10 text-center text-muted">No bookings match this filter.</div>
       ) : (
         <TableSearch placeholder="Search by client, phone, service or stylist…">
           <div className="surface overflow-x-auto rounded-2xl">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[860px] text-sm">
               <thead className="border-b border-ink-line text-left text-muted">
                 <tr>
                   <th className="p-4 font-medium">When</th>
                   <th className="p-4 font-medium">Client</th>
                   <th className="p-4 font-medium">Service</th>
+                  <th className="p-4 font-medium">Source</th>
                   <th className="p-4 font-medium">Price</th>
                   <th className="p-4 font-medium">Status &amp; Bill</th>
                 </tr>
@@ -70,6 +138,7 @@ export default async function ErpBookings() {
                       price={aed(b.priceAED)}
                       notes={b.notes}
                       status={b.status}
+                      source={b.source}
                       staffName={b.staff?.name ?? null}
                       serviceMode={b.serviceMode}
                       address={b.address}

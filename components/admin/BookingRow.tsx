@@ -18,6 +18,13 @@ const color: Record<string, string> = {
   NO_SHOW: "text-muted",
 };
 
+const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
+  ONLINE: { label: "🌐 Online", cls: "border-blue-400/40 bg-blue-400/10 text-blue-300" },
+  WALKIN: { label: "🏪 In-store", cls: "border-gold/40 bg-gold/10 text-gold" },
+  PHONE: { label: "☎ Phone", cls: "border-ink-line text-sand" },
+  WHATSAPP: { label: "WhatsApp", cls: "border-green-500/40 bg-green-500/10 text-green-400" },
+};
+
 export function BookingRow({
   id,
   when,
@@ -28,6 +35,7 @@ export function BookingRow({
   price,
   notes,
   status,
+  source,
   staffName,
   serviceMode,
   address,
@@ -47,6 +55,7 @@ export function BookingRow({
   price: string;
   notes: string | null;
   status: BookingStatus;
+  source?: string | null;
   staffName?: string | null;
   serviceMode?: string | null;
   address?: string | null;
@@ -89,6 +98,12 @@ export function BookingRow({
             <EditBookingServices bookingId={id} services={services} initialServiceIds={currentServiceIds} />
           </div>
         )}
+      </td>
+      <td className="p-4">
+        {(() => {
+          const b = SOURCE_BADGE[source ?? "ONLINE"] ?? SOURCE_BADGE.ONLINE;
+          return <span className={cn("inline-block whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[0.65rem]", b.cls)}>{b.label}</span>;
+        })()}
       </td>
       <td className="p-4 text-cream">{price}</td>
       <td className="p-4">
