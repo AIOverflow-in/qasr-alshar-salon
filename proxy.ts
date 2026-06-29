@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 const TARGET = process.env.DEPLOY_TARGET || "all";
 
 const APP_PREFIXES = ["/admin", "/erp", "/api/erp"];
-const MARKETING_PREFIXES = ["/services", "/gallery", "/henna", "/packages", "/about", "/contact", "/blog", "/book"];
+const MARKETING_PREFIXES = ["/services", "/gallery", "/henna", "/packages", "/about", "/contact", "/blog", "/book", "/terms"];
 
 const startsWithAny = (p: string, prefixes: string[]) =>
   prefixes.some((x) => p === x || p.startsWith(x + "/"));

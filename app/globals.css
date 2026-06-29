@@ -264,3 +264,27 @@ h1, h2, h3, h4, .font-display {
   color: var(--color-cream);
   margin: 1.5rem 0;
 }
+
+/* Print: show only .print-area, on clean white paper (overrides the dark theme + gradient text). */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 8mm !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .print-area * {
+    color: #1a1a1a !important;
+    -webkit-text-fill-color: #1a1a1a !important;
+    background-image: none !important;
+    border-color: #e2e2e2 !important;
+  }
+  .no-print { display: none !important; }
+  @page { margin: 14mm; }
+}

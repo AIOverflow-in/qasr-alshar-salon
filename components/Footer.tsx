@@ -115,7 +115,12 @@ export async function Footer() {
           <p>
             © {year} {SITE.name}. {t.footer.rights}
           </p>
-          <p className="text-muted/70">Made with care in Dubai · UAE</p>
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="transition-colors hover:text-gold">
+              Terms &amp; Conditions
+            </Link>
+            <span className="text-muted/70">Made with care in Dubai · UAE</span>
+          </div>
         </div>
       </div>
     </footer>

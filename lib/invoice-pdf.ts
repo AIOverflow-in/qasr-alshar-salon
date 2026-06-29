@@ -159,8 +159,9 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   const terms = [
     "Terms: Prices include 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
     "Cancellations within 24 hours and no-shows may be charged. Home-service bookings require prior confirmation.",
+    "Full terms & conditions: qasralsharsalon.com/terms",
   ];
-  let ty = 86;
+  let ty = 96;
   for (const t of terms) { page.drawText(t, { x: M, y: ty, size: 7.5, font: reg, color: GREY }); ty -= 11; }
   page.drawLine({ start: { x: M, y: 60 }, end: { x: RIGHT, y: 60 }, thickness: 1, color: GOLD });
   page.drawText("Thank you for choosing Qasr Alshar Salon — Dubai's Crown of Beauty.", { x: M, y: 44, size: 8.5, font: bold, color: INK });

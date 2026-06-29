@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import { SITE } from "./site";
+import { TERMS } from "./terms";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -34,7 +35,8 @@ function shell(title: string, body: string) {
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid #2a2417;font-size:12px;color:#8c8267;line-height:1.7;">
       ${SITE.address.line1}, ${SITE.address.city}<br/>
       ${SITE.phones[0].label} · <a href="${SITE.url}" style="color:#e7c878;">${SITE.url.replace(/^https?:\/\//, "")}</a><br/>
-      ${SITE.hours.note}
+      ${SITE.hours.note}<br/>
+      <a href="${SITE.url}/terms" style="color:#8c8267;text-decoration:underline;">Terms &amp; Conditions</a>
     </div>
   </div></body></html>`;
 }
@@ -58,6 +60,17 @@ function detailsTable(b: BookingEmail) {
   </table>`;
 }
 
+/** Full Terms & Conditions block for the customer confirmation email. */
+function termsBlock() {
+  return `<div style="margin-top:26px;padding-top:18px;border-top:1px solid #2a2417;">
+    <div style="font-size:14px;color:#e7c878;font-weight:bold;margin-bottom:10px;">Terms &amp; Conditions</div>
+    ${TERMS.map((s) => `<div style="margin-bottom:12px;">
+      <div style="font-size:12px;color:#cabfa6;font-weight:bold;text-transform:uppercase;letter-spacing:0.04em;">${s.heading}</div>
+      ${s.body.map((p) => `<div style="font-size:11px;color:#8c8267;line-height:1.6;margin-top:3px;">${p}</div>`).join("")}
+    </div>`).join("")}
+  </div>`;
+}
+
 /**
  * Confirmation to the customer + alert to the salon. Never throws.
  * Returns whether the customer confirmation actually went out, so the caller
@@ -74,7 +87,8 @@ export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmai
     `<p style="line-height:1.7;color:#cabfa6;">Dear ${b.customerName}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
      ${detailsTable(b)}
      <a href="${SITE.url}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
-     <p style="margin-top:18px;font-size:13px;color:#8c8267;">Need to reschedule? Reply to this email or call us at ${SITE.phones[0].label}.</p>`
+     <p style="margin-top:18px;font-size:13px;color:#8c8267;">Need to reschedule? Reply to this email or call us at ${SITE.phones[0].label}.</p>
+     ${termsBlock()}`
   );
 
   const salonHtml = shell(

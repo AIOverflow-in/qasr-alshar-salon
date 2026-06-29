@@ -12,9 +12,11 @@ import {
   CalendarDays,
   CalendarClock,
   MessageCircle,
+  Printer,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { TERMS } from "@/lib/terms";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { cn, aed, whatsappLink } from "@/lib/utils";
@@ -204,49 +206,85 @@ export function BookingWizard({
 
   if (step === 5 && done) {
     return (
-      <div className="mx-auto mt-12 max-w-lg text-center">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gold/15 text-gold">
-          <CheckCircle2 size={44} />
+      <div className="mx-auto mt-12 max-w-2xl">
+        <div className="text-center no-print">
+          <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gold/15 text-gold">
+            <CheckCircle2 size={44} />
+          </div>
+          <h2 className="mt-6 font-display text-3xl text-cream">{dict.successTitle}</h2>
+          <p className="mt-3 text-sand/80">{dict.successBody}</p>
         </div>
-        <h2 className="mt-6 font-display text-3xl text-cream">{dict.successTitle}</h2>
-        <p className="mt-3 text-sand/80">{dict.successBody}</p>
-        <div className="surface mt-8 rounded-2xl p-6 text-start">
-          {done.ref && <Row k="Booking Ref" v={done.ref} />}
-          <Row k={dict.step1} v={done.serviceName} />
-          {stylist && <Row k="Crown Artist" v={stylist.name} />}
-          <Row k={dict.date} v={done.whenLabel} />
-          <Row k="Price" v={aed(done.priceAED)} />
-          <Row k="Location" v={done.serviceMode === "HOME" ? "Home service (we come to you)" : `${SITE.address.line1}, ${SITE.address.city}`} />
+
+        {/* Printable confirmation (clean white when printed/saved as PDF) */}
+        <div className="print-area surface mt-8 rounded-2xl p-6 md:p-8">
+          <div className="mb-5 flex items-center justify-between gap-4 border-b border-ink-line pb-4">
+            <div>
+              <div className="font-display text-xl text-gold-gradient">QASR ALSHAR SALON</div>
+              <div className="text-xs text-muted">Booking Confirmation</div>
+            </div>
+            {done.ref && (
+              <div className="text-end">
+                <div className="text-[0.6rem] uppercase tracking-widest text-muted">Reference</div>
+                <div className="font-mono text-sm text-cream">{done.ref}</div>
+              </div>
+            )}
+          </div>
+
+          <div className="text-start">
+            <Row k={dict.step1} v={done.serviceName} />
+            {stylist && <Row k="Crown Artist" v={stylist.name} />}
+            <Row k={dict.date} v={done.whenLabel} />
+            <Row k="Price" v={`${aed(done.priceAED)} · incl. VAT`} />
+            <Row k="Name" v={form.name} />
+            {form.phone && <Row k="Phone" v={form.phone} />}
+            <Row k="Location" v={done.serviceMode === "HOME" ? "Home service (we come to you)" : `${SITE.address.line1}, ${SITE.address.city}`} />
+          </div>
+
+          <p className="mt-4 text-xs text-muted">
+            {done.serviceMode === "HOME"
+              ? "No payment now. Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp."
+              : "No payment now — pay at the salon. We'll message you on WhatsApp to confirm."}
+          </p>
+
+          {/* Full terms & conditions */}
+          <div className="mt-6 border-t border-ink-line pt-5">
+            <h3 className="font-display text-lg text-cream">Terms &amp; Conditions</h3>
+            <div className="mt-3 space-y-3">
+              {TERMS.map((s) => (
+                <div key={s.heading}>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gold">{s.heading}</div>
+                  {s.body.map((p, i) => (
+                    <p key={i} className="mt-0.5 text-xs leading-relaxed text-sand/80">{p}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <p className="mt-4 text-sm text-muted">
-          {done.serviceMode === "HOME"
-            ? "No payment now. Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp."
-            : "No payment now — pay at the salon. We'll message you on WhatsApp to confirm."}
-        </p>
+
         {done.emailWarning && (
-          <p className="mx-auto mt-3 max-w-md rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-xs text-gold">
+          <p className="no-print mx-auto mt-4 max-w-md rounded-lg border border-gold/30 bg-gold/5 px-4 py-2.5 text-center text-xs text-gold">
             {done.emailWarning}
           </p>
         )}
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+
+        <div className="no-print mt-6 flex flex-wrap justify-center gap-3">
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 rounded-full bg-gold-gradient px-6 py-3 font-semibold text-espresso"
+          >
+            <Printer size={16} /> Print / Save PDF
+          </button>
           <a
             href={whatsappLink(
               SITE.whatsapp,
-              `Hi Qasr Alshar! I just booked ${done.serviceName} for ${done.whenLabel}.`
+              `Hi Qasr Alshar! I just booked ${done.serviceName} for ${done.whenLabel}${done.ref ? ` (ref ${done.ref})` : ""}.`
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-gold-gradient px-6 py-3 font-semibold text-espresso"
+            className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10"
           >
-            Confirm on WhatsApp
-          </a>
-          <a
-            href={`https://www.google.com/maps/search/?api=1&query=${SITE.address.mapsQuery}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-gold/40 px-6 py-3 text-cream hover:bg-gold/10"
-          >
-            Get Directions
+            <MessageCircle size={16} /> Confirm on WhatsApp
           </a>
           <Link href="/" className="rounded-full border border-ink-line px-6 py-3 text-sand hover:text-gold">
             Home
@@ -540,7 +578,11 @@ export function BookingWizard({
                 className="mt-0.5 h-4 w-4 shrink-0 accent-[#c8911f]"
               />
               <span className="text-xs leading-relaxed text-muted">
-                I agree to Qasr Alshar&apos;s booking terms: a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices include 5% VAT. Home/clinic visits are confirmed by the salon before they are final.
+                I agree to Qasr Alshar&apos;s{" "}
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-gold underline underline-offset-2 hover:text-gold-deep">
+                  Terms &amp; Conditions
+                </Link>
+                : a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices include 5% VAT. Home/clinic visits are confirmed by the salon before they are final.
               </span>
             </label>
           </div>

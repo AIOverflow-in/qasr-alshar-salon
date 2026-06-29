@@ -11,19 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getSession, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
-import { getMonthlyRevenue } from "@/lib/finance";
-
-function dubaiDayRange(offsetDays = 0) {
-  const todayISO = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Dubai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const [y, m, d] = todayISO.split("-").map(Number);
-  const start = new Date(Date.UTC(y, m - 1, d + offsetDays) - 4 * 3600_000);
-  return { start, end: new Date(start.getTime() + 24 * 3600_000) };
-}
+import { getMonthlyRevenue, dubaiDayRange } from "@/lib/finance";
 
 const REVENUE_TARGET = 100_000;
 
