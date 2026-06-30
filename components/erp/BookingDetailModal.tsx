@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, MessageCircle, Printer, Receipt, Clock, MapPin, Scissors, UserCheck } from "lucide-react";
+import { X, MessageCircle, Printer, Receipt, Clock, MapPin, Scissors, UserCheck, Megaphone } from "lucide-react";
 import { whatsappLink, aed, cn } from "@/lib/utils";
 import { salonToClientMessage, artistReminderMessage } from "@/lib/booking-format";
 import { EditBookingServices } from "@/components/erp/EditBookingServices";
@@ -22,7 +22,7 @@ export function BookingDetailModal({
     id: string; name: string; phone: string; email: string; whenLabel: string; startISO: string;
     status: string; source: string; serviceMode?: string | null; address?: string | null;
     customRequest?: string | null; notes: string | null; staffName: string | null; staffPhone: string | null;
-    enteredBy: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
+    enteredBy: string | null; marketer?: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
     canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
   };
   services: ServiceOpt[];
@@ -85,6 +85,7 @@ export function BookingDetailModal({
           </Row>
           <Row icon={<Scissors size={15} />} label="Crown Artist">{b.staffName ?? "Any available"}</Row>
           <Row icon={<UserCheck size={15} />} label="Entered by">{b.enteredBy ?? "—"}</Row>
+          {b.marketer && <Row icon={<Megaphone size={15} />} label="Referral (marketer)">{b.marketer}</Row>}
         </div>
 
         <div className="mt-1 space-y-1 text-sm">

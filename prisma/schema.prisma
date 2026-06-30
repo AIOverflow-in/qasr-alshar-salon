@@ -55,6 +55,7 @@ model Booking {
   locale       String        @default("en")
   // ERP: which Crown Artist + how the booking came in
   staffId      String?
+  marketerId   String?       // Staff who brought the lead (carries to the bill's referral %)
   clientId     String?       // links the booking to a CRM Client (auto-created on booking)
   createdById  String?       // AdminUser who entered this booking (accountability)
   source       String        @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP

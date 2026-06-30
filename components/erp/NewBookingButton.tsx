@@ -28,6 +28,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
 }) {
   const [lines, setLines] = useState<{ serviceId: string; price: number | "" }[]>([]);
   const [staffId, setStaffId] = useState("");
+  const [marketerId, setMarketerId] = useState("");
   const [when, setWhen] = useState("");
   const [mode, setMode] = useState<"SALON" | "HOME">("SALON");
   const [address, setAddress] = useState("");
@@ -77,7 +78,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           services: lines.map((l) => ({ serviceId: l.serviceId, priceAED: l.price === "" ? null : l.price })),
-          startISO, staffId: staffId || null,
+          startISO, staffId: staffId || null, marketerId: marketerId || null,
           clientId: newClient ? null : selClient?.id ?? null,
           customerName: name,
           phone: newClient ? nc.phone : selClient?.phone ?? "",
@@ -201,6 +202,13 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
             <option value="">— Any Crown Artist —</option>
             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Marketer (referral) — who brought the lead</label>
+            <select className={input} value={marketerId} onChange={(e) => setMarketerId(e.target.value)}>
+              <option value="">— None —</option>
+              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
 
           {/* date-time */}
           <div>

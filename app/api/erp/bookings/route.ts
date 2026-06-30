@@ -23,6 +23,7 @@ const schema = z.object({
   priceAED: z.number().int().nonnegative().optional().nullable(), // legacy single-service override
   startISO: z.string().datetime(),
   staffId: z.string().optional().nullable(),
+  marketerId: z.string().optional().nullable(), // Staff who brought the lead (referral)
   // client: either an existing id, or new details (name required)
   clientId: z.string().optional().nullable(),
   customerName: z.string().min(1).max(120),
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
       serviceId: lines[0].svc.id, serviceName: summaryName, priceAED: totalPrice, durationMin: totalDuration,
       customerName: d.customerName.trim(), email: email || "", phone: phone || "",
       notes: d.notes?.trim() || null, startAt: start, endAt: end, status: "CONFIRMED",
-      staffId: d.staffId || null, clientId, source: "WALKIN", createdById: session.sub,
+      staffId: d.staffId || null, marketerId: d.marketerId || null, clientId, source: "WALKIN", createdById: session.sub,
       serviceMode: d.serviceMode, address: d.serviceMode === "HOME" ? d.address?.trim() || null : null,
       items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: d.staffId || null })) },
     },

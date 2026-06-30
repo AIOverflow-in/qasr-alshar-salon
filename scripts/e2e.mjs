@@ -129,6 +129,7 @@ try {
   {
     const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
     const svcs = await prisma.service.findMany({ where: { active: true }, take: 2, select: { id: true, priceAED: true, durationMin: true } });
+    const mkt = await prisma.staff.findFirst({ where: { active: true }, select: { id: true } });
     if (!u || svcs.length < 2) {
       ok(false, "need an active user + 2 active services to test multi-service booking");
     } else {
@@ -138,7 +139,7 @@ try {
       const agreed = 111; // line 1 overrides the menu price; line 2 keeps it
       const res = await fetch(BASE + "/api/erp/bookings", {
         method: "POST", headers: { "Content-Type": "application/json", cookie: `qa_admin=${t}` },
-        body: JSON.stringify({ services: [{ serviceId: svcs[0].id, priceAED: agreed }, { serviceId: svcs[1].id }], startISO, customerName: "__E2E_MULTI__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }),
+        body: JSON.stringify({ services: [{ serviceId: svcs[0].id, priceAED: agreed }, { serviceId: svcs[1].id }], startISO, customerName: "__E2E_MULTI__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: false, marketerId: mkt?.id ?? null }),
       });
       const data = await res.json().catch(() => ({}));
       const created = res.ok && data?.booking?.id
@@ -147,6 +148,7 @@ try {
       const expTotal = agreed + svcs[1].priceAED, expDur = svcs[0].durationMin + svcs[1].durationMin;
       ok(!!created && created.items.length === 2 && created.priceAED === expTotal && created.durationMin === expDur && created.createdById === u.id,
         `2 services → 2 items, total ${created?.priceAED} == ${expTotal}, dur ${created?.durationMin} == ${expDur}, attributed to creator`);
+      ok(!!created && created.marketerId === (mkt?.id ?? null), "booking stores marketer (lead source) for the bill's referral");
       if (created) await prisma.booking.delete({ where: { id: created.id } });
       await prisma.client.deleteMany({ where: { name: "__E2E_MULTI__" } });
     }

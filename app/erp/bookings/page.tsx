@@ -81,6 +81,8 @@ export default async function ErpBookings({
       prisma.booking.count({ where: { startAt: { gte: today.start, lt: next2wEnd } } }),
     ]);
 
+  const staffName = new Map(staff.map((s) => [s.id, s.name] as const));
+
   const statusCount = (s: BookingStatus) => statusGroup.find((g) => g.status === s)?._count ?? 0;
   const sourceCount = (s: string) => sourceGroup.find((g) => g.source === s)?._count ?? 0;
 
@@ -167,6 +169,7 @@ export default async function ErpBookings({
                         items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
                         staffPhone: b.staff?.phone ?? null,
                         enteredBy: b.createdBy?.name ?? null,
+                        marketer: b.marketerId ? (staffName.get(b.marketerId) ?? null) : null,
                       }}
                     />
                   );

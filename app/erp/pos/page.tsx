@@ -88,6 +88,7 @@ export default async function PosPage({
         bookingLabel: `${booking.customerName} · ${whenLabel}`,
         lines,
         staffId: booking.staffId ?? undefined,
+        marketerId: booking.marketerId ?? undefined, // carry the lead's marketer into the bill
         client: matched
           ? { id: matched.id, name: matched.name, phone: matched.phone, email: matched.email }
           : { name: booking.customerName, phone: booking.phone, email: booking.email },
