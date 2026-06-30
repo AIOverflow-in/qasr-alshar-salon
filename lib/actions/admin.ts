@@ -11,7 +11,8 @@ import {
 } from "@/lib/auth";
 import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
-import type { BookingStatus } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import type { BookingStatus, Role } from "@prisma/client";
 
 /** Front-desk operations: bookings/POS-adjacent. Excludes read-only INVESTOR and STYLIST. */
 async function requireReception() {
@@ -94,6 +95,8 @@ export async function updateStaff(
     role?: string;
     hours?: string;
     offDay?: string | null;
+    phone?: string | null;
+    salaryAED?: number;
     commissionPct?: number;
     referralPct?: number;
     active?: boolean;
@@ -103,10 +106,62 @@ export async function updateStaff(
   const clean = {
     ...data,
     offDay: data.offDay?.trim() ? data.offDay.trim() : null,
+    phone: data.phone?.trim() ? data.phone.trim() : null,
+    salaryAED: data.salaryAED != null ? Math.max(0, Math.round(data.salaryAED)) : undefined,
     commissionPct: data.commissionPct != null ? Math.max(0, Math.min(100, Math.round(data.commissionPct))) : undefined,
     referralPct: data.referralPct != null ? Math.max(0, Math.min(100, Math.round(data.referralPct))) : undefined,
   };
   await prisma.staff.update({ where: { id }, data: clean });
+  revalidatePath("/erp/staff");
+}
+
+// ---- payroll: adjustments + monthly pay ----
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/** Add a manual bonus / advance / deduction for a staff member in a payroll month. */
+export async function addPayAdjustment(
+  staffId: string,
+  month: string,
+  type: "BONUS" | "ADVANCE" | "DEDUCTION",
+  amountAED: number,
+  note?: string | null
+) {
+  await requireManager();
+  if (!MONTH_RE.test(month)) throw new Error("Invalid month");
+  if (!["BONUS", "ADVANCE", "DEDUCTION"].includes(type)) throw new Error("Invalid type");
+  const amt = Math.max(0, Math.round(amountAED));
+  if (!amt) throw new Error("Amount must be greater than 0");
+  await prisma.payAdjustment.create({ data: { staffId, month, type, amountAED: amt, note: note?.trim() || null } });
+  revalidatePath("/erp/staff");
+}
+
+export async function deletePayAdjustment(id: string) {
+  await requireManager();
+  await prisma.payAdjustment.delete({ where: { id } });
+  revalidatePath("/erp/staff");
+}
+
+/**
+ * Pay a staff member for a Dubai month: snapshot the payslip (idempotent via the
+ * staff+month unique key) and mark that month's unpaid commissions as paid.
+ */
+export async function payStaffMonth(staffId: string, month: string) {
+  await requireManager();
+  if (!MONTH_RE.test(month)) throw new Error("Invalid month");
+  const { getPayrollMonth, dubaiMonthRange } = await import("@/lib/payroll");
+  const payroll = await getPayrollMonth(month);
+  const row = payroll.rows.find((r) => r.staffId === staffId);
+  if (!row) throw new Error("Staff not found");
+  const { start, end } = dubaiMonthRange(month);
+
+  await prisma.$transaction([
+    prisma.payrollPayment.upsert({
+      where: { staffId_month: { staffId, month } },
+      update: { salaryAED: row.salary, commissionAED: row.commission, bonusAED: row.bonus, deductionAED: row.deductions, netAED: row.net, paidAt: new Date() },
+      create: { staffId, month, salaryAED: row.salary, commissionAED: row.commission, bonusAED: row.bonus, deductionAED: row.deductions, netAED: row.net },
+    }),
+    prisma.commission.updateMany({ where: { staffId, paid: false, createdAt: { gte: start, lt: end } }, data: { paid: true, paidAt: new Date() } }),
+  ]);
   revalidatePath("/erp/staff");
 }
 
@@ -192,4 +247,49 @@ export async function deletePost(id: string) {
   revalidatePath("/admin/blog");
   revalidatePath("/erp/blog");
   revalidatePath("/blog");
+}
+
+// ---- ERP user accounts (owner-only) ----
+async function requireSuperAdmin() {
+  const session = await getSession();
+  if (!session || session.role !== "SUPER_ADMIN") throw new Error("Forbidden");
+  return session;
+}
+
+const VALID_ROLES = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
+
+export async function createUser(data: { name: string; email: string; role: Role; password: string }) {
+  await requireSuperAdmin();
+  const email = data.email.trim().toLowerCase();
+  if (!email.includes("@")) return { ok: false, error: "Enter a valid email." };
+  if (!data.password || data.password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  if (!VALID_ROLES.includes(data.role)) return { ok: false, error: "Invalid role." };
+  const existing = await prisma.adminUser.findUnique({ where: { email } });
+  if (existing) return { ok: false, error: "A user with that email already exists." };
+  const passwordHash = await bcrypt.hash(data.password, 10);
+  await prisma.adminUser.create({ data: { name: data.name.trim() || "Staff", email, role: data.role, passwordHash } });
+  revalidatePath("/erp/users");
+  return { ok: true };
+}
+
+export async function updateUserRole(id: string, role: Role) {
+  await requireSuperAdmin();
+  if (!VALID_ROLES.includes(role)) throw new Error("Invalid role");
+  await prisma.adminUser.update({ where: { id }, data: { role } });
+  revalidatePath("/erp/users");
+}
+
+export async function setUserActive(id: string, active: boolean) {
+  const me = await requireSuperAdmin();
+  if (id === me.sub && !active) throw new Error("You can't deactivate your own account.");
+  await prisma.adminUser.update({ where: { id }, data: { active } });
+  revalidatePath("/erp/users");
+}
+
+export async function setUserPassword(id: string, password: string) {
+  await requireSuperAdmin();
+  if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  await prisma.adminUser.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+  revalidatePath("/erp/users");
+  return { ok: true };
 }

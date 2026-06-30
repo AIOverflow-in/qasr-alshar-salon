@@ -56,6 +56,7 @@ model Booking {
   // ERP: which Crown Artist + how the booking came in
   staffId      String?
   clientId     String?       // links the booking to a CRM Client (auto-created on booking)
+  createdById  String?       // AdminUser who entered this booking (accountability)
   source       String        @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP
   // service delivery: at the salon vs. home/clinic visit (needs salon confirmation)
   serviceMode   String       @default("SALON") // SALON | HOME
@@ -67,6 +68,7 @@ model Booking {
   service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
   client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy    AdminUser?    @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   salesOrders  SalesOrder[]
   items        BookingItem[]
 
@@ -161,7 +163,12 @@ model AdminUser {
   name         String   @default("Admin")
   role         Role     @default(SUPER_ADMIN)
   staffId      String?  // optional link to a Staff record (for STYLIST logins)
+  active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  createdOrders   SalesOrder[] @relation("OrderCreatedBy")
+  createdBookings Booking[]    @relation("BookingCreatedBy")
 }
 
 /// Salon team member ("Crown Artist", reception, etc.). Seeded from STAFF INFORMATION.xlsx.
@@ -171,7 +178,9 @@ model Staff {
   role       String     @default("Crown Artist")
   hours      String     @default("10:00AM - 10:00PM")
   offDay     String?    // e.g. "Mondays"
-  // commission config
+  phone      String?    // for WhatsApp booking reminders
+  // pay config
+  salaryAED     Int     @default(0)  // base monthly salary (0 = commission-only)
   commissionPct Int     @default(40) // stylist sales split %
   referralPct   Int     @default(5)
   active     Boolean    @default(true)
@@ -179,8 +188,10 @@ model Staff {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  bookings    Booking[]
-  salesOrders SalesOrder[]
+  bookings        Booking[]
+  salesOrders     SalesOrder[]
+  adjustments     PayAdjustment[]
+  payrollPayments PayrollPayment[]
 
   @@index([active])
 }
@@ -256,6 +267,7 @@ model SalesOrder {
 
   // idempotency: one cart submit = one order, even if the request is retried
   clientRequestId String?     @unique
+  createdById   String?       // AdminUser who rang up this bill (accountability)
 
   subtotalAED   Int           @default(0)
   vatPct        Int           @default(5)
@@ -271,11 +283,13 @@ model SalesOrder {
   booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   client        Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   staff         Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdBy     AdminUser?    @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([staffId])
   @@index([createdAt])
   @@index([bookingId])
+  @@index([createdById])
 }
 
 /// One service within a multi-service booking. Booking keeps summary totals; items hold the detail.
@@ -349,6 +363,36 @@ model Commission {
   @@index([staffId])
   @@index([orderId])
   @@index([paid])
+}
+
+/// Manual payroll adjustment — bonus (adds) / advance / deduction (subtract), per staff per month.
+model PayAdjustment {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month     String   // Dubai payroll month "YYYY-MM"
+  type      String   // BONUS | ADVANCE | DEDUCTION
+  amountAED Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([staffId, month])
+}
+
+/// Frozen payslip snapshot when a staffer is marked paid for a month (audit; prevents double-pay).
+model PayrollPayment {
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month         String   // Dubai payroll month "YYYY-MM"
+  salaryAED     Int
+  commissionAED Int
+  bonusAED      Int
+  deductionAED  Int
+  netAED        Int
+  paidAt        DateTime @default(now())
+
+  @@unique([staffId, month])
 }
 
 enum ExpenseCategory {

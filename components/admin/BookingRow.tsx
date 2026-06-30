@@ -6,9 +6,10 @@ import { Receipt } from "lucide-react";
 import { setBookingStatus } from "@/lib/actions/admin";
 import type { BookingStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
-import { EditBookingServices } from "@/components/erp/EditBookingServices";
+import { BookingDetailModal } from "@/components/erp/BookingDetailModal";
 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
+type BookingDetail = { items: { name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {
@@ -45,6 +46,7 @@ export function BookingRow({
   services = [],
   currentServiceIds = [],
   canEditServices = false,
+  detail,
 }: {
   id: string;
   when: string;
@@ -65,9 +67,11 @@ export function BookingRow({
   services?: ServiceOpt[];
   currentServiceIds?: string[];
   canEditServices?: boolean;
+  detail?: BookingDetail;
 }) {
   const [current, setCurrent] = useState<BookingStatus>(status);
   const [pending, start] = useTransition();
+  const [showDetail, setShowDetail] = useState(false);
 
   function change(next: BookingStatus) {
     setCurrent(next);
@@ -91,12 +95,18 @@ export function BookingRow({
           {serviceMode === "HOME" && <span className="rounded-full border border-gold/40 px-2 py-0.5 text-[0.6rem] text-gold">🏠 Home</span>}
         </div>
         {staffName && <div className="mt-0.5 text-xs text-muted">{staffName}</div>}
-        {customRequest && <div className="mt-0.5 text-xs italic text-muted">Request: {customRequest}</div>}
-        {serviceMode === "HOME" && address && <div className="mt-0.5 text-xs text-muted">{address}</div>}
-        {canEditServices && services.length > 0 && (
-          <div className="mt-1.5">
-            <EditBookingServices bookingId={id} services={services} initialServiceIds={currentServiceIds} />
-          </div>
+        <button onClick={() => setShowDetail(true)} className="mt-1 text-xs text-gold hover:underline">View details</button>
+        {showDetail && detail && (
+          <BookingDetailModal
+            onClose={() => setShowDetail(false)}
+            services={services}
+            b={{
+              id, name, phone, email, whenLabel: when, status: current, source: source ?? "ONLINE",
+              serviceMode, address, customRequest, notes, staffName: staffName ?? null,
+              staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, items: detail.items,
+              orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, currentServiceIds,
+            }}
+          />
         )}
       </td>
       <td className="p-4">

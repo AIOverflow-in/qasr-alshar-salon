@@ -9,8 +9,18 @@ import { resolveClientId } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({
+// Each chosen service carries an optional agreed price (reception can override the menu price per line).
+const lineSchema = z.object({
   serviceId: z.string().min(1),
+  priceAED: z.number().int().nonnegative().optional().nullable(),
+});
+
+const schema = z.object({
+  // Multi-service: a list of services, each with an optional per-line price.
+  // Falls back to the legacy single serviceId + priceAED so older callers keep working.
+  services: z.array(lineSchema).min(1).max(12).optional(),
+  serviceId: z.string().min(1).optional(),
+  priceAED: z.number().int().nonnegative().optional().nullable(), // legacy single-service override
   startISO: z.string().datetime(),
   staffId: z.string().optional().nullable(),
   // client: either an existing id, or new details (name required)
@@ -22,7 +32,7 @@ const schema = z.object({
   address: z.string().max(400).optional().nullable(),
   notes: z.string().max(800).optional().nullable(),
   enforceAvailability: z.boolean().default(true),
-});
+}).refine((d) => (d.services && d.services.length) || d.serviceId, { message: "Pick at least one service." });
 
 function dubaiLabel(d: Date) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).format(d);
@@ -40,15 +50,31 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Please check the details." }, { status: 400 });
   const d = parsed.data;
 
-  const service = await prisma.service.findUnique({ where: { id: d.serviceId } });
-  if (!service) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+  // Build the requested line list (preserve the chosen order). New multi-service path or legacy single.
+  const requested = d.services?.length
+    ? d.services
+    : [{ serviceId: d.serviceId!, priceAED: d.priceAED }];
 
+  const ids = requested.map((r) => r.serviceId);
+  const found = await prisma.service.findMany({ where: { id: { in: ids } } });
+  // Each line keeps its agreed price (override) or falls back to the menu price.
+  const lines = requested
+    .map((r) => {
+      const svc = found.find((s) => s.id === r.serviceId);
+      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED } : null;
+    })
+    .filter((x): x is { svc: (typeof found)[number]; price: number } => x !== null);
+  if (!lines.length) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+
+  const totalDuration = lines.reduce((s, l) => s + l.svc.durationMin, 0);
+  const totalPrice = lines.reduce((s, l) => s + l.price, 0);
+  const summaryName = lines.length === 1 ? lines[0].svc.name : `${lines[0].svc.name} +${lines.length - 1} more`;
   const start = new Date(d.startISO);
-  const end = new Date(start.getTime() + service.durationMin * 60_000);
+  const end = new Date(start.getTime() + totalDuration * 60_000);
 
   // Availability is enforced (per-stylist) for normal bookings; reception can override for walk-ins/phone.
   if (d.enforceAvailability) {
-    const check = await isSlotBookable(d.startISO, service.durationMin, d.staffId || undefined);
+    const check = await isSlotBookable(d.startISO, totalDuration, d.staffId || undefined);
     if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 409 });
   }
 
@@ -59,18 +85,18 @@ export async function POST(req: Request) {
 
   const booking = await prisma.booking.create({
     data: {
-      serviceId: service.id, serviceName: service.name, priceAED: service.priceAED, durationMin: service.durationMin,
+      serviceId: lines[0].svc.id, serviceName: summaryName, priceAED: totalPrice, durationMin: totalDuration,
       customerName: d.customerName.trim(), email: email || "", phone: phone || "",
       notes: d.notes?.trim() || null, startAt: start, endAt: end, status: "CONFIRMED",
-      staffId: d.staffId || null, clientId, source: "WALKIN",
+      staffId: d.staffId || null, clientId, source: "WALKIN", createdById: session.sub,
       serviceMode: d.serviceMode, address: d.serviceMode === "HOME" ? d.address?.trim() || null : null,
-      items: { create: [{ serviceId: service.id, serviceName: service.name, priceAED: service.priceAED, durationMin: service.durationMin, staffId: d.staffId || null }] },
+      items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: d.staffId || null })) },
     },
   });
 
   if (email) {
     try {
-      await sendBookingEmails({ customerName: booking.customerName, email, phone: booking.phone, serviceName: booking.serviceName, priceAED: booking.priceAED, whenLabel: dubaiLabel(start), notes: booking.notes, serviceMode: booking.serviceMode, address: booking.address });
+      await sendBookingEmails({ customerName: booking.customerName, email, phone: booking.phone, serviceName: lines.map((l) => l.svc.name).join(", "), priceAED: booking.priceAED, whenLabel: dubaiLabel(start), notes: booking.notes, serviceMode: booking.serviceMode, address: booking.address });
     } catch (e) { console.error("[erp/bookings] email failed:", e); }
   }
 

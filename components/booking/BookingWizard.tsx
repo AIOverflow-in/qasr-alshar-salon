@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { TERMS } from "@/lib/terms";
+import { clientBookingMessage } from "@/lib/booking-format";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { cn, aed, whatsappLink } from "@/lib/utils";
@@ -278,7 +279,7 @@ export function BookingWizard({
           <a
             href={whatsappLink(
               SITE.whatsapp,
-              `Hi Qasr Alshar! I just booked ${done.serviceName} for ${done.whenLabel}${done.ref ? ` (ref ${done.ref})` : ""}.`
+              clientBookingMessage({ services: selected.map((s) => s.name), whenLabel: done.whenLabel, ref: done.ref })
             )}
             target="_blank"
             rel="noopener noreferrer"

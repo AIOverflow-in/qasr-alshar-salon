@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Loader2, BadgeCheck } from "lucide-react";
-import { updateStaff, settleCommissions } from "@/lib/actions/admin";
-import { cn, aed } from "@/lib/utils";
+import { Check, Loader2 } from "lucide-react";
+import { updateStaff } from "@/lib/actions/admin";
+import { cn } from "@/lib/utils";
 
 export function StaffEditRow({
   id,
@@ -11,39 +11,40 @@ export function StaffEditRow({
   role,
   hours,
   offDay,
+  phone,
+  salaryAED,
   commissionPct,
   referralPct,
   active,
-  bookingsMTD,
-  earnedMTD,
 }: {
   id: string;
   name: string;
   role: string;
   hours: string;
   offDay: string | null;
+  phone: string | null;
+  salaryAED: number;
   commissionPct: number;
   referralPct: number;
   active: boolean;
-  bookingsMTD: number;
-  earnedMTD: number;
 }) {
   const [r, setR] = useState(role);
   const [h, setH] = useState(hours);
   const [off, setOff] = useState(offDay ?? "");
+  const [ph, setPh] = useState(phone ?? "");
+  const [sal, setSal] = useState(salaryAED);
   const [comm, setComm] = useState(commissionPct);
   const [ref, setRef] = useState(referralPct);
   const [isActive, setIsActive] = useState(active);
   const [pending, start] = useTransition();
-  const [settling, startSettle] = useTransition();
   const [saved, setSaved] = useState(false);
 
   const dirty =
-    r !== role || h !== hours || off !== (offDay ?? "") || comm !== commissionPct || ref !== referralPct || isActive !== active;
+    r !== role || h !== hours || off !== (offDay ?? "") || ph !== (phone ?? "") || sal !== salaryAED || comm !== commissionPct || ref !== referralPct || isActive !== active;
 
   function save() {
     start(async () => {
-      await updateStaff(id, { role: r, hours: h, offDay: off, commissionPct: comm, referralPct: ref, active: isActive });
+      await updateStaff(id, { role: r, hours: h, offDay: off, phone: ph, salaryAED: sal, commissionPct: comm, referralPct: ref, active: isActive });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     });
@@ -54,35 +55,17 @@ export function StaffEditRow({
   return (
     <tr className={cn(pending && "opacity-60")}>
       <td className="p-3 font-medium text-cream">{name}</td>
-      <td className="p-3">
-        <input value={r} onChange={(e) => setR(e.target.value)} className={cn(input, "w-32 text-sm")} />
-      </td>
-      <td className="p-3">
-        <input value={h} onChange={(e) => setH(e.target.value)} className={cn(input, "w-36 text-xs")} />
-      </td>
-      <td className="p-3">
-        <input value={off} onChange={(e) => setOff(e.target.value)} placeholder="—" className={cn(input, "w-24 text-sm")} />
-      </td>
-      <td className="p-3 text-right text-sand">{bookingsMTD}</td>
+      <td className="p-3"><input value={r} onChange={(e) => setR(e.target.value)} className={cn(input, "w-32 text-sm")} /></td>
+      <td className="p-3"><input value={h} onChange={(e) => setH(e.target.value)} className={cn(input, "w-36 text-xs")} /></td>
+      <td className="p-3"><input value={off} onChange={(e) => setOff(e.target.value)} placeholder="—" className={cn(input, "w-24 text-sm")} /></td>
+      <td className="p-3"><input value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+9715…" className={cn(input, "w-32 text-sm")} title="Phone for WhatsApp booking reminders" /></td>
+      <td className="p-3"><input type="number" value={sal} min={0} step={100} onChange={(e) => setSal(Number(e.target.value))} className={cn(input, "w-24 text-right text-sm")} title="Base monthly salary (0 = commission-only)" /></td>
       <td className="p-3">
         <div className="flex items-center gap-1 text-xs text-muted">
           <input type="number" value={comm} min={0} max={100} onChange={(e) => setComm(Number(e.target.value))} className={cn(input, "w-14 text-center")} />%
           <span className="mx-1 text-ink-line">·</span>
           <input type="number" value={ref} min={0} max={100} onChange={(e) => setRef(Number(e.target.value))} className={cn(input, "w-12 text-center")} />% ref
         </div>
-      </td>
-      <td className="p-3 text-right">
-        <div className="font-semibold text-gold">{earnedMTD ? aed(earnedMTD) : "—"}</div>
-        {earnedMTD > 0 && (
-          <button
-            onClick={() => startSettle(() => settleCommissions(id))}
-            disabled={settling}
-            className="mt-0.5 inline-flex items-center gap-1 text-[0.65rem] text-muted hover:text-green-400"
-            title="Mark this month's commissions as paid"
-          >
-            {settling ? <Loader2 size={10} className="animate-spin" /> : <BadgeCheck size={10} />} settle
-          </button>
-        )}
       </td>
       <td className="p-3">
         <div className="flex items-center gap-2">

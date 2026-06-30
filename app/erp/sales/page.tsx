@@ -30,6 +30,7 @@ export default async function ErpSales({
         lines: { select: { description: true } },
         staff: { select: { name: true } },
         client: { select: { name: true } },
+        createdBy: { select: { name: true } },
       },
     }),
     getSalesBreakdown(window), // accurate totals for the whole period
@@ -46,6 +47,7 @@ export default async function ErpSales({
     net: o.subtotalAED,
     vat: o.vatAED,
     total: o.totalAED,
+    cashier: o.createdBy?.name ?? null,
   }));
 
   return (

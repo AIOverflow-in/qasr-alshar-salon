@@ -1,0 +1,162 @@
+/**
+ * Qasr Alshar ERP — regression + E2E runner.
+ * Run green BEFORE every push so shipped features don't regress.
+ *
+ *   node --env-file=.env scripts/e2e.mjs
+ *
+ * Needs the dev server running (E2E_BASE, default http://localhost:3000) and the
+ * DB reachable. Read-only except two self-cleaning checks (oversell, payroll math).
+ */
+import { PrismaClient } from "@prisma/client";
+import { SignJWT } from "jose";
+
+const BASE = process.env.E2E_BASE || "http://localhost:3000";
+const prisma = new PrismaClient();
+const secret = new TextEncoder().encode(process.env.AUTH_SECRET);
+let pass = 0, fail = 0;
+const ok = (c, m) => { console.log(`${c ? "✅" : "❌"} ${m}`); c ? pass++ : fail++; };
+const section = (t) => console.log(`\n── ${t} ──`);
+
+const tok = (role) => new SignJWT({ email: `e2e-${role}@qa.test`, role })
+  .setProtectedHeader({ alg: "HS256" }).setSubject(`e2e-${role}`).setIssuedAt().setExpirationTime("1h").sign(secret);
+
+async function code(path, role) {
+  const t = role ? await tok(role) : null;
+  const r = await fetch(BASE + path, { headers: t ? { cookie: `qa_admin=${t}` } : {}, redirect: "manual" });
+  return (r.type === "opaqueredirect" || r.status === 0 || r.status === 307 || r.status === 308) ? "REDIR" : String(r.status);
+}
+async function body(path, role) {
+  const t = await tok(role);
+  const r = await fetch(BASE + path, { headers: { cookie: `qa_admin=${t}` } });
+  return { status: r.status, text: await r.text() };
+}
+
+function dubaiMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit" }).format(new Date()); }
+function dayRange(off = 0) {
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [y, m, d] = iso.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d + off) - 4 * 3600e3);
+  return { start, end: new Date(start.getTime() + 864e5) };
+}
+
+try {
+  section("Public + ERP pages load");
+  ok((await code("/")) === "200", "home 200");
+  ok((await code("/book")) === "200", "/book 200");
+  ok((await code("/terms")) === "200", "/terms 200");
+  ok((await code("/admin/login")) === "200", "/admin/login 200");
+  ok((await code("/erp", "RECEPTION")) === "200", "ERP dashboard (reception) 200");
+
+  section("RBAC matrix");
+  ok((await code("/erp/sales", "RECEPTION")) === "200", "sales: reception 200");
+  ok((await code("/erp/sales", "STYLIST")) === "REDIR", "sales: stylist blocked");
+  ok((await code("/api/erp/sales/export?range=today", "RECEPTION")) === "200", "export: reception 200");
+  ok((await code("/api/erp/sales/export?range=today", "STYLIST")) === "403", "export: stylist 403");
+  ok((await code("/api/erp/sales/export?range=today", null)) === "401", "export: unauth 401");
+  ok((await code("/erp/staff", "ADMIN")) === "200", "staff/payroll: admin 200");
+  ok((await code("/erp/staff", "RECEPTION")) === "REDIR", "staff/payroll: reception blocked");
+  ok((await code("/erp/finance", "INVESTOR")) === "200", "finance: investor 200");
+  ok((await code("/erp/finance", "RECEPTION")) === "REDIR", "finance: reception blocked");
+  ok((await code("/erp/users", "SUPER_ADMIN")) === "200", "users: super-admin 200");
+  ok((await code("/erp/users", "ADMIN")) === "REDIR", "users: admin blocked");
+
+  section("Bookings filters load + count consistency");
+  for (const w of ["today", "tomorrow", "next2w", "all"]) ok((await code(`/erp/bookings?when=${w}`, "RECEPTION")) === "200", `bookings when=${w}`);
+  {
+    const total = await prisma.booking.count();
+    const sg = await prisma.booking.groupBy({ by: ["status"], _count: true });
+    ok(sg.reduce((a, g) => a + g._count, 0) === total, `Σ status counts == total (${total})`);
+  }
+
+  section("Sales totals: CSV == DB (3 months)");
+  {
+    const start = dayRange(-89).start, end = dayRange(0).end;
+    const agg = await prisma.salesOrder.aggregate({ _sum: { totalAED: true }, _count: true, where: { status: "PAID", createdAt: { gte: start, lt: end } } });
+    const { text } = await body("/api/erp/sales/export?range=3m", "ADMIN");
+    const lines = text.trim().split("\n");
+    const csvCount = lines.length - 2; // minus header + TOTAL
+    const csvTotal = Number(lines[lines.length - 1].split(",").pop());
+    ok(csvCount === agg._count, `CSV rows ${csvCount} == DB ${agg._count}`);
+    ok(csvTotal === (agg._sum.totalAED ?? 0), `CSV total ${csvTotal} == DB ${agg._sum.totalAED ?? 0}`);
+  }
+
+  section("Attribution columns exist (no regression on auth/POS/bookings)");
+  try { await prisma.adminUser.findFirst({ select: { active: true } }); ok(true, "AdminUser.active queryable"); } catch (e) { ok(false, "AdminUser.active: " + e.message.split("\n")[0]); }
+  try { await prisma.salesOrder.findFirst({ select: { createdById: true } }); ok(true, "SalesOrder.createdById queryable"); } catch (e) { ok(false, "SalesOrder.createdById: " + e.message.split("\n")[0]); }
+  try { await prisma.booking.findFirst({ select: { createdById: true } }); ok(true, "Booking.createdById queryable"); } catch (e) { ok(false, "Booking.createdById: " + e.message.split("\n")[0]); }
+  try { await prisma.staff.findFirst({ select: { phone: true } }); ok(true, "Staff.phone queryable"); } catch (e) { ok(false, "Staff.phone: " + e.message.split("\n")[0]); }
+
+  section("Calendar ICS feed");
+  {
+    const crypto = await import("node:crypto");
+    const token = crypto.createHash("sha256").update(`${process.env.AUTH_SECRET}:bookings-calendar`).digest("hex").slice(0, 32);
+    const good = await fetch(`${BASE}/api/calendar?token=${token}`);
+    const txt = await good.text();
+    ok(good.status === 200 && txt.startsWith("BEGIN:VCALENDAR"), "valid token → VCALENDAR");
+    const bad = await fetch(`${BASE}/api/calendar?token=wrong`);
+    ok(bad.status === 403, "bad token → 403");
+  }
+
+  section("POS oversell guard (atomic decrement, self-cleaning)");
+  {
+    const prod = await prisma.product.create({ data: { name: "__E2E_TEST__", category: "TEST", qty: 10, active: false } });
+    const results = await Promise.all(Array.from({ length: 25 }, () =>
+      prisma.product.updateMany({ where: { id: prod.id, qty: { gte: 1 } }, data: { qty: { decrement: 1 } } }).then((r) => r.count).catch(() => -1)));
+    const okCount = results.filter((c) => c === 1).length;
+    const after = await prisma.product.findUnique({ where: { id: prod.id }, select: { qty: true } });
+    ok(okCount === 10 && after.qty === 0, `25 concurrent → 10 ok, final qty ${after.qty} (no oversell)`);
+    await prisma.product.delete({ where: { id: prod.id } });
+  }
+
+  section("Payroll net-pay math (self-cleaning)");
+  {
+    const s = await prisma.staff.findFirst({ orderBy: { order: "asc" }, select: { id: true, name: true, salaryAED: true } });
+    const month = dubaiMonth();
+    await prisma.staff.update({ where: { id: s.id }, data: { salaryAED: 5000 } });
+    const b = await prisma.payAdjustment.create({ data: { staffId: s.id, month, type: "BONUS", amountAED: 500 } });
+    const a = await prisma.payAdjustment.create({ data: { staffId: s.id, month, type: "ADVANCE", amountAED: 200 } });
+    const { start, end } = { start: new Date(Date.UTC(...month.split("-").map(Number).map((v, i) => i ? v - 1 : v), 1) - 4 * 3600e3), end: dayRange(0).end };
+    const comm = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { staffId: s.id, createdAt: { gte: start, lt: end } } }))._sum.amountAED ?? 0;
+    const { text } = await body(`/api/erp/payroll/export?month=${month}`, "ADMIN");
+    const row = text.split("\n").find((l) => l.startsWith(s.name) || l.includes(`"${s.name}"`));
+    const net = row ? Number(row.split(",").slice(-2, -1)[0]) : NaN;
+    ok(net === 5000 + comm + 500 - 200, `net ${net} == 5000+${comm}+500−200`);
+    await prisma.payAdjustment.deleteMany({ where: { id: { in: [b.id, a.id] } } });
+    await prisma.staff.update({ where: { id: s.id }, data: { salaryAED: s.salaryAED } });
+  }
+
+  section("In-store multi-service booking (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const svcs = await prisma.service.findMany({ where: { active: true }, take: 2, select: { id: true, priceAED: true, durationMin: true } });
+    if (!u || svcs.length < 2) {
+      ok(false, "need an active user + 2 active services to test multi-service booking");
+    } else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "RECEPTION" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const startISO = new Date(dayRange(1).start.getTime() + 12 * 3600e3).toISOString();
+      const agreed = 111; // line 1 overrides the menu price; line 2 keeps it
+      const res = await fetch(BASE + "/api/erp/bookings", {
+        method: "POST", headers: { "Content-Type": "application/json", cookie: `qa_admin=${t}` },
+        body: JSON.stringify({ services: [{ serviceId: svcs[0].id, priceAED: agreed }, { serviceId: svcs[1].id }], startISO, customerName: "__E2E_MULTI__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const created = res.ok && data?.booking?.id
+        ? await prisma.booking.findUnique({ where: { id: data.booking.id }, include: { items: { select: { priceAED: true, durationMin: true } } } })
+        : null;
+      const expTotal = agreed + svcs[1].priceAED, expDur = svcs[0].durationMin + svcs[1].durationMin;
+      ok(!!created && created.items.length === 2 && created.priceAED === expTotal && created.durationMin === expDur && created.createdById === u.id,
+        `2 services → 2 items, total ${created?.priceAED} == ${expTotal}, dur ${created?.durationMin} == ${expDur}, attributed to creator`);
+      if (created) await prisma.booking.delete({ where: { id: created.id } });
+      await prisma.client.deleteMany({ where: { name: "__E2E_MULTI__" } });
+    }
+  }
+
+  console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
+} catch (e) {
+  console.error("RUNNER ERROR:", e.message);
+  fail++;
+} finally {
+  await prisma.$disconnect();
+}
+process.exit(fail === 0 ? 0 : 1);

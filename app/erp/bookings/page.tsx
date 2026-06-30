@@ -5,6 +5,9 @@ import { TableSearch } from "@/components/erp/TableSearch";
 import { BookingRow } from "@/components/admin/BookingRow";
 import { NewBookingButton } from "@/components/erp/NewBookingButton";
 import { BookingsFilters, type BookingCounts } from "@/components/erp/BookingsFilters";
+import { CalendarSubscribe } from "@/components/erp/CalendarSubscribe";
+import { calendarToken } from "@/lib/calendar";
+import { SITE } from "@/lib/site";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +60,9 @@ export default async function ErpBookings({
         orderBy: { startAt: when === "all" ? "desc" : "asc" },
         take: 500,
         include: {
-          staff: { select: { name: true } },
-          items: { select: { serviceId: true } },
+          staff: { select: { name: true, phone: true } },
+          items: { select: { serviceId: true, serviceName: true, priceAED: true, durationMin: true } },
+          createdBy: { select: { name: true } },
           salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
         },
       }),
@@ -101,7 +105,10 @@ export default async function ErpBookings({
           <h1 className="font-display text-3xl text-cream">Bookings</h1>
           <p className="text-sm text-muted">Filter by day, status or source — update a status or generate a bill.</p>
         </div>
-        <NewBookingButton services={services} staff={staff} clients={clients} />
+        <div className="flex items-center gap-2">
+          <CalendarSubscribe url={`${SITE.url}/api/calendar?token=${calendarToken()}`} />
+          <NewBookingButton services={services} staff={staff} clients={clients} />
+        </div>
       </div>
 
       <BookingsFilters when={when} status={status} source={source} counts={counts} />
@@ -148,6 +155,11 @@ export default async function ErpBookings({
                       services={services}
                       currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
                       canEditServices={canEditServices}
+                      detail={{
+                        items: b.items.map((it) => ({ name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
+                        staffPhone: b.staff?.phone ?? null,
+                        enteredBy: b.createdBy?.name ?? null,
+                      }}
                     />
                   );
                 })}

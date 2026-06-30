@@ -16,6 +16,7 @@ export type SalesRow = {
   net: number;
   vat: number;
   total: number;
+  cashier?: string | null;
 };
 
 type Summary = { count: number; total: number; net: number; vat: number; byMethod: { CASH: number; CARD: number; TRANSFER: number } };
@@ -222,7 +223,10 @@ export function SalesTable({
                     {showDate && <div className="text-xs text-muted">{dateFmt.format(d)}</div>}
                   </td>
                   <td className="whitespace-nowrap p-4 font-mono text-xs text-sand">{r.invoiceNo}</td>
-                  <td className="p-4 text-cream">{r.client}</td>
+                  <td className="p-4 text-cream">
+                    {r.client}
+                    {r.cashier && <div className="text-[0.65rem] text-muted">rung up by {r.cashier}</div>}
+                  </td>
                   <td className="max-w-[220px] truncate p-4 text-sand" title={r.items.join(", ")}>{itemSummary}</td>
                   <td className="whitespace-nowrap p-4 text-sand">{r.artist}</td>
                   <td className="p-4">

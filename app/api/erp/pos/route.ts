@@ -171,6 +171,7 @@ export async function POST(req: Request) {
           data: {
             invoiceNo,
             clientRequestId: data.clientRequestId ?? null,
+            createdById: session.sub,
             status: "PAID",
             paymentMethod: data.paymentMethod,
             bookingId: data.bookingId ?? null,

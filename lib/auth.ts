@@ -74,7 +74,7 @@ export async function requireRole(allowed: Role[]): Promise<Session | null> {
 
 export async function verifyCredentials(email: string, password: string) {
   const user = await prisma.adminUser.findUnique({ where: { email } });
-  if (!user) return null;
+  if (!user || !user.active) return null; // deactivated accounts cannot log in
   const ok = await bcrypt.compare(password, user.passwordHash);
   return ok ? user : null;
 }

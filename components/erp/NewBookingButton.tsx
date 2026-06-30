@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, X, Loader2, UserPlus, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { CalendarPlus, X, Loader2, UserPlus, Search, MessageCircle, CheckCircle2 } from "lucide-react";
+import { cn, whatsappLink } from "@/lib/utils";
+import { salonToClientMessage } from "@/lib/booking-format";
 
 type Service = { id: string; name: string; category: string; priceAED: number };
 type Staff = { id: string; name: string };
@@ -25,13 +26,14 @@ export function NewBookingButton({ services, staff, clients }: { services: Servi
 function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
   services: Service[]; staff: Staff[]; clients: Client[]; onClose: () => void; onSaved: () => void;
 }) {
-  const [serviceId, setServiceId] = useState("");
+  const [lines, setLines] = useState<{ serviceId: string; price: number | "" }[]>([]);
   const [staffId, setStaffId] = useState("");
   const [when, setWhen] = useState("");
   const [mode, setMode] = useState<"SALON" | "HOME">("SALON");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [enforce, setEnforce] = useState(true);
+  const [created, setCreated] = useState<{ phone: string; waUrl: string } | null>(null);
   // client
   const [clientQuery, setClientQuery] = useState("");
   const [selClient, setSelClient] = useState<Client | null>(null);
@@ -46,11 +48,23 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
     return clients.filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q)).slice(0, 6);
   }, [clients, clientQuery]);
 
+  // Services not yet added — so each service can only be picked once.
+  const available = useMemo(() => services.filter((s) => !lines.some((l) => l.serviceId === s.id)), [services, lines]);
+  const total = useMemo(() => lines.reduce((sum, l) => sum + (l.price === "" ? 0 : l.price), 0), [lines]);
+
+  const addLine = (id: string) => {
+    const svc = services.find((s) => s.id === id);
+    if (!svc || lines.some((l) => l.serviceId === id)) return;
+    setLines((ls) => [...ls, { serviceId: id, price: svc.priceAED }]);
+  };
+  const updateLine = (i: number, price: number | "") => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, price } : l)));
+  const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
+
   const input = "w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
 
   async function save() {
     setErr(null);
-    if (!serviceId) return setErr("Pick a service.");
+    if (!lines.length) return setErr("Pick at least one service.");
     if (!when) return setErr("Pick a date & time.");
     const name = newClient ? nc.name.trim() : selClient?.name;
     if (!name) return setErr("Choose an existing client or add a new one.");
@@ -62,7 +76,8 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
       const res = await fetch("/api/erp/bookings", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId, startISO, staffId: staffId || null,
+          services: lines.map((l) => ({ serviceId: l.serviceId, priceAED: l.price === "" ? null : l.price })),
+          startISO, staffId: staffId || null,
           clientId: newClient ? null : selClient?.id ?? null,
           customerName: name,
           phone: newClient ? nc.phone : selClient?.phone ?? "",
@@ -73,8 +88,35 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
       });
       const data = await res.json();
       if (!res.ok) { setErr(data.error ?? "Could not create booking."); return; }
-      onSaved();
+      // Offer a one-tap WhatsApp confirmation to the client's phone (works without email).
+      const phoneDigits = (newClient ? nc.phone : selClient?.phone ?? "").replace(/\D/g, "");
+      const chosenNames = lines.map((l) => services.find((s) => s.id === l.serviceId)?.name).filter(Boolean) as string[];
+      const whenLabel = new Date(`${when}:00+04:00`).toLocaleString("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+      if (phoneDigits) {
+        const msg = salonToClientMessage({ customerName: name, services: chosenNames, whenLabel, serviceMode: mode, address: mode === "HOME" ? address : null });
+        setCreated({ phone: phoneDigits, waUrl: whatsappLink(phoneDigits, msg) });
+      } else {
+        onSaved();
+      }
     } catch { setErr("Network error."); } finally { setSaving(false); }
+  }
+
+  if (created) {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onSaved}>
+        <div className="w-full max-w-sm rounded-2xl border border-ink-line bg-ink p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-green-500/15 text-green-400"><CheckCircle2 size={30} /></div>
+          <h3 className="mt-4 font-display text-xl text-cream">Booking created</h3>
+          <p className="mt-1 text-sm text-muted">Send the client an official confirmation on WhatsApp.</p>
+          <div className="mt-5 flex flex-col gap-2">
+            <a href={created.waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso">
+              <MessageCircle size={16} /> WhatsApp confirmation
+            </a>
+            <button onClick={onSaved} className="rounded-full border border-ink-line px-5 py-2.5 text-sm text-sand hover:text-gold">Done</button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -124,11 +166,37 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
             )}
           </div>
 
-          {/* service + stylist */}
-          <select className={input} value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-            <option value="">Select service *</option>
-            {services.map((s) => <option key={s.id} value={s.id}>{s.name} — AED {s.priceAED}</option>)}
-          </select>
+          {/* services (multi-select) — each line's price is editable to the agreed amount */}
+          <div className="space-y-2">
+            <span className="text-xs text-muted">Services * — add one or more; tweak any price to your agreed amount</span>
+            {lines.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-ink-line bg-ink-card/40 p-2">
+                {lines.map((l, i) => {
+                  const svc = services.find((s) => s.id === l.serviceId);
+                  return (
+                    <div key={l.serviceId} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-sm text-cream">{svc?.name ?? "—"}</span>
+                      <span className="text-xs text-muted">AED</span>
+                      <input type="number" min={0} value={l.price}
+                        onChange={(e) => updateLine(i, e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60" />
+                      <button onClick={() => removeLine(i)} className="text-muted hover:text-red-400"><X size={14} /></button>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between border-t border-ink-line/60 pt-2 text-sm">
+                  <span className="text-muted">Total</span>
+                  <span className="font-semibold text-gold">AED {total}</span>
+                </div>
+              </div>
+            )}
+            {available.length > 0 && (
+              <select className={input} value="" onChange={(e) => { if (e.target.value) addLine(e.target.value); }}>
+                <option value="">{lines.length ? "+ Add another service" : "Select service *"}</option>
+                {available.map((s) => <option key={s.id} value={s.id}>{s.name} — AED {s.priceAED}</option>)}
+              </select>
+            )}
+          </div>
           <select className={input} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
             <option value="">— Any Crown Artist —</option>
             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}

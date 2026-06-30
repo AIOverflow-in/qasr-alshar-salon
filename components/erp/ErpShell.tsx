@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Newspaper,
   Receipt,
+  UserCog,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { NotificationBell } from "@/components/erp/NotificationBell";
@@ -37,6 +38,7 @@ const NAV = [
   { href: "/erp/finance", label: "Finance", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
   { href: "/erp/blog", label: "Blog", icon: Newspaper, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/products", label: "Storefront", icon: ShoppingBag, roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/erp/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
   { href: "/erp/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN"] },
 ] as const;
 
