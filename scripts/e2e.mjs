@@ -152,6 +152,29 @@ try {
     }
   }
 
+  section("Edit booking: services + per-line price + reschedule late, no closing block (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const svcs = await prisma.service.findMany({ where: { active: true }, take: 3, select: { id: true } });
+    if (!u || svcs.length < 3) {
+      ok(false, "need an active user + 3 active services to test booking edit");
+    } else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "RECEPTION" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      const cr = await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: svcs[0].id }], startISO: new Date(dayRange(1).start.getTime() + 11 * 3600e3).toISOString(), customerName: "__E2E_EDIT__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) });
+      const bid = (await cr.json().catch(() => ({})))?.booking?.id;
+      // Reschedule to 11pm (past closing) + swap to 2 services with custom prices → must succeed (closing check removed).
+      const lateISO = new Date(dayRange(2).start.getTime() + 23 * 3600e3).toISOString();
+      const ed = bid ? await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: svcs[1].id, priceAED: 77 }, { serviceId: svcs[2].id, priceAED: 33 }], startISO: lateISO }) }) : null;
+      const after = ed && ed.ok ? await prisma.booking.findUnique({ where: { id: bid }, include: { items: { select: { priceAED: true } } } }) : null;
+      ok(ed?.status === 200 && after && after.items.length === 2 && after.priceAED === 110 && Math.abs(after.startAt.getTime() - new Date(lateISO).getTime()) < 1000,
+        `edit → 2 items, price ${after?.priceAED} == 110, rescheduled to 11pm, no closing block (PATCH ${ed?.status})`);
+      if (bid) await prisma.booking.delete({ where: { id: bid } });
+      await prisma.client.deleteMany({ where: { name: "__E2E_EDIT__" } });
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

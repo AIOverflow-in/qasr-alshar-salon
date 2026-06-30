@@ -80,6 +80,7 @@ export default async function AdminBookings({
                     key={b.id}
                     id={b.id}
                     when={whenLabel(b.startAt)}
+                    startISO={b.startAt.toISOString()}
                     name={b.customerName}
                     phone={b.phone}
                     email={b.email}

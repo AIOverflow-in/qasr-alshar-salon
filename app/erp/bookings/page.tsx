@@ -132,12 +132,15 @@ export default async function ErpBookings({
               <tbody className="divide-y divide-ink-line/60">
                 {bookings.map((b) => {
                   const billed = !!b.salesOrders[0];
-                  const canEditServices = b.status === "CONFIRMED" && !billed && b.startAt.getTime() > Date.now();
+                  // Editable whenever it's not billed and not cancelled — staff stay in control,
+                  // including after the slot time has passed (walk-ins).
+                  const canEditServices = (b.status === "CONFIRMED" || b.status === "COMPLETED") && !billed;
                   return (
                     <BookingRow
                       key={b.id}
                       id={b.id}
                       when={whenLabel(b.startAt)}
+                      startISO={b.startAt.toISOString()}
                       name={b.customerName}
                       phone={b.phone}
                       email={b.email}
@@ -156,7 +159,7 @@ export default async function ErpBookings({
                       currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
                       canEditServices={canEditServices}
                       detail={{
-                        items: b.items.map((it) => ({ name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
+                        items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
                         staffPhone: b.staff?.phone ?? null,
                         enteredBy: b.createdBy?.name ?? null,
                       }}

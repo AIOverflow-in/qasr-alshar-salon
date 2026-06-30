@@ -6,7 +6,7 @@ import { whatsappLink, aed, cn } from "@/lib/utils";
 import { salonToClientMessage, artistReminderMessage } from "@/lib/booking-format";
 import { EditBookingServices } from "@/components/erp/EditBookingServices";
 
-type Item = { name: string; price: number; duration: number };
+type Item = { serviceId?: string | null; name: string; price: number; duration: number };
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
 
 const SOURCE_LABEL: Record<string, string> = { ONLINE: "🌐 Online", WALKIN: "🏪 In-store", PHONE: "☎ Phone", WHATSAPP: "WhatsApp" };
@@ -19,7 +19,7 @@ export function BookingDetailModal({
 }: {
   onClose: () => void;
   b: {
-    id: string; name: string; phone: string; email: string; whenLabel: string;
+    id: string; name: string; phone: string; email: string; whenLabel: string; startISO: string;
     status: string; source: string; serviceMode?: string | null; address?: string | null;
     customRequest?: string | null; notes: string | null; staffName: string | null; staffPhone: string | null;
     enteredBy: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
@@ -114,7 +114,13 @@ export function BookingDetailModal({
             </a>
           )}
           {b.canEditServices && services.length > 0 && (
-            <EditBookingServices bookingId={b.id} services={services} initialServiceIds={b.currentServiceIds} />
+            <EditBookingServices
+              bookingId={b.id}
+              services={services}
+              initialServiceIds={b.currentServiceIds}
+              initialPrices={Object.fromEntries(b.items.filter((it) => it.serviceId).map((it) => [it.serviceId as string, it.price]))}
+              initialStartISO={b.startISO}
+            />
           )}
           {b.orderId && b.invoiceNo ? (
             <>

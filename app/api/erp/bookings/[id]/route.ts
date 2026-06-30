@@ -3,18 +3,26 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { dubaiWeekday, dubaiInstant } from "@/lib/availability";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({
-  serviceIds: z.array(z.string().min(1)).min(1).max(12),
+const lineSchema = z.object({
+  serviceId: z.string().min(1),
+  priceAED: z.number().int().nonnegative().optional().nullable(),
 });
 
+const schema = z.object({
+  // Per-line agreed prices (services[]) or a plain id list (serviceIds[], price = menu rate).
+  services: z.array(lineSchema).min(1).max(12).optional(),
+  serviceIds: z.array(z.string().min(1)).min(1).max(12).optional(),
+  // Optionally reschedule (Dubai-time ISO). Omit to keep the current time.
+  startISO: z.string().datetime().optional(),
+}).refine((d) => (d.services && d.services.length) || (d.serviceIds && d.serviceIds.length), { message: "Pick at least one service." });
+
 /**
- * Edit the services on a booking BEFORE it starts.
- * Recomputes duration/price/end, re-validates the (longer) slot against the
- * stylist/salon capacity excluding this booking itself, and replaces its items.
+ * Edit a booking's services, agreed prices and/or time.
+ * Staff-driven, so it intentionally does NOT enforce closing hours or capacity —
+ * reception is in control. Only blocked once the booking is billed.
  */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -33,58 +41,48 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     include: { salesOrders: { where: { status: "PAID" }, select: { id: true } } },
   });
   if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  if (booking.status !== "CONFIRMED") return NextResponse.json({ error: "Only upcoming (confirmed) bookings can be edited." }, { status: 409 });
   if (booking.salesOrders.length) return NextResponse.json({ error: "This booking is already billed — edit the invoice instead." }, { status: 409 });
-  if (booking.startAt.getTime() <= Date.now()) return NextResponse.json({ error: "This booking has already started and can't be edited." }, { status: 409 });
+  if (booking.status === "CANCELLED") return NextResponse.json({ error: "This booking is cancelled. Re-confirm it first to edit." }, { status: 409 });
 
-  // Resolve the new service set (preserve chosen order).
-  const found = await prisma.service.findMany({ where: { id: { in: parsed.data.serviceIds }, active: true } });
-  const services = parsed.data.serviceIds.map((sid) => found.find((s) => s.id === sid)).filter(Boolean) as typeof found;
-  if (!services.length) return NextResponse.json({ error: "Service not found." }, { status: 404 });
+  // Resolve the new service set (preserve chosen order). Accept per-line agreed prices
+  // (services[]) or a plain id list (serviceIds[], price defaults to the menu rate).
+  const requested = parsed.data.services?.length
+    ? parsed.data.services
+    : parsed.data.serviceIds!.map((serviceId) => ({ serviceId, priceAED: null as number | null }));
+  const ids = requested.map((r) => r.serviceId);
+  const found = await prisma.service.findMany({ where: { id: { in: ids } } });
+  const lines = requested
+    .map((r) => {
+      const svc = found.find((s) => s.id === r.serviceId);
+      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED } : null;
+    })
+    .filter((x): x is { svc: (typeof found)[number]; price: number } => x !== null);
+  if (!lines.length) return NextResponse.json({ error: "Service not found." }, { status: 404 });
 
-  const totalDuration = services.reduce((s, x) => s + x.durationMin, 0);
-  const totalPrice = services.reduce((s, x) => s + x.priceAED, 0);
-  const summaryName = services.length === 1 ? services[0].name : `${services[0].name} +${services.length - 1} more`;
-  const start = booking.startAt;
+  const totalDuration = lines.reduce((s, l) => s + l.svc.durationMin, 0);
+  const totalPrice = lines.reduce((s, l) => s + l.price, 0);
+  const summaryName = lines.length === 1 ? lines[0].svc.name : `${lines[0].svc.name} +${lines.length - 1} more`;
+  const start = parsed.data.startISO ? new Date(parsed.data.startISO) : booking.startAt;
   const end = new Date(start.getTime() + totalDuration * 60_000);
-
-  // Don't let the new (longer) duration run past closing for that Dubai day.
-  const dateISO = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(start);
-  const hours = await prisma.workingHours.findUnique({ where: { weekday: dubaiWeekday(dateISO) } });
-  if (hours && !hours.closed) {
-    const close = dubaiInstant(dateISO, hours.close);
-    if (end > close) return NextResponse.json({ error: "These services run past closing time. Remove one or move the booking." }, { status: 409 });
-  }
-
   const staffId = booking.staffId;
+
   try {
     await prisma.$transaction(async (tx) => {
-      const settings = await tx.salonSettings.findUnique({ where: { id: "singleton" } });
-      const capacity = staffId ? 1 : settings?.capacity ?? 3;
-      // Overlap excluding THIS booking (its current slot doesn't count against itself).
-      const overlapping = await tx.booking.count({
-        where: { id: { not: id }, status: "CONFIRMED", startAt: { lt: end }, endAt: { gt: start }, ...(staffId ? { staffId } : {}) },
-      });
-      if (overlapping >= capacity) throw new Error("CAPACITY_FULL");
-
       await tx.bookingItem.deleteMany({ where: { bookingId: id } });
       await tx.booking.update({
         where: { id },
         data: {
-          serviceId: services[0].id,
+          serviceId: lines[0].svc.id,
           serviceName: summaryName,
           priceAED: totalPrice,
           durationMin: totalDuration,
+          startAt: start,
           endAt: end,
-          items: { create: services.map((s) => ({ serviceId: s.id, serviceName: s.name, priceAED: s.priceAED, durationMin: s.durationMin, staffId: staffId || null })) },
+          items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: staffId || null })) },
         },
       });
-    }, { isolationLevel: "Serializable" });
+    });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "";
-    if (msg === "CAPACITY_FULL" || msg.includes("40001") || msg.includes("could not serialize")) {
-      return NextResponse.json({ error: staffId ? "That artist isn't free for the longer time. Shorten the services or reassign." : "Not enough capacity for the longer time. Please adjust." }, { status: 409 });
-    }
     console.error("[erp/bookings/edit] failed:", e);
     return NextResponse.json({ error: "Could not update the booking. Please try again." }, { status: 500 });
   }

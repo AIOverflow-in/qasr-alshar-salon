@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/erp/BookingDetailModal";
 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
-type BookingDetail = { items: { name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null };
+type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {
@@ -29,6 +29,7 @@ const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
 export function BookingRow({
   id,
   when,
+  startISO,
   name,
   phone,
   email,
@@ -50,6 +51,7 @@ export function BookingRow({
 }: {
   id: string;
   when: string;
+  startISO: string;
   name: string;
   phone: string;
   email: string;
@@ -101,7 +103,7 @@ export function BookingRow({
             onClose={() => setShowDetail(false)}
             services={services}
             b={{
-              id, name, phone, email, whenLabel: when, status: current, source: source ?? "ONLINE",
+              id, name, phone, email, whenLabel: when, startISO, status: current, source: source ?? "ONLINE",
               serviceMode, address, customRequest, notes, staffName: staffName ?? null,
               staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, items: detail.items,
               orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, currentServiceIds,
