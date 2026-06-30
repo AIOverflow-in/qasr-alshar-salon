@@ -189,6 +189,50 @@ try {
     ok(adminStatus !== 403 && adminStatus !== 401, `edit bill: admin passes role gate (got ${adminStatus})`);
   }
 
+  section("Multi-artist bill: attribution, shares, fallback + per-artist page RBAC (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const staff2 = await prisma.staff.findMany({ take: 2, orderBy: { order: "asc" }, select: { id: true, name: true, commissionPct: true } });
+    if (!u || staff2.length < 2) {
+      ok(false, "need an active user + 2 staff for the multi-artist test");
+    } else {
+      const [A, B] = staff2;
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({
+        paymentMethod: "CASH", staffId: A.id, clientRequestId: `e2e-ma-${Date.now()}`,
+        lines: [
+          { kind: "SERVICE", description: "__E2E_MA_1", qty: 1, unitAED: 100, staffIds: [A.id] },        // A only
+          { kind: "SERVICE", description: "__E2E_MA_2", qty: 1, unitAED: 60, staffIds: [A.id, B.id] },    // A + B (split)
+          { kind: "SERVICE", description: "__E2E_MA_3", qty: 1, unitAED: 40 },                            // none → falls back to order staffId A
+        ],
+      }) });
+      const orderId = (await res.json().catch(() => ({})))?.order?.id;
+      const artistsOf = (l, os) => (l.staffIds?.length ? l.staffIds : (l.staffId ? [l.staffId] : (os ? [os] : [])));
+      const order = orderId ? await prisma.salesOrder.findUnique({ where: { id: orderId }, include: { lines: true } }) : null;
+      if (!order) {
+        ok(false, "multi-artist sale create failed");
+      } else {
+        const distinct = new Set(order.lines.flatMap((l) => artistsOf(l, order.staffId)));
+        ok(distinct.size === 2 && distinct.has(A.id) && distinct.has(B.id), `bill surfaces both artists (got ${distinct.size})`);
+        const shareFor = (id) => order.lines.reduce((s, l) => { const a = artistsOf(l, order.staffId); return a.includes(id) ? s + Math.round(l.lineAED / a.length) : s; }, 0);
+        const countFor = (id) => order.lines.filter((l) => artistsOf(l, order.staffId).includes(id)).length;
+        ok(countFor(A.id) === 3 && shareFor(A.id) === 170, `A: 3 services, share ${shareFor(A.id)} == 170 (incl. fallback line)`);
+        ok(countFor(B.id) === 1 && shareFor(B.id) === 30, `B: 1 service, share ${shareFor(B.id)} == 30`);
+        const commA = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId, staffId: A.id } }))._sum.amountAED ?? 0;
+        const commB = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId, staffId: B.id } }))._sum.amountAED ?? 0;
+        ok(commA === Math.round(170 * A.commissionPct / 100), `A commission ${commA} == round(170×${A.commissionPct}%)`);
+        ok(commB === Math.round(30 * B.commissionPct / 100), `B commission ${commB} == round(30×${B.commissionPct}%)`);
+        await prisma.commission.deleteMany({ where: { orderId } });
+        await prisma.salesOrder.delete({ where: { id: orderId } });
+      }
+      ok((await code(`/erp/staff/${A.id}`, "ADMIN")) === "200", "artist page: admin can view 200");
+      ok((await code(`/erp/staff/${A.id}`, "RECEPTION")) === "REDIR", "artist page: reception (not own) blocked");
+      ok((await code(`/erp/staff/${A.id}`, null)) === "REDIR", "artist page: unauth blocked");
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

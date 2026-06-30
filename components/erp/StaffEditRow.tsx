@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Check, Loader2 } from "lucide-react";
 import { updateStaff } from "@/lib/actions/admin";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,9 @@ export function StaffEditRow({
 
   return (
     <tr className={cn(pending && "opacity-60")}>
-      <td className="p-3 font-medium text-cream">{name}</td>
+      <td className="p-3 font-medium">
+        <Link href={`/erp/staff/${id}`} className="text-cream hover:text-gold hover:underline" title="View work performed, times & invoices">{name}</Link>
+      </td>
       <td className="p-3"><input value={r} onChange={(e) => setR(e.target.value)} className={cn(input, "w-32 text-sm")} /></td>
       <td className="p-3"><input value={h} onChange={(e) => setH(e.target.value)} className={cn(input, "w-36 text-xs")} /></td>
       <td className="p-3"><input value={off} onChange={(e) => setOff(e.target.value)} placeholder="—" className={cn(input, "w-24 text-sm")} /></td>

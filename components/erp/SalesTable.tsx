@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Printer, Download, ChevronLeft, ChevronRight, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
+import { BillDetailModal } from "@/components/erp/BillDetailModal";
+
+export type SalesLine = { description: string; qty: number; unitAED: number; lineAED: number; kind: string; artists: string[] };
+export type SalesBooking = { whenLabel: string; source: string; serviceMode: string | null; address: string | null; customRequest: string | null; notes: string | null };
 
 export type SalesRow = {
   id: string;
@@ -13,11 +17,15 @@ export type SalesRow = {
   client: string;
   items: string[];
   artist: string;
+  artists: string[];
+  lines: SalesLine[];
   payment: "CASH" | "CARD" | "TRANSFER";
   net: number;
   vat: number;
   total: number;
   cashier?: string | null;
+  notes?: string | null;
+  booking?: SalesBooking | null;
 };
 
 type Summary = { count: number; total: number; net: number; vat: number; byMethod: { CASH: number; CARD: number; TRANSFER: number } };
@@ -67,6 +75,7 @@ export function SalesTable({
   const [page, setPage] = useState(0);
   const [from, setFrom] = useState(activeFrom ?? "");
   const [to, setTo] = useState(activeTo ?? "");
+  const [detailRow, setDetailRow] = useState<SalesRow | null>(null);
 
   const isCustom = activeRange === "custom";
   const showDate = activeRange !== "today" && activeRange !== "yesterday" && activeRange !== "date";
@@ -219,8 +228,11 @@ export function SalesTable({
             {pageRows.map((r) => {
               const d = new Date(r.createdAt);
               const itemSummary = r.items.length <= 1 ? (r.items[0] ?? "—") : `${r.items[0]} +${r.items.length - 1}`;
+              const artistLabel = r.artists.length === 0
+                ? r.artist
+                : r.artists.length <= 2 ? r.artists.join(", ") : `${r.artists[0]} +${r.artists.length - 1}`;
               return (
-                <tr key={r.id} className="transition-colors hover:bg-gold/5">
+                <tr key={r.id} onClick={() => setDetailRow(r)} className="cursor-pointer transition-colors hover:bg-gold/5" title="View bill details">
                   <td className="whitespace-nowrap p-4 text-gold">
                     {timeFmt.format(d)}
                     {showDate && <div className="text-xs text-muted">{dateFmt.format(d)}</div>}
@@ -231,7 +243,7 @@ export function SalesTable({
                     {r.cashier && <div className="text-[0.65rem] text-muted">rung up by {r.cashier}</div>}
                   </td>
                   <td className="max-w-[220px] truncate p-4 text-sand" title={r.items.join(", ")}>{itemSummary}</td>
-                  <td className="whitespace-nowrap p-4 text-sand">{r.artist}</td>
+                  <td className="whitespace-nowrap p-4 text-sand" title={r.artists.join(", ")}>{artistLabel}</td>
                   <td className="p-4">
                     <span className={cn("rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide", PAY_BADGE[r.payment])}>
                       {r.payment}
@@ -239,7 +251,7 @@ export function SalesTable({
                   </td>
                   <td className="whitespace-nowrap p-4 text-right font-semibold tabular-nums text-cream">{aed(r.total)}</td>
                   <td className="whitespace-nowrap p-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                       {canEdit && (
                         <Link
                           href={`/erp/pos?orderId=${r.id}`}
@@ -304,6 +316,8 @@ export function SalesTable({
           )}
         </div>
       )}
+
+      {detailRow && <BillDetailModal row={detailRow} canEdit={canEdit} onClose={() => setDetailRow(null)} />}
     </div>
   );
 }
