@@ -23,7 +23,7 @@ export function BillDetailModal({ row, canEdit, onClose }: { row: SalesRow; canE
   );
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 p-4 py-10" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 py-10" onClick={onClose}>
       <div className="surface w-full max-w-lg rounded-2xl border border-ink-line p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* header */}
         <div className="mb-4 flex items-start justify-between gap-3">
