@@ -100,18 +100,16 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   }
   y -= 28;
 
-  if (order.client || order.staff) {
-    page.drawText("BILLED TO", { x: M, y, size: 8, font: bold, color: GOLD });
-    y -= 14;
-    if (order.client) {
-      page.drawText(order.client.name, { x: M, y, size: 10.5, font: bold, color: INK });
-      y -= 13;
-      const contact = [order.client.phone, order.client.email].filter(Boolean).join("  ·  ");
-      if (contact) { page.drawText(contact, { x: M, y, size: 9, font: reg, color: GREY }); y -= 13; }
-    }
-    if (order.staff) { page.drawText(`Crown Artist: ${order.staff.name}`, { x: M, y, size: 9, font: reg, color: GREY }); y -= 13; }
-    y -= 8;
-  }
+  // BILLED TO is always the customer — never the stylist. Falls back to "Walk-in customer"
+  // when no client record is linked, so the bill never reads as billed to the artist.
+  page.drawText("BILLED TO", { x: M, y, size: 8, font: bold, color: GOLD });
+  y -= 14;
+  page.drawText(order.client?.name || "Walk-in customer", { x: M, y, size: 10.5, font: bold, color: INK });
+  y -= 13;
+  const contact = [order.client?.phone, order.client?.email].filter(Boolean).join("  ·  ");
+  if (contact) { page.drawText(contact, { x: M, y, size: 9, font: reg, color: GREY }); y -= 13; }
+  if (order.staff) { page.drawText(`Crown Artist: ${order.staff.name}`, { x: M, y, size: 9, font: reg, color: GREY }); y -= 13; }
+  y -= 8;
 
   y = drawTableHeader(page, y);
   for (const line of order.lines) {

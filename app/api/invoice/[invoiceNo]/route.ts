@@ -26,6 +26,7 @@ export async function GET(
       lines: true,
       client: { select: { name: true, phone: true, email: true } },
       staff: { select: { name: true } },
+      booking: { select: { customerName: true, phone: true, email: true } },
     },
   });
   if (!order) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

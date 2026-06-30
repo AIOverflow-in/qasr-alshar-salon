@@ -9,6 +9,7 @@ type OrderLike = {
   lines: OrderLineLike[];
   client: { name: string; phone: string | null; email: string | null } | null;
   staff: { name: string } | null;
+  booking?: { customerName: string; phone: string | null; email: string | null } | null;
 };
 
 /** Build the invoice PDF, resolving each line's artist id(s) to display names. */
@@ -29,5 +30,10 @@ export async function renderInvoice(order: OrderLike): Promise<Uint8Array> {
     };
   });
 
-  return buildInvoicePdf({ ...order, lines });
+  // The customer is the client record; if a walk-in bill has none, fall back to the
+  // originating booking's customer name so the invoice never bills "to" the artist.
+  const client = order.client
+    ?? (order.booking ? { name: order.booking.customerName, phone: order.booking.phone, email: order.booking.email } : null);
+
+  return buildInvoicePdf({ ...order, lines, client });
 }
