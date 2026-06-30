@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef } from "react";
-import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2 } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 
 const VAT_PCT = 5;
@@ -37,14 +38,17 @@ export type PosPrefill = {
   bookingLabel?: string;
 };
 
-export function PosTerminal({ services, staff, clients: initialClients, products = [], prefill }: {
+export function PosTerminal({ services, staff, clients: initialClients, products = [], prefill, attachableBookings = [] }: {
   services: Service[];
   staff: StaffMember[];
   clients: Client[];
   products?: ProductItem[];
   prefill?: PosPrefill;
+  attachableBookings?: { id: string; customerName: string; phone: string | null; serviceName: string; whenLabel: string }[];
 }) {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const [bookingQuery, setBookingQuery] = useState("");
   const [pickerTab, setPickerTab] = useState<"service" | "product">("service");
   const [lines, setLines] = useState<LineItem[]>(
     (prefill?.lines ?? []).map((l, i) => ({
@@ -115,6 +119,19 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const splitSum = n(cashAED) + n(cardAED) + n(transferAED);
   const splitRemaining = total - splitSum;
   const splitValid = !split || splitSum === total;
+
+  const bookingMatches = useMemo(() => {
+    const q = bookingQuery.trim().toLowerCase();
+    const list = q
+      ? attachableBookings.filter((b) => b.customerName.toLowerCase().includes(q) || (b.phone ?? "").includes(q) || b.serviceName.toLowerCase().includes(q))
+      : attachableBookings;
+    return list.slice(0, 8);
+  }, [attachableBookings, bookingQuery]);
+
+  function attachBooking(id: string) {
+    if (lines.length > 0 && !window.confirm("Load this booking? It will replace the items currently in the cart.")) return;
+    router.push(`/erp/pos?bookingId=${id}`);
+  }
 
   function addService(s: Service) {
     const key = `svc-${s.id}`;
@@ -266,6 +283,37 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         {bookingId && !editing && (
           <div className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold">
             <CalendarCheck size={16} /> Billing booking {prefill?.bookingLabel ? `· ${prefill.bookingLabel}` : ""} — add, drop or edit items below before charging.
+          </div>
+        )}
+        {!editing && !bookingId && attachableBookings.length > 0 && (
+          <div className="rounded-xl border border-ink-line bg-ink-card/40 px-4 py-3">
+            <div className="mb-2 flex items-center gap-2 text-sm text-sand">
+              <Link2 size={15} className="text-gold" /> Is this for a booking? Attach it so the booking is marked billed.
+            </div>
+            <div className="relative">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                value={bookingQuery}
+                onChange={(e) => setBookingQuery(e.target.value)}
+                placeholder="Search bookings by client, phone or service…"
+                className="w-full rounded-lg border border-ink-line bg-ink-card py-2 pl-9 pr-3 text-sm text-cream outline-none placeholder:text-muted focus:border-gold/60"
+              />
+            </div>
+            {bookingMatches.length > 0 ? (
+              <div className="mt-2 max-h-56 divide-y divide-ink-line/50 overflow-y-auto rounded-lg border border-ink-line/50">
+                {bookingMatches.map((b) => (
+                  <button key={b.id} onClick={() => attachBooking(b.id)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-start hover:bg-gold/5">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm text-cream">{b.customerName} <span className="text-xs text-muted">{b.phone ?? ""}</span></span>
+                      <span className="block truncate text-xs text-muted">{b.serviceName} · {b.whenLabel}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-gold">Attach →</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted">No matching unbilled booking — continue as a walk-in.</p>
+            )}
           </div>
         )}
         {/* Services / Products toggle */}

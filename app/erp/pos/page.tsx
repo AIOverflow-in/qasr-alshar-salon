@@ -25,6 +25,20 @@ export default async function PosPage({
     prisma.product.findMany({ where: { active: true }, orderBy: { name: "asc" }, take: 2000, select: { id: true, name: true, category: true, saleAED: true, qty: true } }),
   ]);
 
+  // For a fresh walk-in bill, offer to attach a relevant booking (recent + upcoming, unbilled).
+  let attachableBookings: { id: string; customerName: string; phone: string | null; serviceName: string; whenLabel: string }[] = [];
+  if (!orderId && !bookingId) {
+    const since = new Date(Date.now() - 7 * 24 * 3600_000); // last week through the future
+    const list = await prisma.booking.findMany({
+      where: { status: "CONFIRMED", startAt: { gte: since }, salesOrders: { none: { status: "PAID" } } },
+      orderBy: { startAt: "desc" },
+      take: 100,
+      select: { id: true, customerName: true, phone: true, serviceName: true, startAt: true },
+    });
+    const fmt = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(d);
+    attachableBookings = list.map((b) => ({ id: b.id, customerName: b.customerName, phone: b.phone, serviceName: b.serviceName, whenLabel: fmt(b.startAt) }));
+  }
+
   // Build a prefill when arriving from a booking → "Generate Bill".
   let prefill: PosPrefill | undefined;
 
@@ -84,7 +98,7 @@ export default async function PosPage({
   return (
     <div className="space-y-4">
       <h1 className="font-display text-3xl text-cream">POS Checkout</h1>
-      <PosTerminal services={services} staff={staff} clients={clients} products={products} prefill={prefill} />
+      <PosTerminal services={services} staff={staff} clients={clients} products={products} prefill={prefill} attachableBookings={attachableBookings} />
     </div>
   );
 }
