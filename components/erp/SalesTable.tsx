@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Printer, Download, ChevronLeft, ChevronRight, Receipt, Coins, CreditCard, ArrowLeftRight } from "lucide-react";
+import Link from "next/link";
+import { Search, Printer, Download, ChevronLeft, ChevronRight, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 
 export type SalesRow = {
@@ -49,6 +50,7 @@ export function SalesTable({
   activeFrom,
   activeTo,
   capped,
+  canEdit = false,
 }: {
   rows: SalesRow[];
   summary: Summary;
@@ -57,6 +59,7 @@ export function SalesTable({
   activeFrom: string | null;
   activeTo: string | null;
   capped: boolean;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -236,15 +239,26 @@ export function SalesTable({
                   </td>
                   <td className="whitespace-nowrap p-4 text-right font-semibold tabular-nums text-cream">{aed(r.total)}</td>
                   <td className="whitespace-nowrap p-4 text-right">
-                    <a
-                      href={`/api/erp/invoice/${r.invoiceNo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"
-                      title="View / print receipt"
-                    >
-                      <Printer size={13} /> PDF
-                    </a>
+                    <div className="flex items-center justify-end gap-1.5">
+                      {canEdit && (
+                        <Link
+                          href={`/erp/pos?orderId=${r.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-ink-line px-2.5 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold"
+                          title="Edit this bill — payment method, amount or services"
+                        >
+                          <Pencil size={13} /> Edit
+                        </Link>
+                      )}
+                      <a
+                        href={`/api/erp/invoice/${r.invoiceNo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"
+                        title="View / print receipt"
+                      >
+                        <Printer size={13} /> PDF
+                      </a>
+                    </div>
                   </td>
                 </tr>
               );

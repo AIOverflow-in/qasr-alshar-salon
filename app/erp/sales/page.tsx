@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { salesRange, getSalesBreakdown } from "@/lib/finance";
 import { SalesTable, type SalesRow } from "@/components/erp/SalesTable";
 
@@ -14,8 +14,9 @@ export default async function ErpSales({
 }: {
   searchParams: Promise<{ range?: string; date?: string; from?: string; to?: string }>;
 }) {
-  const ok = await requireRole(["SUPER_ADMIN", "ADMIN", "RECEPTION"]);
-  if (!ok) redirect("/erp");
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) redirect("/erp");
+  const canEdit = session.role === "SUPER_ADMIN" || session.role === "ADMIN"; // only admins amend bills
 
   const sp = await searchParams;
   const range = sp.from && sp.to ? "custom" : sp.date ? "date" : sp.range ?? "today";
@@ -65,6 +66,7 @@ export default async function ErpSales({
         activeFrom={sp.from ?? null}
         activeTo={sp.to ?? null}
         capped={rows.length >= ROW_CAP}
+        canEdit={canEdit}
       />
     </div>
   );

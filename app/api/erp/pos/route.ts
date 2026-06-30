@@ -256,11 +256,12 @@ export async function POST(req: Request) {
 }
 
 // PATCH — edit an existing invoice: reverse old stock/commission/client totals, apply new ones.
+// Amending a completed bill is admin-only (Reception rings up; an admin corrects mistakes).
 export async function PATCH(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const allowed: string[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
-  if (!allowed.includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const allowed: string[] = ["SUPER_ADMIN", "ADMIN"];
+  if (!allowed.includes(session.role)) return NextResponse.json({ error: "Only an admin can edit a completed bill." }, { status: 403 });
 
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }

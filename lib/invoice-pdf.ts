@@ -116,7 +116,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   y = drawTableHeader(page, y);
   for (const line of order.lines) {
     const artists = (line.staffNames ?? []).filter(Boolean);
-    const rowH = artists.length ? 27 : 16;
+    const rowH = artists.length ? 30 : 19;
     if (y < 170) {
       page = pdf.addPage([PAGE_W, PAGE_H]);
       y = drawHeader(page);
@@ -132,10 +132,13 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
       const by = `by ${artists.join(", ")}`;
       page.drawText(by.length > 70 ? by.slice(0, 69) + "…" : by, { x: M + 8, y: y - 11, size: 7.5, font: reg, color: GREY });
     }
-    y -= rowH;
-    page.drawLine({ start: { x: M, y: y + 5 }, end: { x: RIGHT, y: y + 5 }, thickness: 0.3, color: HAIR });
+    // Divider sits below this row's content (after the "by artist" line), leaving a
+    // gap before the next row's text so the hairline never cuts through it.
+    const dividerY = y - (artists.length ? 19 : 8);
+    page.drawLine({ start: { x: M, y: dividerY }, end: { x: RIGHT, y: dividerY }, thickness: 0.3, color: HAIR });
+    y = dividerY - 11;
   }
-  y -= 8;
+  y -= 4;
 
   const tLabelX = RIGHT - 180;
   const drawTotal = (label: string, val: string, strong = false) => {

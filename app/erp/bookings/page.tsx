@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { dubaiDayRange } from "@/lib/finance";
 import { TableSearch } from "@/components/erp/TableSearch";
@@ -31,6 +32,9 @@ export default async function ErpBookings({
 }: {
   searchParams: Promise<{ when?: string; status?: string; source?: string }>;
 }) {
+  const session = await getSession();
+  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+
   const sp = await searchParams;
   const when = ["today", "tomorrow", "next2w", "all"].includes(sp.when ?? "") ? sp.when! : "today";
   const status = sp.status && STATUS_MAP[sp.status] ? sp.status : "all";
@@ -158,6 +162,7 @@ export default async function ErpBookings({
                       services={services}
                       currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
                       canEditServices={canEditServices}
+                      canEditBill={isAdmin}
                       detail={{
                         items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
                         staffPhone: b.staff?.phone ?? null,

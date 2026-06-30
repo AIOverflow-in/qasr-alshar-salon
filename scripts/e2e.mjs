@@ -175,6 +175,20 @@ try {
     }
   }
 
+  section("Bill edit (PATCH /api/erp/pos) is admin-only");
+  {
+    const patch = async (role) => {
+      const t = role ? await tok(role) : null;
+      const r = await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: { "Content-Type": "application/json", ...(t ? { cookie: `qa_admin=${t}` } : {}) }, body: JSON.stringify({}) });
+      return r.status;
+    };
+    ok((await patch("RECEPTION")) === 403, "edit bill: reception 403");
+    ok((await patch("STYLIST")) === 403, "edit bill: stylist 403");
+    ok((await patch(null)) === 401, "edit bill: unauth 401");
+    const adminStatus = await patch("ADMIN"); // passes role gate → 400 on empty body (not 403)
+    ok(adminStatus !== 403 && adminStatus !== 401, `edit bill: admin passes role gate (got ${adminStatus})`);
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

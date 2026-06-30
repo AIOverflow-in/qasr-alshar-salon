@@ -23,7 +23,7 @@ export function BookingDetailModal({
     status: string; source: string; serviceMode?: string | null; address?: string | null;
     customRequest?: string | null; notes: string | null; staffName: string | null; staffPhone: string | null;
     enteredBy: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
-    canEditServices: boolean; currentServiceIds: string[];
+    canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
   };
   services: ServiceOpt[];
 }) {
@@ -124,7 +124,7 @@ export function BookingDetailModal({
           )}
           {b.orderId && b.invoiceNo ? (
             <>
-              <Link href={`/erp/pos?orderId=${b.orderId}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">Edit bill</Link>
+              {b.canEditBill && <Link href={`/erp/pos?orderId=${b.orderId}`} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">Edit bill</Link>}
               <a href={`/api/erp/invoice/${b.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs text-gold hover:bg-gold/10"><Printer size={13} /> Invoice</a>
             </>
           ) : (

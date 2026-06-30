@@ -47,6 +47,7 @@ export function BookingRow({
   services = [],
   currentServiceIds = [],
   canEditServices = false,
+  canEditBill = false,
   detail,
 }: {
   id: string;
@@ -69,6 +70,7 @@ export function BookingRow({
   services?: ServiceOpt[];
   currentServiceIds?: string[];
   canEditServices?: boolean;
+  canEditBill?: boolean;
   detail?: BookingDetail;
 }) {
   const [current, setCurrent] = useState<BookingStatus>(status);
@@ -106,7 +108,7 @@ export function BookingRow({
               id, name, phone, email, whenLabel: when, startISO, status: current, source: source ?? "ONLINE",
               serviceMode, address, customRequest, notes, staffName: staffName ?? null,
               staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, items: detail.items,
-              orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, currentServiceIds,
+              orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, canEditBill, currentServiceIds,
             }}
           />
         )}
@@ -152,7 +154,7 @@ export function BookingRow({
           {orderId && invoiceNo && (
             <div className="flex items-center gap-3 pl-0.5 text-xs">
               <span className="text-muted">{invoiceNo}</span>
-              <Link href={`/erp/pos?orderId=${orderId}`} className="text-gold hover:underline">Edit bill</Link>
+              {canEditBill && <Link href={`/erp/pos?orderId=${orderId}`} className="text-gold hover:underline">Edit bill</Link>}
               <a href={`/api/erp/invoice/${invoiceNo}`} target="_blank" rel="noopener noreferrer" className="text-sand hover:text-gold">PDF</a>
             </div>
           )}
