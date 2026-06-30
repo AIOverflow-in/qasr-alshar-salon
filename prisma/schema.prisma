@@ -256,7 +256,14 @@ model SalesOrder {
   id            String        @id @default(cuid())
   invoiceNo     String        @unique
   status        OrderStatus   @default(DRAFT)
-  paymentMethod PaymentMethod @default(CASH)
+  paymentMethod PaymentMethod @default(CASH) // single method, or the dominant one when split
+
+  // split payment: when splitPayment, the total is paid partly across methods (cash + card + transfer).
+  // For single-method bills these stay 0 and paymentMethod holds the method (back-compatible).
+  splitPayment  Boolean       @default(false)
+  cashAED       Int           @default(0)
+  cardAED       Int           @default(0)
+  transferAED   Int           @default(0)
 
   // optional links
   bookingId     String?

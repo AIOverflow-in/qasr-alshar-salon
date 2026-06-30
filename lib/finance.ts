@@ -94,12 +94,23 @@ export type SalesBreakdown = {
 
 /** Accurate PAID totals for a window, split by payment method (covers the whole period). */
 export async function getSalesBreakdown(range: DayRange): Promise<SalesBreakdown> {
-  const grouped = await prisma.salesOrder.groupBy({
-    by: ["paymentMethod"],
-    where: { status: "PAID", createdAt: { gte: range.start, lt: range.end } },
-    _sum: { totalAED: true, subtotalAED: true, vatAED: true },
-    _count: true,
-  });
+  const where = { status: "PAID" as const, createdAt: { gte: range.start, lt: range.end } };
+  const [grouped, split] = await Promise.all([
+    // Single-method bills: the whole total belongs to paymentMethod.
+    prisma.salesOrder.groupBy({
+      by: ["paymentMethod"],
+      where: { ...where, splitPayment: false },
+      _sum: { totalAED: true, subtotalAED: true, vatAED: true },
+      _count: true,
+    }),
+    // Split bills: each method's takings come from its own column.
+    prisma.salesOrder.aggregate({
+      where: { ...where, splitPayment: true },
+      _sum: { totalAED: true, subtotalAED: true, vatAED: true, cashAED: true, cardAED: true, transferAED: true },
+      _count: true,
+    }),
+  ]);
+
   const out: SalesBreakdown = { count: 0, total: 0, net: 0, vat: 0, byMethod: { CASH: 0, CARD: 0, TRANSFER: 0 } };
   for (const g of grouped) {
     const t = g._sum.totalAED ?? 0;
@@ -107,7 +118,14 @@ export async function getSalesBreakdown(range: DayRange): Promise<SalesBreakdown
     out.total += t;
     out.net += g._sum.subtotalAED ?? 0;
     out.vat += g._sum.vatAED ?? 0;
-    if (g.paymentMethod in out.byMethod) out.byMethod[g.paymentMethod as keyof SalesBreakdown["byMethod"]] = t;
+    if (g.paymentMethod in out.byMethod) out.byMethod[g.paymentMethod as keyof SalesBreakdown["byMethod"]] += t;
   }
+  out.count += split._count;
+  out.total += split._sum.totalAED ?? 0;
+  out.net += split._sum.subtotalAED ?? 0;
+  out.vat += split._sum.vatAED ?? 0;
+  out.byMethod.CASH += split._sum.cashAED ?? 0;
+  out.byMethod.CARD += split._sum.cardAED ?? 0;
+  out.byMethod.TRANSFER += split._sum.transferAED ?? 0;
   return out;
 }

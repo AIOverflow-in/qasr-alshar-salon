@@ -20,6 +20,10 @@ export type SalesRow = {
   artists: string[];
   lines: SalesLine[];
   payment: "CASH" | "CARD" | "TRANSFER";
+  splitPayment?: boolean;
+  cashAED?: number;
+  cardAED?: number;
+  transferAED?: number;
   net: number;
   vat: number;
   total: number;
@@ -27,6 +31,24 @@ export type SalesRow = {
   notes?: string | null;
   booking?: SalesBooking | null;
 };
+
+/** Methods a bill touched — for filtering: the split methods with a non-zero amount, else the single method. */
+export function rowMethods(r: SalesRow): SalesRow["payment"][] {
+  if (!r.splitPayment) return [r.payment];
+  const out: SalesRow["payment"][] = [];
+  if ((r.cashAED ?? 0) > 0) out.push("CASH");
+  if ((r.cardAED ?? 0) > 0) out.push("CARD");
+  if ((r.transferAED ?? 0) > 0) out.push("TRANSFER");
+  return out.length ? out : [r.payment];
+}
+
+/** "Cash AED 200 · Card AED 100" for a split bill. */
+export function splitBreakdown(r: SalesRow): string {
+  return ([["Cash", r.cashAED], ["Card", r.cardAED], ["Transfer", r.transferAED]] as const)
+    .filter(([, v]) => (v ?? 0) > 0)
+    .map(([k, v]) => `${k} ${aed(v as number)}`)
+    .join("  ·  ");
+}
 
 type Summary = { count: number; total: number; net: number; vat: number; byMethod: { CASH: number; CARD: number; TRANSFER: number } };
 
@@ -83,7 +105,7 @@ export function SalesTable({
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return rows.filter((r) => {
-      if (payment !== "ALL" && r.payment !== payment) return false;
+      if (payment !== "ALL" && !rowMethods(r).includes(payment)) return false;
       if (!query) return true;
       return (
         r.client.toLowerCase().includes(query) ||
@@ -245,9 +267,15 @@ export function SalesTable({
                   <td className="max-w-[220px] truncate p-4 text-sand" title={r.items.join(", ")}>{itemSummary}</td>
                   <td className="whitespace-nowrap p-4 text-sand" title={r.artists.join(", ")}>{artistLabel}</td>
                   <td className="p-4">
-                    <span className={cn("rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide", PAY_BADGE[r.payment])}>
-                      {r.payment}
-                    </span>
+                    {r.splitPayment ? (
+                      <span title={splitBreakdown(r)} className="cursor-help rounded-full border border-purple-400/40 bg-purple-400/10 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-purple-300">
+                        Split
+                      </span>
+                    ) : (
+                      <span className={cn("rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide", PAY_BADGE[r.payment])}>
+                        {r.payment}
+                      </span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap p-4 text-right font-semibold tabular-nums text-cream">{aed(r.total)}</td>
                   <td className="whitespace-nowrap p-4 text-right">

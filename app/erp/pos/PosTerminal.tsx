@@ -29,6 +29,10 @@ export type PosPrefill = {
   staffId?: string;
   marketerId?: string;
   paymentMethod?: "CASH" | "CARD" | "TRANSFER";
+  splitPayment?: boolean;
+  cashAED?: number;
+  cardAED?: number;
+  transferAED?: number;
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
 };
@@ -59,6 +63,10 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [selectedClient, setSelectedClient] = useState<string>(prefill?.client?.id ?? "");
   const [clientQuery, setClientQuery] = useState(prefill?.client?.id ? prefill.client.name ?? "" : "");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">(prefill?.paymentMethod ?? "CASH");
+  const [split, setSplit] = useState<boolean>(prefill?.splitPayment ?? false);
+  const [cashAED, setCashAED] = useState<number | "">(prefill?.cashAED ?? "");
+  const [cardAED, setCardAED] = useState<number | "">(prefill?.cardAED ?? "");
+  const [transferAED, setTransferAED] = useState<number | "">(prefill?.transferAED ?? "");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +110,11 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const subtotal = lines.reduce((s, l) => s + l.qty * l.unitAED, 0);
   const vatAED = Math.round(subtotal * VAT_PCT / 100);
   const total = subtotal + vatAED;
+
+  const n = (v: number | "") => (v === "" ? 0 : v);
+  const splitSum = n(cashAED) + n(cardAED) + n(transferAED);
+  const splitRemaining = total - splitSum;
+  const splitValid = !split || splitSum === total;
 
   function addService(s: Service) {
     const key = `svc-${s.id}`;
@@ -174,6 +187,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
 
   async function checkout() {
     if (lines.length === 0) { setError("Add at least one item."); return; }
+    if (split && splitSum !== total) { setError(`Split amounts (AED ${splitSum}) must add up to the total (AED ${total}).`); return; }
     if (submitting) return;
     if (!editing && !requestIdRef.current) requestIdRef.current = crypto.randomUUID();
     setError(null);
@@ -185,6 +199,8 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         body: JSON.stringify({
           ...(editing ? { orderId } : { clientRequestId: requestIdRef.current }),
           paymentMethod,
+          splitPayment: split,
+          ...(split ? { cashAED: n(cashAED), cardAED: n(cardAED), transferAED: n(transferAED) } : {}),
           staffId: selectedStaff || null,
           marketerId: selectedMarketer || null,
           clientId: selectedClient || null,
@@ -495,20 +511,59 @@ export function PosTerminal({ services, staff, clients: initialClients, products
 
         {/* payment method */}
         <div className="surface rounded-2xl p-4 space-y-2">
-          <div className="text-xs text-muted mb-2">Payment method</div>
-          <div className="flex gap-2">
-            {(["CASH", "CARD", "TRANSFER"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setPaymentMethod(m)}
-                className={cn("flex-1 rounded-lg border py-2 text-xs font-semibold uppercase tracking-wide transition-colors",
-                  paymentMethod === m ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-muted hover:border-gold/40"
-                )}
-              >
-                {m}
-              </button>
-            ))}
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-xs text-muted">Payment{split ? " — split across methods" : " method"}</div>
+            <button onClick={() => setSplit((v) => !v)} className="text-xs text-gold hover:text-gold-deep">
+              {split ? "Single method" : "Split payment"}
+            </button>
           </div>
+          {!split ? (
+            <div className="flex gap-2">
+              {(["CASH", "CARD", "TRANSFER"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setPaymentMethod(m)}
+                  className={cn("flex-1 rounded-lg border py-2 text-xs font-semibold uppercase tracking-wide transition-colors",
+                    paymentMethod === m ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-muted hover:border-gold/40"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                {([["Cash", cashAED, setCashAED], ["Card", cardAED, setCardAED], ["Transfer", transferAED, setTransferAED]] as const).map(([label, val, setter]) => (
+                  <div key={label}>
+                    <label className="mb-1 block text-[0.6rem] uppercase tracking-wide text-muted">{label}</label>
+                    <input
+                      type="number" min={0} inputMode="numeric"
+                      value={val}
+                      onChange={(e) => setter(e.target.value === "" ? "" : Math.max(0, Math.round(Number(e.target.value))))}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-ink-line bg-transparent px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/40"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className={cn("flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs",
+                splitRemaining === 0 ? "bg-green-500/10 text-green-400" : "bg-gold/10 text-gold")}>
+                <span>
+                  {splitRemaining === 0 ? "✓ Balanced" : splitRemaining > 0 ? `Remaining: ${aed(splitRemaining)}` : `Over by ${aed(-splitRemaining)}`}
+                </span>
+                <button
+                  onClick={() => {
+                    // drop the remainder into Cash to balance quickly
+                    if (splitRemaining !== 0) setCashAED(Math.max(0, n(cashAED) + splitRemaining));
+                  }}
+                  className="text-muted underline hover:text-gold"
+                >
+                  balance to {aed(total)}
+                </button>
+              </div>
+            </div>
+          )}
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -527,7 +582,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
 
         <button
           onClick={checkout}
-          disabled={submitting || lines.length === 0 || total === 0}
+          disabled={submitting || lines.length === 0 || total === 0 || !splitValid}
           className={cn(
             "w-full rounded-2xl py-4 font-semibold text-espresso transition-opacity text-base flex items-center justify-center gap-2",
             "bg-gold-gradient disabled:opacity-40"

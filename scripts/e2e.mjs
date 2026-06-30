@@ -233,6 +233,34 @@ try {
     }
   }
 
+  section("Split payment: store, validate, breakdown columns (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const svc = await prisma.service.findFirst({ where: { active: true }, select: { id: true } });
+    if (!u || !svc) {
+      ok(false, "need an active user + a service for the split-payment test");
+    } else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      const lines = [{ kind: "SERVICE", description: "__E2E_SPLIT_1", qty: 1, unitAED: 100 }, { kind: "SERVICE", description: "__E2E_SPLIT_2", qty: 1, unitAED: 100 }]; // total 210 (200 + 5% VAT)
+      // Split that doesn't add up to the total is rejected.
+      const bad = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ splitPayment: true, cashAED: 100, cardAED: 50, transferAED: 0, clientRequestId: `e2e-spbad-${Date.now()}`, lines }) });
+      ok(bad.status === 400, `split not summing to total rejected (${bad.status})`);
+      // Valid split: cash 110 + card 100 = 210.
+      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ splitPayment: true, cashAED: 110, cardAED: 100, transferAED: 0, clientRequestId: `e2e-sp-${Date.now()}`, lines }) });
+      const orderId = (await res.json().catch(() => ({})))?.order?.id;
+      const o = orderId ? await prisma.salesOrder.findUnique({ where: { id: orderId }, select: { splitPayment: true, cashAED: true, cardAED: true, transferAED: true, paymentMethod: true, totalAED: true } }) : null;
+      ok(!!o && o.splitPayment && o.cashAED === 110 && o.cardAED === 100 && o.transferAED === 0 && o.totalAED === 210, `split stored: cash 110 + card 100 = total ${o?.totalAED}`);
+      ok(!!o && o.paymentMethod === "CASH", `dominant method = CASH (${o?.paymentMethod})`);
+      // Breakdown building blocks: the split aggregate reads the columns; the single-method bucket excludes it (no double count).
+      const splitAgg = await prisma.salesOrder.aggregate({ where: { id: orderId, splitPayment: true }, _sum: { cashAED: true, cardAED: true } });
+      ok(splitAgg._sum.cashAED === 110 && splitAgg._sum.cardAED === 100, "breakdown reads split columns");
+      ok((await prisma.salesOrder.count({ where: { id: orderId, splitPayment: false } })) === 0, "split bill excluded from single-method bucket");
+      if (orderId) { await prisma.commission.deleteMany({ where: { orderId } }); await prisma.salesOrder.delete({ where: { id: orderId } }); }
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

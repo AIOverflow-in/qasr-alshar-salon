@@ -23,6 +23,11 @@ const lineSchema = z.object({
 
 const createSchema = z.object({
   paymentMethod: z.enum(["CASH", "CARD", "TRANSFER"]).default("CASH"),
+  // Split payment: when true, cash+card+transfer must add up to the total.
+  splitPayment: z.boolean().optional(),
+  cashAED: z.number().int().nonnegative().optional(),
+  cardAED: z.number().int().nonnegative().optional(),
+  transferAED: z.number().int().nonnegative().optional(),
   bookingId: z.string().optional().nullable(),
   clientId: z.string().optional().nullable(),
   staffId: z.string().optional().nullable(),
@@ -80,6 +85,28 @@ async function writeCommissions(
 }
 
 const editSchema = createSchema.extend({ orderId: z.string().min(1) });
+
+type Method = "CASH" | "CARD" | "TRANSFER";
+type PaymentInput = { paymentMethod: Method; splitPayment?: boolean; cashAED?: number; cardAED?: number; transferAED?: number };
+
+/**
+ * Resolve how a bill is paid. Single method → that method, split columns 0.
+ * Split → the per-method amounts (which must add up to the total), with paymentMethod
+ * set to the dominant method so single-value consumers still read sensibly.
+ */
+function resolvePayment(data: PaymentInput, total: number):
+  | { splitPayment: boolean; cashAED: number; cardAED: number; transferAED: number; paymentMethod: Method }
+  | { error: string } {
+  if (!data.splitPayment) {
+    return { splitPayment: false, cashAED: 0, cardAED: 0, transferAED: 0, paymentMethod: data.paymentMethod };
+  }
+  const cashAED = data.cashAED ?? 0, cardAED = data.cardAED ?? 0, transferAED = data.transferAED ?? 0;
+  const sum = cashAED + cardAED + transferAED;
+  if (sum !== total) return { error: `Split payments (AED ${sum}) must add up to the total (AED ${total}).` };
+  const pairs: [Method, number][] = [["CASH", cashAED], ["CARD", cardAED], ["TRANSFER", transferAED]];
+  const paymentMethod = pairs.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+  return { splitPayment: true, cashAED, cardAED, transferAED, paymentMethod };
+}
 
 /** Email the finished/updated invoice to the client (best-effort, never throws). */
 async function emailInvoice(orderId: string) {
@@ -145,6 +172,9 @@ export async function POST(req: Request) {
   const vatAED = Math.round(subtotal * VAT_PCT / 100);
   const total = subtotal + vatAED;
 
+  const pay = resolvePayment(data, total);
+  if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });
+
   // Idempotent replay: this exact cart was already charged → return that invoice.
   if (data.clientRequestId) {
     const dupe = await prisma.salesOrder.findUnique({
@@ -173,7 +203,11 @@ export async function POST(req: Request) {
             clientRequestId: data.clientRequestId ?? null,
             createdById: session.sub,
             status: "PAID",
-            paymentMethod: data.paymentMethod,
+            paymentMethod: pay.paymentMethod,
+            splitPayment: pay.splitPayment,
+            cashAED: pay.cashAED,
+            cardAED: pay.cardAED,
+            transferAED: pay.transferAED,
             bookingId: data.bookingId ?? null,
             clientId: data.clientId ?? null,
             staffId: data.staffId ?? null,
@@ -274,6 +308,9 @@ export async function PATCH(req: Request) {
   const vatAED = Math.round(subtotal * VAT_PCT / 100);
   const total = subtotal + vatAED;
 
+  const pay = resolvePayment(data, total);
+  if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });
+
   let done = false;
   for (let attempt = 0; attempt < 5 && !done; attempt++) {
     try {
@@ -296,7 +333,11 @@ export async function PATCH(req: Request) {
         await tx.salesOrder.update({
           where: { id: existing.id },
           data: {
-            paymentMethod: data.paymentMethod,
+            paymentMethod: pay.paymentMethod,
+            splitPayment: pay.splitPayment,
+            cashAED: pay.cashAED,
+            cardAED: pay.cardAED,
+            transferAED: pay.transferAED,
             clientId: data.clientId ?? null,
             staffId: data.staffId ?? null,
             marketerId: data.marketerId ?? null,

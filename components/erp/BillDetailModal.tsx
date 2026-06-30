@@ -63,7 +63,13 @@ export function BillDetailModal({ row, canEdit, onClose }: { row: SalesRow; canE
         {/* meta */}
         <div className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
           <Row icon={<Users size={15} />} label="Artists involved">{row.artists.length ? row.artists.join(", ") : "—"}</Row>
-          <Row icon={<CreditCard size={15} />} label="Payment">{PAY_LABEL[row.payment] ?? row.payment}</Row>
+          <Row icon={<CreditCard size={15} />} label="Payment">
+            {row.splitPayment ? (
+              <span>Split — {([["Cash", row.cashAED], ["Card", row.cardAED], ["Transfer", row.transferAED]] as const).filter(([, v]) => (v ?? 0) > 0).map(([k, v]) => `${k} ${aed(v as number)}`).join("  ·  ")}</span>
+            ) : (
+              PAY_LABEL[row.payment] ?? row.payment
+            )}
+          </Row>
           <Row icon={<Clock size={15} />} label="Billed">{when}</Row>
           <Row icon={<UserCheck size={15} />} label="Rung up by">{row.cashier ?? "—"}</Row>
         </div>

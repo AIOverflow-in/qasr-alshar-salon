@@ -30,6 +30,10 @@ export type InvoiceOrder = {
   vatAED: number;
   totalAED: number;
   notes: string | null;
+  splitPayment?: boolean;
+  cashAED?: number;
+  cardAED?: number;
+  transferAED?: number;
   lines: { description: string; qty: number; unitAED: number; lineAED: number; staffNames?: string[] }[];
   client: { name: string; phone: string | null; email: string | null } | null;
   staff: { name: string } | null;
@@ -89,7 +93,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   const meta: [string, string][] = [
     ["Invoice", order.invoiceNo],
     ["Date", new Date(order.createdAt).toLocaleDateString("en-GB", { timeZone: "Asia/Dubai", day: "2-digit", month: "short", year: "numeric" })],
-    ["Payment", order.paymentMethod],
+    ["Payment", order.splitPayment ? "Split" : order.paymentMethod],
     ["Status", order.status],
   ];
   let my = metaTop;
@@ -151,6 +155,17 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   page.drawText("TOTAL", { x: tLabelX, y: y + 4, size: 11, font: bold, color: GOLD });
   rt(page, money(order.totalAED), RIGHT - 8, y + 4, 11, bold, GOLD);
   y -= 34;
+
+  // Split payment: show how the total was settled across methods.
+  if (order.splitPayment) {
+    const parts = ([["Cash", order.cashAED], ["Card", order.cardAED], ["Transfer", order.transferAED]] as const)
+      .filter(([, v]) => (v ?? 0) > 0)
+      .map(([k, v]) => `${k} ${money(v as number)}`);
+    if (parts.length) {
+      page.drawText(`Paid: ${parts.join("    ·    ")}`, { x: M, y, size: 8.5, font: reg, color: GREY });
+      y -= 18;
+    }
+  }
 
   if (order.notes) {
     page.drawText("Notes", { x: M, y, size: 8, font: bold, color: GREY }); y -= 12;
