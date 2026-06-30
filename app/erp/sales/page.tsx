@@ -67,6 +67,8 @@ export default async function ErpSales({
       cashAED: o.cashAED,
       cardAED: o.cardAED,
       transferAED: o.transferAED,
+      marketer: o.marketerId ? (nameOf(o.marketerId) ?? null) : null,
+      marketerPct: o.marketerPct,
       net: o.subtotalAED,
       vat: o.vatAED,
       total: o.totalAED,

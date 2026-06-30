@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, Printer, Pencil, Clock, MapPin, Users, Scissors, UserCheck, CreditCard } from "lucide-react";
+import { X, Printer, Pencil, Clock, MapPin, Users, Scissors, UserCheck, CreditCard, Megaphone } from "lucide-react";
 import { aed, cn } from "@/lib/utils";
 import type { SalesRow } from "@/components/erp/SalesTable";
 
@@ -72,6 +72,12 @@ export function BillDetailModal({ row, canEdit, onClose }: { row: SalesRow; canE
           </Row>
           <Row icon={<Clock size={15} />} label="Billed">{when}</Row>
           <Row icon={<UserCheck size={15} />} label="Rung up by">{row.cashier ?? "—"}</Row>
+          {row.marketer && (
+            <Row icon={<Megaphone size={15} />} label="Referral (marketer)">
+              {row.marketer}
+              <span className="text-xs text-muted"> · {row.marketerPct ?? 0}% = {aed(Math.round((row.net * (row.marketerPct ?? 0)) / 100))}</span>
+            </Row>
+          )}
         </div>
 
         {/* booking details (when the bill came from a booking) */}

@@ -24,6 +24,8 @@ export type SalesRow = {
   cashAED?: number;
   cardAED?: number;
   transferAED?: number;
+  marketer?: string | null;
+  marketerPct?: number;
   net: number;
   vat: number;
   total: number;
