@@ -74,10 +74,11 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [cardAED, setCardAED] = useState<number | "">(prefill?.cardAED ?? "");
   const [transferAED, setTransferAED] = useState<number | "">(prefill?.transferAED ?? "");
   // Per-artist commission overrides (AED). Empty for an artist ⇒ auto-compute from their %.
-  const [commissionEdits, setCommissionEdits] = useState<Record<string, number>>(
-    () => Object.fromEntries((prefill?.commissions ?? []).map((c) => [c.staffId, c.amountAED]))
-  );
-  const [marketerCommission, setMarketerCommission] = useState<number | "">(prefill?.marketerCommission ?? "");
+  // Commission always starts from the live auto-calc (services × %). We intentionally do NOT
+  // prefill stored amounts on edit — that recomputes cleanly and self-heals old bills
+  // (e.g. ones computed before the services-only rule). Override per-bill if needed.
+  const [commissionEdits, setCommissionEdits] = useState<Record<string, number>>({});
+  const [marketerCommission, setMarketerCommission] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

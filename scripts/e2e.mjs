@@ -313,6 +313,37 @@ try {
     }
   }
 
+  section("Edit bill: recomputes commission services-only, no stale (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const A = await prisma.staff.findFirst({ where: { active: true }, select: { id: true, commissionPct: true } });
+    if (!u || !A) { ok(false, "need user + staff for edit-commission test"); }
+    else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      const lines = [{ kind: "SERVICE", description: "__E2E_EDIT_SVC", qty: 1, unitAED: 100, staffIds: [A.id] }, { kind: "PRODUCT", description: "__E2E_EDIT_PROD", qty: 1, unitAED: 50 }];
+      const want = Math.round(100 * A.commissionPct / 100); // services-only: 100 × pct, product excluded
+      const r1 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-ed-${Date.now()}`, staffId: A.id, lines }) });
+      const oid = (await r1.json().catch(() => ({})))?.order?.id;
+      // Poll the just-committed value to avoid a read racing the write on the pooled connection.
+      const commSum = async (expected) => {
+        for (let i = 0; i < 20; i++) {
+          const v = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId: oid, staffId: A.id, type: "SALES_SPLIT" } }))._sum.amountAED ?? -1;
+          if (v === expected || i === 19) return v;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+      };
+      ok(oid && (await commSum(want)) === want, `create: commission == ${want} (services-only)`);
+      // Edit with NO override → must recompute to services-only (not stale, not incl. product).
+      const r2 = oid ? await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: hdr, body: JSON.stringify({ orderId: oid, staffId: A.id, lines }) }) : null;
+      ok(r2 && r2.ok && (await commSum(want)) === want, `edit (no override): recomputes to ${want}, not stale (PATCH ${r2?.status})`);
+      // Edit WITH override → stored exactly.
+      const r3 = oid ? await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: hdr, body: JSON.stringify({ orderId: oid, staffId: A.id, lines, commissions: [{ staffId: A.id, amountAED: 25 }] }) }) : null;
+      ok(r3 && r3.ok && (await commSum(25)) === 25, `edit (override 25): stored == 25 (PATCH ${r3?.status})`);
+      if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
