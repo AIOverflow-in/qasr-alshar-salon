@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { renderInvoice } from "@/lib/invoice";
 import { invoiceToken } from "@/lib/invoice-token";
 import { sendInvoiceEmail } from "@/lib/email";
+import { resolveClientId } from "@/lib/clients";
 import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +31,13 @@ const createSchema = z.object({
   transferAED: z.number().int().nonnegative().optional(),
   // Per-artist agreed commission overrides (AED). Omitted artists auto-compute from their %.
   commissions: z.array(z.object({ staffId: z.string().min(1), amountAED: z.number().int().nonnegative() })).optional(),
+  marketerAmountAED: z.number().int().nonnegative().optional(), // agreed marketer commission; overrides the 5% default
   bookingId: z.string().optional().nullable(),
   clientId: z.string().optional().nullable(),
+  // When no client is picked, these link/create one so the bill isn't "Walk-in".
+  customerName: z.string().max(120).optional().nullable(),
+  customerPhone: z.string().max(30).optional().nullable(),
+  customerEmail: z.string().optional().nullable(),
   staffId: z.string().optional().nullable(),
   marketerId: z.string().optional().nullable(),
   marketerPct: z.number().int().min(0).max(100).optional(),
@@ -68,6 +74,7 @@ async function writeCommissions(
   marketerId: string | null,
   marketerPct: number,
   overrides: Map<string, number>, // staffId → agreed commission amount (AED)
+  marketerAmount?: number, // agreed marketer/referral commission (AED); overrides the % default
 ) {
   const baseByStaff = new Map<string, number>();
   let servicesSubtotal = 0;
@@ -90,8 +97,12 @@ async function writeCommissions(
     const pct = base > 0 ? Math.round((amountAED / base) * 100) : staff.commissionPct;
     await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: Math.round(base), pct, amountAED } });
   }
-  if (marketerId && servicesSubtotal > 0) {
-    await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: servicesSubtotal, pct: marketerPct, amountAED: Math.round(servicesSubtotal * marketerPct / 100) } });
+  if (marketerId) {
+    const referral = marketerAmount != null ? marketerAmount : Math.round(servicesSubtotal * marketerPct / 100);
+    if (referral > 0) {
+      const pct = servicesSubtotal > 0 ? Math.round((referral / servicesSubtotal) * 100) : marketerPct;
+      await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: servicesSubtotal, pct, amountAED: referral } });
+    }
   }
 }
 
@@ -186,6 +197,12 @@ export async function POST(req: Request) {
   const pay = resolvePayment(data, total);
   if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });
 
+  // Link a client so the bill isn't "Walk-in": use the chosen one, else dedupe/create from the name.
+  const clientId = data.clientId
+    ?? (data.customerName?.trim()
+      ? await resolveClientId({ name: data.customerName, phone: (data.customerPhone ?? "").trim(), email: (data.customerEmail ?? "").trim().toLowerCase() })
+      : null);
+
   // Idempotent replay: this exact cart was already charged → return that invoice.
   if (data.clientRequestId) {
     const dupe = await prisma.salesOrder.findUnique({
@@ -220,7 +237,7 @@ export async function POST(req: Request) {
             cardAED: pay.cardAED,
             transferAED: pay.transferAED,
             bookingId: data.bookingId ?? null,
-            clientId: data.clientId ?? null,
+            clientId,
             staffId: data.staffId ?? null,
             marketerId: data.marketerId ?? null,
             marketerPct: data.marketerPct ?? 5,
@@ -261,14 +278,14 @@ export async function POST(req: Request) {
           });
         }
 
-        if (data.clientId) {
+        if (clientId) {
           await tx.client.update({
-            where: { id: data.clientId },
+            where: { id: clientId },
             data: { visits: { increment: 1 }, totalSpentAED: { increment: total } },
           });
         }
 
-        await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])));
+        await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
 
         return created;
       }, { isolationLevel: "Serializable" });
@@ -322,6 +339,11 @@ export async function PATCH(req: Request) {
   const pay = resolvePayment(data, total);
   if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });
 
+  const clientId = data.clientId
+    ?? (data.customerName?.trim()
+      ? await resolveClientId({ name: data.customerName, phone: (data.customerPhone ?? "").trim(), email: (data.customerEmail ?? "").trim().toLowerCase() })
+      : null);
+
   let done = false;
   for (let attempt = 0; attempt < 5 && !done; attempt++) {
     try {
@@ -349,7 +371,7 @@ export async function PATCH(req: Request) {
             cashAED: pay.cashAED,
             cardAED: pay.cardAED,
             transferAED: pay.transferAED,
-            clientId: data.clientId ?? null,
+            clientId,
             staffId: data.staffId ?? null,
             marketerId: data.marketerId ?? null,
             marketerPct: data.marketerPct ?? 5,
@@ -368,11 +390,11 @@ export async function PATCH(req: Request) {
           await tx.stockMovement.create({ data: { productId: l.productId!, kind: "SALE", qty: -l.qty, note: `Invoice ${existing.invoiceNo} (edited)`, staffId: data.staffId ?? null } });
         }
         // 5. Apply new client totals
-        if (data.clientId) {
-          await tx.client.update({ where: { id: data.clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
+        if (clientId) {
+          await tx.client.update({ where: { id: clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
         }
         // 6. Recompute commissions (per-artist split + marketer referral)
-        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])));
+        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
       }, { isolationLevel: "Serializable" });
       done = true;
     } catch (e) {

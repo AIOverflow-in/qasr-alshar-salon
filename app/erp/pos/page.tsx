@@ -49,12 +49,14 @@ export default async function PosPage({
       include: { lines: true, client: { select: { id: true, name: true, phone: true, email: true } } },
     });
     if (order) {
-      // Existing per-artist commissions, so an edit preserves any agreed overrides.
-      const comms = await prisma.commission.findMany({ where: { orderId: order.id, type: "SALES_SPLIT" }, select: { staffId: true, amountAED: true } });
+      // Existing commissions, so an edit preserves any agreed overrides (artists + marketer).
+      const comms = await prisma.commission.findMany({ where: { orderId: order.id }, select: { staffId: true, amountAED: true, type: true } });
+      const referral = comms.find((c) => c.type === "REFERRAL");
       prefill = {
         orderId: order.id,
         invoiceNo: order.invoiceNo,
-        commissions: comms.map((c) => ({ staffId: c.staffId, amountAED: c.amountAED })),
+        commissions: comms.filter((c) => c.type === "SALES_SPLIT").map((c) => ({ staffId: c.staffId, amountAED: c.amountAED })),
+        marketerCommission: referral?.amountAED,
         paymentMethod: order.paymentMethod as "CASH" | "CARD" | "TRANSFER",
         splitPayment: order.splitPayment,
         cashAED: order.splitPayment ? order.cashAED : undefined,

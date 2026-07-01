@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/erp/BookingDetailModal";
 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
-type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null };
+type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null; marketerId?: string | null };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {
@@ -45,6 +45,7 @@ export function BookingRow({
   orderId,
   invoiceNo,
   services = [],
+  staff = [],
   currentServiceIds = [],
   canEditServices = false,
   canEditBill = false,
@@ -68,6 +69,7 @@ export function BookingRow({
   orderId?: string | null;
   invoiceNo?: string | null;
   services?: ServiceOpt[];
+  staff?: { id: string; name: string }[];
   currentServiceIds?: string[];
   canEditServices?: boolean;
   canEditBill?: boolean;
@@ -104,10 +106,11 @@ export function BookingRow({
           <BookingDetailModal
             onClose={() => setShowDetail(false)}
             services={services}
+            staff={staff}
             b={{
               id, name, phone, email, whenLabel: when, startISO, status: current, source: source ?? "ONLINE",
               serviceMode, address, customRequest, notes, staffName: staffName ?? null,
-              staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, marketer: detail.marketer ?? null, items: detail.items,
+              staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, marketer: detail.marketer ?? null, marketerId: detail.marketerId ?? null, items: detail.items,
               orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, canEditBill, currentServiceIds,
             }}
           />

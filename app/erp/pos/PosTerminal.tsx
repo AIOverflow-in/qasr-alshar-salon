@@ -35,6 +35,7 @@ export type PosPrefill = {
   cardAED?: number;
   transferAED?: number;
   commissions?: { staffId: string; amountAED: number }[]; // existing per-artist commissions (edit mode)
+  marketerCommission?: number; // existing marketer/referral commission (edit mode)
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
 };
@@ -76,6 +77,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [commissionEdits, setCommissionEdits] = useState<Record<string, number>>(
     () => Object.fromEntries((prefill?.commissions ?? []).map((c) => [c.staffId, c.amountAED]))
   );
+  const [marketerCommission, setMarketerCommission] = useState<number | "">(prefill?.marketerCommission ?? "");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +165,11 @@ export function PosTerminal({ services, staff, clients: initialClients, products
       return next;
     });
 
+  // Marketer/referral commission: default 5% of the service value, editable to any amount.
+  const servicesSubtotal = useMemo(() => lines.reduce((s, l) => (l.kind === "SERVICE" ? s + l.qty * l.unitAED : s), 0), [lines]);
+  const marketerName = staff.find((s) => s.id === selectedMarketer)?.name ?? "Marketer";
+  const marketerAuto = selectedMarketer && servicesSubtotal > 0 ? Math.round(servicesSubtotal * 5 / 100) : 0;
+
   function addService(s: Service) {
     const key = `svc-${s.id}`;
     setLines((prev) => {
@@ -249,9 +256,14 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           splitPayment: split,
           ...(split ? { cashAED: n(cashAED), cardAED: n(cardAED), transferAED: n(transferAED) } : {}),
           commissions: Object.entries(commissionEdits).map(([staffId, amountAED]) => ({ staffId, amountAED })),
+          marketerAmountAED: marketerCommission === "" ? undefined : marketerCommission,
           staffId: selectedStaff || null,
           marketerId: selectedMarketer || null,
           clientId: selectedClient || null,
+          // When no client is picked, pass the name so the bill links a client instead of "Walk-in".
+          customerName: selectedClient ? null : (newClient.name.trim() || clientQuery.trim() || null),
+          customerPhone: selectedClient ? null : (newClient.phone.trim() || null),
+          customerEmail: selectedClient ? null : (newClient.email.trim() || null),
           bookingId: bookingId || null,
           notes: notes || null,
           lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffIds[0] ?? null, staffIds: l.staffIds })),
@@ -589,7 +601,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         </div>
 
         {/* commission (services only) — auto from each artist's %, editable per artist */}
-        {commissionRows.length > 0 && (
+        {(commissionRows.length > 0 || (selectedMarketer && servicesSubtotal > 0)) && (
           <div className="surface rounded-2xl p-4 space-y-2">
             <div className="text-xs text-muted">Commission (services only) — auto by %, edit any amount</div>
             {commissionRows.map((c) => {
@@ -613,6 +625,23 @@ export function PosTerminal({ services, staff, clients: initialClients, products
                 </div>
               );
             })}
+            {selectedMarketer && servicesSubtotal > 0 && (
+              <div className="flex items-center justify-between gap-2 border-t border-ink-line/50 pt-2 text-sm">
+                <span className="min-w-0 truncate text-cream">Referral · {marketerName}<span className="text-xs text-muted"> · 5% of services</span></span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {marketerCommission !== "" && (
+                    <button onClick={() => setMarketerCommission("")} className="text-[0.65rem] text-muted underline hover:text-gold" title={`Reset to auto (${aed(marketerAuto)})`}>auto</button>
+                  )}
+                  <span className="text-xs text-muted">AED</span>
+                  <input
+                    type="number" min={0} inputMode="numeric"
+                    value={marketerCommission === "" ? marketerAuto : marketerCommission}
+                    onChange={(e) => setMarketerCommission(e.target.value === "" ? "" : Math.max(0, Math.round(Number(e.target.value))))}
+                    className={cn("w-20 rounded-lg border bg-transparent px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/40", marketerCommission !== "" ? "border-gold/50" : "border-ink-line")}
+                  />
+                </span>
+              </div>
+            )}
           </div>
         )}
 

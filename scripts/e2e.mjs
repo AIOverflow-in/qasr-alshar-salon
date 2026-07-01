@@ -288,6 +288,32 @@ try {
     }
   }
 
+  section("Marketer commission override + walk-in client resolution (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const [A, M] = await prisma.staff.findMany({ where: { active: true }, take: 2, select: { id: true } });
+    if (!u || !A || !M) {
+      ok(false, "need an active user + 2 staff for the marketer/walk-in test");
+    } else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      // Marketer commission override + walk-in name → should resolve a client (not "Walk-in").
+      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({
+        clientRequestId: `e2e-mkt-${Date.now()}`, staffId: A.id, marketerId: M.id, marketerAmountAED: 33,
+        customerName: "__E2E_WALKIN_NAME__",
+        lines: [{ kind: "SERVICE", description: "__E2E_MKT_SVC", qty: 1, unitAED: 200, staffIds: [A.id] }],
+      }) });
+      const oid = (await res.json().catch(() => ({})))?.order?.id;
+      const order = oid ? await prisma.salesOrder.findUnique({ where: { id: oid }, include: { client: { select: { name: true } } } }) : null;
+      const ref = oid ? ((await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId: oid, staffId: M.id, type: "REFERRAL" } }))._sum.amountAED ?? 0) : -1;
+      ok(ref === 33, `marketer commission override applied: ${ref} == 33 (not the 5% default)`);
+      ok(!!order?.clientId && order.client?.name === "__E2E_WALKIN_NAME__", `walk-in name resolved to a client (${order?.client?.name}), not "Walk-in"`);
+      if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }
+      await prisma.client.deleteMany({ where: { name: "__E2E_WALKIN_NAME__" } });
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

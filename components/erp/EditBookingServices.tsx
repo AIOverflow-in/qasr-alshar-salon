@@ -19,15 +19,19 @@ function toDubaiLocal(iso: string): string {
 export function EditBookingServices({
   bookingId,
   services,
+  staff = [],
   initialServiceIds,
   initialPrices = {},
   initialStartISO,
+  initialMarketerId = null,
 }: {
   bookingId: string;
   services: Service[];
+  staff?: { id: string; name: string }[];
   initialServiceIds: string[];
   initialPrices?: Record<string, number>;
   initialStartISO: string;
+  initialMarketerId?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -35,6 +39,7 @@ export function EditBookingServices({
   const [picked, setPicked] = useState<string[]>(initialServiceIds);
   const [prices, setPrices] = useState<Record<string, number | "">>({});
   const [when, setWhen] = useState("");
+  const [marketerId, setMarketerId] = useState(initialMarketerId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +72,7 @@ export function EditBookingServices({
     setPicked(initialServiceIds);
     setPrices(Object.fromEntries(initialServiceIds.map((id) => [id, priceFor(id)])));
     setWhen(toDubaiLocal(initialStartISO));
+    setMarketerId(initialMarketerId ?? "");
     setError(null);
     setQuery("");
     setOpen(true);
@@ -85,6 +91,7 @@ export function EditBookingServices({
         body: JSON.stringify({
           services: picked.map((id) => ({ serviceId: id, priceAED: prices[id] === "" || prices[id] == null ? null : prices[id] })),
           startISO,
+          marketerId: marketerId || null,
         }),
       });
       const data = await res.json();
@@ -125,6 +132,20 @@ export function EditBookingServices({
                 className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60"
               />
             </div>
+
+            {staff.length > 0 && (
+              <div className="mb-3">
+                <label className="mb-1 block text-xs text-muted">Marketer (referral) — who brought the lead</label>
+                <select
+                  value={marketerId}
+                  onChange={(e) => setMarketerId(e.target.value)}
+                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60"
+                >
+                  <option value="">— None —</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
 
             <div className="relative mb-3">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />

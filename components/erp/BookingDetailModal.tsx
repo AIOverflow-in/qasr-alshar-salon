@@ -16,16 +16,18 @@ export function BookingDetailModal({
   onClose,
   b,
   services,
+  staff = [],
 }: {
   onClose: () => void;
   b: {
     id: string; name: string; phone: string; email: string; whenLabel: string; startISO: string;
     status: string; source: string; serviceMode?: string | null; address?: string | null;
     customRequest?: string | null; notes: string | null; staffName: string | null; staffPhone: string | null;
-    enteredBy: string | null; marketer?: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
+    enteredBy: string | null; marketer?: string | null; marketerId?: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
     canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
   };
   services: ServiceOpt[];
+  staff?: { id: string; name: string }[];
 }) {
   const ref = "QA-" + b.id.slice(-8).toUpperCase();
   const total = b.items.reduce((s, i) => s + i.price, 0);
@@ -118,9 +120,11 @@ export function BookingDetailModal({
             <EditBookingServices
               bookingId={b.id}
               services={services}
+              staff={staff}
               initialServiceIds={b.currentServiceIds}
               initialPrices={Object.fromEntries(b.items.filter((it) => it.serviceId).map((it) => [it.serviceId as string, it.price]))}
               initialStartISO={b.startISO}
+              initialMarketerId={b.marketerId ?? null}
             />
           )}
           {b.orderId && b.invoiceNo ? (

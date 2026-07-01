@@ -162,6 +162,7 @@ export default async function ErpBookings({
                       orderId={b.salesOrders[0]?.id ?? null}
                       invoiceNo={b.salesOrders[0]?.invoiceNo ?? null}
                       services={services}
+                      staff={staff}
                       currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
                       canEditServices={canEditServices}
                       canEditBill={isAdmin}
@@ -170,6 +171,7 @@ export default async function ErpBookings({
                         staffPhone: b.staff?.phone ?? null,
                         enteredBy: b.createdBy?.name ?? null,
                         marketer: b.marketerId ? (staffName.get(b.marketerId) ?? null) : null,
+                        marketerId: b.marketerId ?? null,
                       }}
                     />
                   );

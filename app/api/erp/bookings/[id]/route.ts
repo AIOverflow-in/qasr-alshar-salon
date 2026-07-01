@@ -17,6 +17,8 @@ const schema = z.object({
   serviceIds: z.array(z.string().min(1)).min(1).max(12).optional(),
   // Optionally reschedule (Dubai-time ISO). Omit to keep the current time.
   startISO: z.string().datetime().optional(),
+  // Optionally set/clear the marketer (lead source). Omit to leave unchanged.
+  marketerId: z.string().nullable().optional(),
 }).refine((d) => (d.services && d.services.length) || (d.serviceIds && d.serviceIds.length), { message: "Pick at least one service." });
 
 /**
@@ -78,6 +80,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           durationMin: totalDuration,
           startAt: start,
           endAt: end,
+          ...(parsed.data.marketerId !== undefined ? { marketerId: parsed.data.marketerId || null } : {}),
           items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: staffId || null })) },
         },
       });
