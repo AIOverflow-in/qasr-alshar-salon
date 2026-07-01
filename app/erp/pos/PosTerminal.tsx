@@ -90,7 +90,9 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const requestIdRef = useRef<string | null>(null);
 
   // ── inline new-client ──────────────────────────────────────────────────
-  const [showNewClient, setShowNewClient] = useState(false);
+  // If a booking's customer isn't a saved client yet, open the form pre-filled so the
+  // name is visible (not hidden) — it still saves the client on checkout.
+  const [showNewClient, setShowNewClient] = useState(!!(prefill?.client && !prefill.client.id && (prefill.client.name || prefill.client.phone)));
   const [newClient, setNewClient] = useState({
     name: prefill?.client && !prefill.client.id ? prefill.client.name ?? "" : "",
     phone: prefill?.client && !prefill.client.id ? prefill.client.phone ?? "" : "",

@@ -71,10 +71,13 @@ export default async function PosPage({
   } else if (bookingId) {
     const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { items: true } });
     if (booking) {
-      // Try to match an existing client by phone (fall back to email).
-      const matched = booking.phone
-        ? await prisma.client.findFirst({ where: { phone: booking.phone }, select: { id: true, name: true, phone: true, email: true } })
-        : null;
+      // Prefer the client the booking is already linked to (reliable, no phone-format issues);
+      // fall back to an exact phone match only if the booking has no linked client.
+      const matched = booking.clientId
+        ? await prisma.client.findUnique({ where: { id: booking.clientId }, select: { id: true, name: true, phone: true, email: true } })
+        : booking.phone
+          ? await prisma.client.findFirst({ where: { phone: booking.phone }, select: { id: true, name: true, phone: true, email: true } })
+          : null;
       const whenLabel = new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true,
       }).format(booking.startAt);
