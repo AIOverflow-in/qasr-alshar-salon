@@ -106,6 +106,42 @@ async function writeCommissions(
   }
 }
 
+/**
+ * Keep a linked booking in sync with its bill: the booking's items, price, duration,
+ * artist and marketer mirror the bill's SERVICE lines (products don't belong on a booking).
+ * `complete` marks the booking COMPLETED — used the moment a booking is billed.
+ */
+async function syncBookingToBill(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  bookingId: string,
+  serviceLines: { description: string; lineAED: number; staffId?: string | null; staffIds?: string[] | null }[],
+  orderStaffId: string | null,
+  marketerId: string | null,
+  complete: boolean,
+) {
+  if (!serviceLines.length) return; // nothing to mirror (e.g. a product-only edit)
+  const svcByName = new Map((await tx.service.findMany({ select: { id: true, name: true, durationMin: true } })).map((s) => [s.name, s]));
+  const items = serviceLines.map((l) => {
+    const svc = svcByName.get(l.description);
+    return { serviceId: svc?.id ?? null, serviceName: l.description, priceAED: l.lineAED, durationMin: svc?.durationMin ?? 0, staffId: (l.staffIds && l.staffIds[0]) || l.staffId || orderStaffId || null };
+  });
+  const dur = items.reduce((s, i) => s + i.durationMin, 0);
+  const price = items.reduce((s, i) => s + i.priceAED, 0);
+  const summary = items.length === 1 ? items[0].serviceName : `${items[0].serviceName} +${items.length - 1} more`;
+  const bk = await tx.booking.findUnique({ where: { id: bookingId }, select: { startAt: true } });
+  await tx.bookingItem.deleteMany({ where: { bookingId } });
+  await tx.booking.update({
+    where: { id: bookingId },
+    data: {
+      serviceId: items[0].serviceId, serviceName: summary, priceAED: price, durationMin: dur,
+      ...(bk ? { endAt: new Date(bk.startAt.getTime() + dur * 60_000) } : {}),
+      staffId: orderStaffId ?? null, marketerId: marketerId ?? null,
+      ...(complete ? { status: "COMPLETED" as const } : {}),
+      items: { create: items },
+    },
+  });
+}
+
 const editSchema = createSchema.extend({ orderId: z.string().min(1) });
 
 type Method = "CASH" | "CARD" | "TRANSFER";
@@ -287,6 +323,11 @@ export async function POST(req: Request) {
 
         await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
 
+        // Mirror the billed services onto the booking and mark it completed on billing.
+        if (data.bookingId) {
+          await syncBookingToBill(tx, data.bookingId, lines.filter((x) => x.kind === "SERVICE"), data.staffId ?? null, data.marketerId ?? null, true);
+        }
+
         return created;
       }, { isolationLevel: "Serializable" });
     } catch (e) {
@@ -393,31 +434,11 @@ export async function PATCH(req: Request) {
           await tx.client.update({ where: { id: clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
         }
         // 6. Keep the linked booking in sync with the edited bill (services, price, artist, marketer).
+        //    Editing an existing bill doesn't change the booking's status.
         if (existing.bookingId) {
-          const svcLines = lines.filter((x) => x.kind === "SERVICE");
-          if (svcLines.length) {
-            const svcByName = new Map((await tx.service.findMany({ select: { id: true, name: true, durationMin: true } })).map((s) => [s.name, s]));
-            const items = svcLines.map((l) => {
-              const svc = svcByName.get(l.description);
-              return { serviceId: svc?.id ?? null, serviceName: l.description, priceAED: l.lineAED, durationMin: svc?.durationMin ?? 0, staffId: (l.staffIds && l.staffIds[0]) || l.staffId || data.staffId || null };
-            });
-            const dur = items.reduce((s, i) => s + i.durationMin, 0);
-            const price = items.reduce((s, i) => s + i.priceAED, 0);
-            const summary = items.length === 1 ? items[0].serviceName : `${items[0].serviceName} +${items.length - 1} more`;
-            const bk = await tx.booking.findUnique({ where: { id: existing.bookingId }, select: { startAt: true } });
-            await tx.bookingItem.deleteMany({ where: { bookingId: existing.bookingId } });
-            await tx.booking.update({
-              where: { id: existing.bookingId },
-              data: {
-                serviceId: items[0].serviceId, serviceName: summary, priceAED: price, durationMin: dur,
-                ...(bk ? { endAt: new Date(bk.startAt.getTime() + dur * 60_000) } : {}),
-                staffId: data.staffId ?? null, marketerId: data.marketerId ?? null,
-                items: { create: items },
-              },
-            });
-          }
+          await syncBookingToBill(tx, existing.bookingId, lines.filter((x) => x.kind === "SERVICE"), data.staffId ?? null, data.marketerId ?? null, false);
         }
-        // 6. Recompute commissions (per-artist split + marketer referral)
+        // 7. Recompute commissions (per-artist split + marketer referral)
         await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
       }, { isolationLevel: "Serializable" });
       done = true;

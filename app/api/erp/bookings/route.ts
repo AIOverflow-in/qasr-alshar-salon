@@ -73,8 +73,11 @@ export async function POST(req: Request) {
   const start = new Date(d.startISO);
   const end = new Date(start.getTime() + totalDuration * 60_000);
 
-  // Availability is enforced (per-stylist) for normal bookings; reception can override for walk-ins/phone.
-  if (d.enforceAvailability) {
+  // Availability is enforced (per-stylist) for FUTURE bookings; reception can override for
+  // walk-ins/phone. Past times are always allowed in-store — a walk-in is recording a
+  // here-and-now (or just-finished) visit, which the future-only slot check would reject.
+  const isFuture = start.getTime() > Date.now();
+  if (d.enforceAvailability && isFuture) {
     const check = await isSlotBookable(d.startISO, totalDuration, d.staffId || undefined);
     if (!check.ok) return NextResponse.json({ error: check.reason }, { status: 409 });
   }

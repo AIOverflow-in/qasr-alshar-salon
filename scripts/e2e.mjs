@@ -344,6 +344,48 @@ try {
     }
   }
 
+  section("Bill-from-booking: syncs booking items (extensions) + auto-completes (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const svcs = await prisma.service.findMany({ where: { active: true }, take: 2, select: { id: true, name: true, priceAED: true } });
+    const A = await prisma.staff.findFirst({ where: { active: true }, select: { id: true } });
+    if (!u || svcs.length < 2 || !A) { ok(false, "need user + 2 services + staff for booking-sync test"); }
+    else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      // Booking with ONE service.
+      const bkRes = await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: svcs[0].id }], startISO: new Date(dayRange(1).start.getTime() + 12 * 3600e3).toISOString(), staffId: A.id, customerName: "__E2E_SYNC__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) });
+      const bid = (await bkRes.json().catch(() => ({})))?.booking?.id;
+      // Bill it with the original service + an ADDED service (extension).
+      const billRes = bid ? await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ bookingId: bid, staffId: A.id, clientRequestId: `e2e-sync-${Date.now()}`, lines: [{ kind: "SERVICE", description: svcs[0].name, qty: 1, unitAED: svcs[0].priceAED, staffIds: [A.id] }, { kind: "SERVICE", description: svcs[1].name, qty: 1, unitAED: svcs[1].priceAED, staffIds: [A.id] }] }) }) : null;
+      const oid = billRes && billRes.ok ? (await billRes.json())?.order?.id : null;
+      const bk = bid ? await prisma.booking.findUnique({ where: { id: bid }, select: { status: true, priceAED: true, items: { select: { id: true } } } }) : null;
+      ok(!!bk && bk.items.length === 2, `booking now mirrors billed services (extensions): ${bk?.items.length} == 2`);
+      ok(!!bk && bk.priceAED === svcs[0].priceAED + svcs[1].priceAED, `booking price synced to bill: ${bk?.priceAED} == ${svcs[0].priceAED + svcs[1].priceAED}`);
+      ok(!!bk && bk.status === "COMPLETED", `booking auto-completed on billing: ${bk?.status}`);
+      if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }
+      if (bid) await prisma.booking.delete({ where: { id: bid } });
+      await prisma.client.deleteMany({ where: { name: "__E2E_SYNC__" } });
+    }
+  }
+
+  section("Past-time in-store booking is allowed (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const svc = await prisma.service.findFirst({ where: { active: true }, select: { id: true } });
+    if (!u || !svc) { ok(false, "need user + service for past-booking test"); }
+    else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "RECEPTION" }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      // Yesterday at noon, WITH enforceAvailability true (not skipping) → must still be allowed.
+      const pastISO = new Date(dayRange(-1).start.getTime() + 12 * 3600e3).toISOString();
+      const res = await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: { "Content-Type": "application/json", cookie: `qa_admin=${t}` }, body: JSON.stringify({ services: [{ serviceId: svc.id }], startISO: pastISO, customerName: "__E2E_PAST__", phone: "", email: "", serviceMode: "SALON", enforceAvailability: true }) });
+      const bid = res.ok ? (await res.json())?.booking?.id : null;
+      ok(res.status === 200 && !!bid, `past-time in-store booking accepted (status ${res.status})`);
+      if (bid) await prisma.booking.delete({ where: { id: bid } });
+      await prisma.client.deleteMany({ where: { name: "__E2E_PAST__" } });
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
