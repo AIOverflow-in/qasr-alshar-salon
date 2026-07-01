@@ -177,18 +177,17 @@ try {
     }
   }
 
-  section("Bill edit (PATCH /api/erp/pos) is admin-only");
+  section("Bill edit (PATCH /api/erp/pos): reception + admin allowed, stylist blocked");
   {
     const patch = async (role) => {
       const t = role ? await tok(role) : null;
       const r = await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: { "Content-Type": "application/json", ...(t ? { cookie: `qa_admin=${t}` } : {}) }, body: JSON.stringify({}) });
       return r.status;
     };
-    ok((await patch("RECEPTION")) === 403, "edit bill: reception 403");
-    ok((await patch("STYLIST")) === 403, "edit bill: stylist 403");
+    const rec = await patch("RECEPTION"); ok(rec !== 403 && rec !== 401, `edit bill: reception allowed (past gate, got ${rec})`);
+    const adm = await patch("ADMIN"); ok(adm !== 403 && adm !== 401, `edit bill: admin allowed (past gate, got ${adm})`);
+    ok((await patch("STYLIST")) === 403, "edit bill: stylist blocked 403");
     ok((await patch(null)) === 401, "edit bill: unauth 401");
-    const adminStatus = await patch("ADMIN"); // passes role gate → 400 on empty body (not 403)
-    ok(adminStatus !== 403 && adminStatus !== 401, `edit bill: admin passes role gate (got ${adminStatus})`);
   }
 
   section("Multi-artist bill: attribution, shares, fallback + per-artist page RBAC (self-cleaning)");

@@ -33,7 +33,8 @@ export default async function ErpBookings({
   searchParams: Promise<{ when?: string; status?: string; source?: string }>;
 }) {
   const session = await getSession();
-  const isAdmin = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+  // Reception + admins can amend bills (stylists cannot).
+  const canEditBill = ["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session?.role ?? "");
 
   const sp = await searchParams;
   const when = ["today", "tomorrow", "next2w", "all"].includes(sp.when ?? "") ? sp.when! : "today";
@@ -165,7 +166,7 @@ export default async function ErpBookings({
                       staff={staff}
                       currentServiceIds={b.items.map((it) => it.serviceId).filter((x): x is string => !!x)}
                       canEditServices={canEditServices}
-                      canEditBill={isAdmin}
+                      canEditBill={canEditBill}
                       detail={{
                         items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
                         staffPhone: b.staff?.phone ?? null,

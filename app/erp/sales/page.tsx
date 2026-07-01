@@ -21,7 +21,7 @@ export default async function ErpSales({
 }) {
   const session = await getSession();
   if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) redirect("/erp");
-  const canEdit = session.role === "SUPER_ADMIN" || session.role === "ADMIN"; // only admins amend bills
+  const canEdit = true; // everyone who can open Sales (admin + reception) may edit a bill
 
   const sp = await searchParams;
   const range = sp.from && sp.to ? "custom" : sp.date ? "date" : sp.range ?? "today";
