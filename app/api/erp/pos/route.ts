@@ -28,6 +28,8 @@ const createSchema = z.object({
   cashAED: z.number().int().nonnegative().optional(),
   cardAED: z.number().int().nonnegative().optional(),
   transferAED: z.number().int().nonnegative().optional(),
+  // Per-artist agreed commission overrides (AED). Omitted artists auto-compute from their %.
+  commissions: z.array(z.object({ staffId: z.string().min(1), amountAED: z.number().int().nonnegative() })).optional(),
   bookingId: z.string().optional().nullable(),
   clientId: z.string().optional().nullable(),
   staffId: z.string().optional().nullable(),
@@ -53,20 +55,25 @@ function isSerializationError(e: unknown): boolean {
 }
 
 /**
- * Recompute commissions for an order inside a transaction:
- * a SALES_SPLIT per artist (by their own line totals) + a REFERRAL for the marketer.
+ * Recompute commissions for an order inside a transaction. Commission is on SERVICES ONLY
+ * (products don't earn it): a SALES_SPLIT per artist (their service-line totals × their %),
+ * plus a REFERRAL for the marketer on the service value. Each artist's amount auto-fills from
+ * their %, but a per-artist override (agreed at billing) takes precedence.
  */
 async function writeCommissions(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   orderId: string,
-  lines: { lineAED: number; staffId?: string | null; staffIds?: string[] | null }[],
+  lines: { kind: string; lineAED: number; staffId?: string | null; staffIds?: string[] | null }[],
   orderStaffId: string | null,
-  subtotal: number,
   marketerId: string | null,
   marketerPct: number,
+  overrides: Map<string, number>, // staffId → agreed commission amount (AED)
 ) {
   const baseByStaff = new Map<string, number>();
+  let servicesSubtotal = 0;
   for (const l of lines) {
+    if (l.kind !== "SERVICE") continue; // commission is on services only
+    servicesSubtotal += l.lineAED;
     // Artists for this line: the multi-list, else the single, else the order's main artist.
     const artists = (l.staffIds && l.staffIds.length) ? l.staffIds : (l.staffId ? [l.staffId] : (orderStaffId ? [orderStaffId] : []));
     if (!artists.length) continue;
@@ -75,12 +82,16 @@ async function writeCommissions(
   }
   for (const [sid, base] of baseByStaff) {
     const staff = await tx.staff.findUnique({ where: { id: sid }, select: { commissionPct: true } });
-    if (staff) {
-      await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: Math.round(base), pct: staff.commissionPct, amountAED: Math.round(base * staff.commissionPct / 100) } });
-    }
+    if (!staff) continue;
+    const auto = Math.round(base * staff.commissionPct / 100);
+    const override = overrides.get(sid);
+    const amountAED = override != null ? override : auto;
+    // Record the effective % so the stored pct still explains the amount.
+    const pct = base > 0 ? Math.round((amountAED / base) * 100) : staff.commissionPct;
+    await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: Math.round(base), pct, amountAED } });
   }
-  if (marketerId) {
-    await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: subtotal, pct: marketerPct, amountAED: Math.round(subtotal * marketerPct / 100) } });
+  if (marketerId && servicesSubtotal > 0) {
+    await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: servicesSubtotal, pct: marketerPct, amountAED: Math.round(servicesSubtotal * marketerPct / 100) } });
   }
 }
 
@@ -257,7 +268,7 @@ export async function POST(req: Request) {
           });
         }
 
-        await writeCommissions(tx, created.id, lines, data.staffId ?? null, subtotal, data.marketerId ?? null, data.marketerPct ?? 5);
+        await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])));
 
         return created;
       }, { isolationLevel: "Serializable" });
@@ -361,7 +372,7 @@ export async function PATCH(req: Request) {
           await tx.client.update({ where: { id: data.clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
         }
         // 6. Recompute commissions (per-artist split + marketer referral)
-        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, subtotal, data.marketerId ?? null, data.marketerPct ?? 5);
+        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])));
       }, { isolationLevel: "Serializable" });
       done = true;
     } catch (e) {

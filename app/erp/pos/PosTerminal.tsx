@@ -9,7 +9,7 @@ const VAT_PCT = 5;
 
 type Service = { id: string; name: string; category: string; priceAED: number; durationMin: number };
 type ProductItem = { id: string; name: string; category: string; saleAED: number | null; qty: number };
-type StaffMember = { id: string; name: string };
+type StaffMember = { id: string; name: string; commissionPct?: number };
 type Client = { id: string; name: string; phone: string | null };
 
 type LineItem = {
@@ -34,6 +34,7 @@ export type PosPrefill = {
   cashAED?: number;
   cardAED?: number;
   transferAED?: number;
+  commissions?: { staffId: string; amountAED: number }[]; // existing per-artist commissions (edit mode)
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
 };
@@ -71,6 +72,10 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [cashAED, setCashAED] = useState<number | "">(prefill?.cashAED ?? "");
   const [cardAED, setCardAED] = useState<number | "">(prefill?.cardAED ?? "");
   const [transferAED, setTransferAED] = useState<number | "">(prefill?.transferAED ?? "");
+  // Per-artist commission overrides (AED). Empty for an artist ⇒ auto-compute from their %.
+  const [commissionEdits, setCommissionEdits] = useState<Record<string, number>>(
+    () => Object.fromEntries((prefill?.commissions ?? []).map((c) => [c.staffId, c.amountAED]))
+  );
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +137,31 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     if (lines.length > 0 && !window.confirm("Load this booking? It will replace the items currently in the cart.")) return;
     router.push(`/erp/pos?bookingId=${id}`);
   }
+
+  // Commission is on SERVICES only. Each artist's base = their share of the service lines;
+  // auto = base × their %. Mirrors the server so untouched rows match exactly.
+  const commissionRows = useMemo(() => {
+    const baseByStaff = new Map<string, number>();
+    for (const l of lines) {
+      if (l.kind !== "SERVICE") continue;
+      const lineAED = l.qty * l.unitAED;
+      const artists = l.staffIds.length ? l.staffIds : (selectedStaff ? [selectedStaff] : []);
+      if (!artists.length) continue;
+      const share = lineAED / artists.length;
+      for (const sid of artists) baseByStaff.set(sid, (baseByStaff.get(sid) ?? 0) + share);
+    }
+    return [...baseByStaff.entries()].map(([staffId, base]) => {
+      const pct = staff.find((s) => s.id === staffId)?.commissionPct ?? 40;
+      return { staffId, name: staff.find((s) => s.id === staffId)?.name ?? "—", base, auto: Math.round(base * pct / 100) };
+    });
+  }, [lines, selectedStaff, staff]);
+
+  const setCommission = (staffId: string, v: number | "") =>
+    setCommissionEdits((prev) => {
+      const next = { ...prev };
+      if (v === "") delete next[staffId]; else next[staffId] = v;
+      return next;
+    });
 
   function addService(s: Service) {
     const key = `svc-${s.id}`;
@@ -218,6 +248,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           paymentMethod,
           splitPayment: split,
           ...(split ? { cashAED: n(cashAED), cardAED: n(cardAED), transferAED: n(transferAED) } : {}),
+          commissions: Object.entries(commissionEdits).map(([staffId, amountAED]) => ({ staffId, amountAED })),
           staffId: selectedStaff || null,
           marketerId: selectedMarketer || null,
           clientId: selectedClient || null,
@@ -556,6 +587,34 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           <div className="flex justify-between text-muted"><span>VAT 5%</span><span>{aed(vatAED)}</span></div>
           <div className="flex justify-between font-semibold text-cream border-t border-ink-line pt-2 text-base"><span>Total</span><span className="text-gold">{aed(total)}</span></div>
         </div>
+
+        {/* commission (services only) — auto from each artist's %, editable per artist */}
+        {commissionRows.length > 0 && (
+          <div className="surface rounded-2xl p-4 space-y-2">
+            <div className="text-xs text-muted">Commission (services only) — auto by %, edit any amount</div>
+            {commissionRows.map((c) => {
+              const edited = c.staffId in commissionEdits;
+              const value = edited ? commissionEdits[c.staffId] : c.auto;
+              return (
+                <div key={c.staffId} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 truncate text-cream">{c.name}<span className="text-xs text-muted"> · on {aed(c.base)}</span></span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    {edited && (
+                      <button onClick={() => setCommission(c.staffId, "")} className="text-[0.65rem] text-muted underline hover:text-gold" title={`Reset to auto (${aed(c.auto)})`}>auto</button>
+                    )}
+                    <span className="text-xs text-muted">AED</span>
+                    <input
+                      type="number" min={0} inputMode="numeric"
+                      value={value}
+                      onChange={(e) => setCommission(c.staffId, e.target.value === "" ? "" : Math.max(0, Math.round(Number(e.target.value))))}
+                      className={cn("w-20 rounded-lg border bg-transparent px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/40", edited ? "border-gold/50" : "border-ink-line")}
+                    />
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* payment method */}
         <div className="surface rounded-2xl p-4 space-y-2">

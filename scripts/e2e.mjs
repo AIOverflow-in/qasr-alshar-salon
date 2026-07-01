@@ -263,6 +263,31 @@ try {
     }
   }
 
+  section("Commission: services only + per-artist override (self-cleaning)");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    const A = await prisma.staff.findFirst({ where: { active: true }, select: { id: true, commissionPct: true } });
+    if (!u || !A) {
+      ok(false, "need an active user + staff for the commission test");
+    } else {
+      const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" })
+        .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
+      // Service 200 (by A) + product 100 (by A) → commission only on the 200; product excluded.
+      const r1 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-cs-${Date.now()}`, staffId: A.id, lines: [{ kind: "SERVICE", description: "__E2E_CS_SVC", qty: 1, unitAED: 200, staffIds: [A.id] }, { kind: "PRODUCT", description: "__E2E_CS_PROD", qty: 1, unitAED: 100, staffIds: [A.id] }] }) });
+      const o1 = (await r1.json().catch(() => ({})))?.order?.id;
+      const c1 = o1 ? ((await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId: o1, staffId: A.id, type: "SALES_SPLIT" } }))._sum.amountAED ?? 0) : -1;
+      ok(c1 === Math.round(200 * A.commissionPct / 100), `commission on service only: ${c1} == round(200×${A.commissionPct}%), product excluded`);
+      if (o1) { await prisma.commission.deleteMany({ where: { orderId: o1 } }); await prisma.salesOrder.delete({ where: { id: o1 } }); }
+      // Per-artist override: service 200 by A, agreed commission = 55 (not the auto).
+      const r2 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-co-${Date.now()}`, staffId: A.id, commissions: [{ staffId: A.id, amountAED: 55 }], lines: [{ kind: "SERVICE", description: "__E2E_CO_SVC", qty: 1, unitAED: 200, staffIds: [A.id] }] }) });
+      const o2 = (await r2.json().catch(() => ({})))?.order?.id;
+      const c2 = o2 ? ((await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId: o2, staffId: A.id, type: "SALES_SPLIT" } }))._sum.amountAED ?? 0) : -1;
+      ok(c2 === 55, `per-artist commission override applied: ${c2} == 55`);
+      if (o2) { await prisma.commission.deleteMany({ where: { orderId: o2 } }); await prisma.salesOrder.delete({ where: { id: o2 } }); }
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
