@@ -104,18 +104,28 @@ export function SalesTable({
   const isCustom = activeRange === "custom";
   const showDate = activeRange !== "today" && activeRange !== "yesterday" && activeRange !== "date";
 
+  // Precompute one lowercase haystack per bill (client, invoice, all artists, marketer,
+  // cashier, services and payment) so search stays instant even at the 1000-row cap.
+  const haystacks = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) {
+      m.set(r.id, [
+        r.client, r.invoiceNo, r.artist, ...(r.artists ?? []),
+        r.marketer ?? "", r.cashier ?? "", ...(r.items ?? []),
+        r.payment, r.splitPayment ? "split" : "",
+      ].join(" ").toLowerCase());
+    }
+    return m;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     return rows.filter((r) => {
       if (payment !== "ALL" && !rowMethods(r).includes(payment)) return false;
       if (!query) return true;
-      return (
-        r.client.toLowerCase().includes(query) ||
-        r.invoiceNo.toLowerCase().includes(query) ||
-        r.artist.toLowerCase().includes(query)
-      );
+      return (haystacks.get(r.id) ?? "").includes(query);
     });
-  }, [rows, q, payment]);
+  }, [rows, q, payment, haystacks]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
@@ -207,7 +217,7 @@ export function SalesTable({
           <input
             value={q}
             onChange={(e) => reset(() => setQ(e.target.value))}
-            placeholder="Search client, invoice # or artist…"
+            placeholder="Search client, invoice, artist, marketer, service or payment…"
             className="w-full rounded-full border border-ink-line bg-ink-card py-2 pl-9 pr-4 text-sm text-cream placeholder:text-muted outline-none focus:border-gold/60"
           />
         </div>
