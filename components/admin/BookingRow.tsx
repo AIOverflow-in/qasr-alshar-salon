@@ -69,7 +69,7 @@ export function BookingRow({
   orderId?: string | null;
   invoiceNo?: string | null;
   services?: ServiceOpt[];
-  staff?: { id: string; name: string }[];
+  staff?: { id: string; name: string; role?: string }[];
   currentServiceIds?: string[];
   canEditServices?: boolean;
   canEditBill?: boolean;

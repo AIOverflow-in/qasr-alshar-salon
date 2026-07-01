@@ -71,7 +71,7 @@ export default async function ErpBookings({
         },
       }),
       prisma.service.findMany({ where: { active: true }, orderBy: { category: "asc" }, select: { id: true, name: true, category: true, priceAED: true } }),
-      prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true } }),
+      prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, role: true } }),
       prisma.client.findMany({ orderBy: { updatedAt: "desc" }, take: 2000, select: { id: true, name: true, phone: true, email: true } }),
       prisma.booking.count(),
       prisma.booking.groupBy({ by: ["status"], _count: true }),

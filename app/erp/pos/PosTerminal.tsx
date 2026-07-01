@@ -9,7 +9,7 @@ const VAT_PCT = 5;
 
 type Service = { id: string; name: string; category: string; priceAED: number; durationMin: number };
 type ProductItem = { id: string; name: string; category: string; saleAED: number | null; qty: number };
-type StaffMember = { id: string; name: string; commissionPct?: number };
+type StaffMember = { id: string; name: string; commissionPct?: number; role?: string };
 type Client = { id: string; name: string; phone: string | null };
 
 type LineItem = {
@@ -449,7 +449,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
               className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-cream text-sm outline-none focus:border-gold/60"
             >
               <option value="">— None —</option>
-              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {staff.filter((s) => /market/i.test(s.role ?? "")).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div>

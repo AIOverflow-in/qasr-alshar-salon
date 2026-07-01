@@ -20,7 +20,7 @@ export default async function PosPage({
 
   const [services, staff, clients, products] = await Promise.all([
     prisma.service.findMany({ where: { active: true }, orderBy: { category: "asc" }, select: { id: true, name: true, category: true, priceAED: true, durationMin: true } }),
-    prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, commissionPct: true } }),
+    prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, commissionPct: true, role: true } }),
     prisma.client.findMany({ orderBy: { name: "asc" }, take: 2000, select: { id: true, name: true, phone: true } }),
     prisma.product.findMany({ where: { active: true }, orderBy: { name: "asc" }, take: 2000, select: { id: true, name: true, category: true, saleAED: true, qty: true } }),
   ]);

@@ -27,7 +27,7 @@ export function EditBookingServices({
 }: {
   bookingId: string;
   services: Service[];
-  staff?: { id: string; name: string }[];
+  staff?: { id: string; name: string; role?: string }[];
   initialServiceIds: string[];
   initialPrices?: Record<string, number>;
   initialStartISO: string;
@@ -142,7 +142,7 @@ export function EditBookingServices({
                   className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60"
                 >
                   <option value="">— None —</option>
-                  {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {staff.filter((s) => /market/i.test(s.role ?? "")).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}

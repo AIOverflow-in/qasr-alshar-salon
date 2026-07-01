@@ -27,7 +27,7 @@ export function BookingDetailModal({
     canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
   };
   services: ServiceOpt[];
-  staff?: { id: string; name: string }[];
+  staff?: { id: string; name: string; role?: string }[];
 }) {
   const ref = "QA-" + b.id.slice(-8).toUpperCase();
   const total = b.items.reduce((s, i) => s + i.price, 0);

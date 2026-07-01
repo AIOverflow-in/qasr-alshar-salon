@@ -393,6 +393,31 @@ export async function PATCH(req: Request) {
         if (clientId) {
           await tx.client.update({ where: { id: clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
         }
+        // 6. Keep the linked booking in sync with the edited bill (services, price, artist, marketer).
+        if (existing.bookingId) {
+          const svcLines = lines.filter((x) => x.kind === "SERVICE");
+          if (svcLines.length) {
+            const svcByName = new Map((await tx.service.findMany({ select: { id: true, name: true, durationMin: true } })).map((s) => [s.name, s]));
+            const items = svcLines.map((l) => {
+              const svc = svcByName.get(l.description);
+              return { serviceId: svc?.id ?? null, serviceName: l.description, priceAED: l.lineAED, durationMin: svc?.durationMin ?? 0, staffId: (l.staffIds && l.staffIds[0]) || l.staffId || data.staffId || null };
+            });
+            const dur = items.reduce((s, i) => s + i.durationMin, 0);
+            const price = items.reduce((s, i) => s + i.priceAED, 0);
+            const summary = items.length === 1 ? items[0].serviceName : `${items[0].serviceName} +${items.length - 1} more`;
+            const bk = await tx.booking.findUnique({ where: { id: existing.bookingId }, select: { startAt: true } });
+            await tx.bookingItem.deleteMany({ where: { bookingId: existing.bookingId } });
+            await tx.booking.update({
+              where: { id: existing.bookingId },
+              data: {
+                serviceId: items[0].serviceId, serviceName: summary, priceAED: price, durationMin: dur,
+                ...(bk ? { endAt: new Date(bk.startAt.getTime() + dur * 60_000) } : {}),
+                staffId: data.staffId ?? null, marketerId: data.marketerId ?? null,
+                items: { create: items },
+              },
+            });
+          }
+        }
         // 6. Recompute commissions (per-artist split + marketer referral)
         await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
       }, { isolationLevel: "Serializable" });

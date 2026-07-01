@@ -7,7 +7,7 @@ import { cn, whatsappLink } from "@/lib/utils";
 import { salonToClientMessage } from "@/lib/booking-format";
 
 type Service = { id: string; name: string; category: string; priceAED: number };
-type Staff = { id: string; name: string };
+type Staff = { id: string; name: string; role?: string };
 type Client = { id: string; name: string; phone: string | null; email: string | null };
 
 export function NewBookingButton({ services, staff, clients }: { services: Service[]; staff: Staff[]; clients: Client[] }) {
@@ -206,7 +206,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
             <label className="mb-1 block text-xs text-muted">Marketer (referral) — who brought the lead</label>
             <select className={input} value={marketerId} onChange={(e) => setMarketerId(e.target.value)}>
               <option value="">— None —</option>
-              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {staff.filter((s) => /market/i.test(s.role ?? "")).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
