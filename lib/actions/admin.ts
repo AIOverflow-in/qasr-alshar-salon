@@ -79,13 +79,53 @@ export async function setBookingStatus(id: string, status: BookingStatus) {
 }
 
 // ---- services ----
+const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function revalidateServices() {
+  revalidatePath("/admin/services");
+  revalidatePath("/erp/services");
+  revalidatePath("/erp/bookings");
+  revalidatePath("/erp/pos");
+  revalidatePath("/services");
+}
+
 export async function updateService(
   id: string,
-  data: { priceAED: number; durationMin: number; active: boolean }
+  data: { name?: string; category?: string; priceAED: number; durationMin: number; active: boolean }
 ) {
   await requireManager();
-  await prisma.service.update({ where: { id }, data });
-  revalidatePath("/admin/services");
+  const patch: { name?: string; category?: string; categorySlug?: string; priceAED: number; durationMin: number; active: boolean } = {
+    priceAED: data.priceAED, durationMin: data.durationMin, active: data.active,
+  };
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name) throw new Error("Name is required.");
+    patch.name = name;
+  }
+  if (data.category !== undefined) {
+    const category = data.category.trim();
+    if (!category) throw new Error("Category is required.");
+    patch.category = category;
+    patch.categorySlug = slugify(category); // keep the slug (URL) stable; only refresh categorySlug
+  }
+  await prisma.service.update({ where: { id }, data: patch });
+  revalidateServices();
+}
+
+export async function createService(data: { name: string; category: string; priceAED: number; durationMin: number }) {
+  await requireManager();
+  const name = data.name.trim();
+  const category = data.category.trim();
+  if (!name || !category) throw new Error("Name and category are required.");
+  // Unique slug: append -2, -3… on collision.
+  const base = slugify(name);
+  let slug = base;
+  for (let i = 2; await prisma.service.findUnique({ where: { slug }, select: { id: true } }); i++) slug = `${base}-${i}`;
+  const maxOrder = (await prisma.service.aggregate({ _max: { order: true } }))._max.order ?? 0;
+  await prisma.service.create({
+    data: { name, category, categorySlug: slugify(category), slug, priceAED: data.priceAED, durationMin: data.durationMin || 60, active: true, order: maxOrder + 1 },
+  });
+  revalidateServices();
 }
 
 // ---- staff + commissions ----
