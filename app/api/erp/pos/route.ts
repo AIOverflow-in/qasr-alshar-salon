@@ -43,6 +43,9 @@ const createSchema = z.object({
   marketerPct: z.number().int().min(0).max(100).optional(),
   notes: z.string().max(500).optional().nullable(),
   clientRequestId: z.string().max(64).optional().nullable(), // idempotency key (one per cart)
+  // Effective sale date/time. Lets a late-night bill (rung up after midnight) be booked to the
+  // previous day so it lands in that day's takings. Defaults to now when omitted.
+  saleDateISO: z.string().datetime().optional().nullable(),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -75,6 +78,7 @@ async function writeCommissions(
   marketerPct: number,
   overrides: Map<string, number>, // staffId → agreed commission amount (AED)
   marketerAmount?: number, // agreed marketer/referral commission (AED); overrides the % default
+  createdAt?: Date, // stamp commissions with the sale's effective date so payroll aligns with it
 ) {
   const baseByStaff = new Map<string, number>();
   let servicesSubtotal = 0;
@@ -95,13 +99,13 @@ async function writeCommissions(
     const amountAED = override != null ? override : auto;
     // Record the effective % so the stored pct still explains the amount.
     const pct = base > 0 ? Math.round((amountAED / base) * 100) : staff.commissionPct;
-    await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: Math.round(base), pct, amountAED } });
+    await tx.commission.create({ data: { staffId: sid, orderId, type: "SALES_SPLIT", baseAED: Math.round(base), pct, amountAED, ...(createdAt ? { createdAt } : {}) } });
   }
   if (marketerId) {
     const referral = marketerAmount != null ? marketerAmount : Math.round(servicesSubtotal * marketerPct / 100);
     if (referral > 0) {
       const pct = servicesSubtotal > 0 ? Math.round((referral / servicesSubtotal) * 100) : marketerPct;
-      await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: servicesSubtotal, pct, amountAED: referral } });
+      await tx.commission.create({ data: { staffId: marketerId, orderId, type: "REFERRAL", baseAED: servicesSubtotal, pct, amountAED: referral, ...(createdAt ? { createdAt } : {}) } });
     }
   }
 }
@@ -190,13 +194,14 @@ async function emailInvoice(orderId: string) {
   }
 }
 
-async function nextInvoiceNo(): Promise<string> {
-  const now = new Date();
+async function nextInvoiceNo(when: Date = new Date()): Promise<string> {
+  // Invoice month follows the effective sale date, so a back-dated bill gets an
+  // invoice number in the month it's booked to (not the wall-clock month).
   const dubaiISO = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Dubai",
     year: "numeric",
     month: "2-digit",
-  }).format(now);
+  }).format(when);
   const prefix = `QA-${dubaiISO.replace("-", "")}-`;
   const last = await prisma.salesOrder.findFirst({
     where: { invoiceNo: { startsWith: prefix } },
@@ -220,6 +225,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input", issues: parsed.error.issues }, { status: 400 });
 
   const data = parsed.data;
+
+  // Effective sale date: chosen date, else now. Guard against accidental future-dating
+  // (a fat-fingered future date would pollute reports); a small buffer covers clock skew.
+  const soldAt = data.saleDateISO ? new Date(data.saleDateISO) : new Date();
+  if (soldAt.getTime() > Date.now() + 5 * 60_000) return NextResponse.json({ error: "Sale date can't be in the future." }, { status: 400 });
 
   const lines = data.lines.map((l) => ({
     ...l,
@@ -252,7 +262,7 @@ export async function POST(req: Request) {
   // conflicts under concurrent checkouts are recoverable (just try again).
   let order: { id: string; invoiceNo: string; totalAED: number } | null = null;
   for (let attempt = 0; attempt < 5 && !order; attempt++) {
-    const invoiceNo = await nextInvoiceNo();
+    const invoiceNo = await nextInvoiceNo(soldAt);
     try {
       order = await prisma.$transaction(async (tx) => {
         // Guard: never bill the same booking twice (two receptionists racing "Bill").
@@ -282,7 +292,8 @@ export async function POST(req: Request) {
             vatAED,
             totalAED: total,
             notes: data.notes ?? null,
-            paidAt: new Date(),
+            createdAt: soldAt,
+            paidAt: soldAt,
             lines: {
               create: lines.map((l) => ({
                 kind: l.kind,
@@ -321,7 +332,7 @@ export async function POST(req: Request) {
           });
         }
 
-        await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
+        await writeCommissions(tx, created.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined, soldAt);
 
         // Mirror the billed services onto the booking and mark it completed on billing.
         if (data.bookingId) {
@@ -371,6 +382,10 @@ export async function PATCH(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input", issues: parsed.error.issues }, { status: 400 });
   const data = parsed.data;
 
+  // Optional re-date of the sale (e.g. move a past-midnight bill to the previous day).
+  const soldAt = data.saleDateISO ? new Date(data.saleDateISO) : null;
+  if (soldAt && soldAt.getTime() > Date.now() + 5 * 60_000) return NextResponse.json({ error: "Sale date can't be in the future." }, { status: 400 });
+
   const lines = data.lines.map((l) => ({ ...l, lineAED: l.qty * l.unitAED, productId: l.productId ?? null }));
   const subtotal = lines.reduce((s, l) => s + l.lineAED, 0);
   const vatAED = Math.round(subtotal * VAT_PCT / 100);
@@ -417,6 +432,7 @@ export async function PATCH(req: Request) {
             marketerPct: data.marketerPct ?? 5,
             notes: data.notes ?? null,
             subtotalAED: subtotal, vatPct: VAT_PCT, vatAED, totalAED: total,
+            ...(soldAt ? { createdAt: soldAt, paidAt: soldAt } : {}),
             lines: { create: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, lineAED: l.lineAED, productId: l.productId ?? null, staffId: l.staffId ?? null, staffIds: l.staffIds ?? [] })) },
           },
         });
@@ -438,8 +454,10 @@ export async function PATCH(req: Request) {
         if (existing.bookingId) {
           await syncBookingToBill(tx, existing.bookingId, lines.filter((x) => x.kind === "SERVICE"), data.staffId ?? null, data.marketerId ?? null, false);
         }
-        // 7. Recompute commissions (per-artist split + marketer referral)
-        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined);
+        // 7. Recompute commissions (per-artist split + marketer referral), keeping them dated to
+        //    the sale's effective date (new date if re-dated, else the bill's existing date) so an
+        //    edit never silently shifts an artist's commission into the current payroll month.
+        await writeCommissions(tx, existing.id, lines, data.staffId ?? null, data.marketerId ?? null, data.marketerPct ?? 5, new Map((data.commissions ?? []).map((c) => [c.staffId, c.amountAED])), data.marketerAmountAED ?? undefined, soldAt ?? existing.createdAt);
       }, { isolationLevel: "Serializable" });
       done = true;
     } catch (e) {

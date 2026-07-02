@@ -66,6 +66,7 @@ export default async function PosPage({
         marketerId: order.marketerId ?? undefined,
         lines: order.lines.map((l) => ({ description: l.description, qty: l.qty, unitAED: l.unitAED, kind: l.kind as "SERVICE" | "PRODUCT", productId: l.productId, staffId: l.staffId, staffIds: l.staffIds })),
         client: order.client ? { id: order.client.id, name: order.client.name, phone: order.client.phone, email: order.client.email } : undefined,
+        saleDateISO: order.createdAt.toISOString(),
       };
     }
   } else if (bookingId) {
