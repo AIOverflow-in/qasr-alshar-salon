@@ -186,3 +186,63 @@ export async function sendAftercareEmail(a: AftercareEmail) {
     console.error("[email] aftercare send failed:", e);
   }
 }
+
+export type DailySummary = {
+  dateLabel: string; // yesterday, Dubai — e.g. "Tue, 1 Jul 2026"
+  count: number; total: number; net: number; vat: number;
+  byMethod: { CASH: number; CARD: number; TRANSFER: number };
+  topArtist: { name: string; revenue: number } | null;
+  todayLabel: string; // today, Dubai
+  todayBookings: { time: string; customer: string; service: string; artist: string }[];
+};
+
+/**
+ * Owner's morning digest: yesterday's takings (total, count, cash/card/transfer split, VAT held,
+ * busiest artist) + today's confirmed bookings. Sent by the daily cron. Never throws.
+ * Returns whether the mail actually went out.
+ */
+export async function sendDailySummaryEmail(to: string[], s: DailySummary): Promise<boolean> {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping daily summary"); return false; }
+  if (!to.length) { console.warn("[email] no digest recipients — skipping daily summary"); return false; }
+
+  const aed = (n: number) => `AED ${n.toLocaleString("en-AE")}`;
+  const row = (k: string, v: string, strong = false) =>
+    `<tr><td style="padding:8px 0;color:#8c8267;width:55%;">${k}</td><td style="padding:8px 0;color:${strong ? "#e7c878" : "#f6f0e2"};font-weight:bold;text-align:right;">${v}</td></tr>`;
+
+  const takings = `<table style="width:100%;border-collapse:collapse;margin:8px 0 4px;">
+      ${row("Total takings", aed(s.total), true)}
+      ${row("Bills", String(s.count))}
+      ${row("Cash", aed(s.byMethod.CASH))}
+      ${row("Card", aed(s.byMethod.CARD))}
+      ${row("Bank transfer", aed(s.byMethod.TRANSFER))}
+      ${row("Net (ex-VAT)", aed(s.net))}
+      ${row("VAT held (5%)", aed(s.vat))}
+      ${s.topArtist ? row("Busiest artist", `${s.topArtist.name} · ${aed(s.topArtist.revenue)}`) : ""}
+    </table>`;
+
+  const bookings = s.todayBookings.length
+    ? `<table style="width:100%;border-collapse:collapse;margin:8px 0;">
+        ${s.todayBookings.map((b) => `<tr>
+          <td style="padding:7px 0;color:#e7c878;font-weight:bold;width:22%;">${b.time}</td>
+          <td style="padding:7px 0;color:#f6f0e2;">${b.customer}<div style="color:#8c8267;font-size:12px;">${b.service} · ${b.artist}</div></td>
+        </tr>`).join("")}
+      </table>`
+    : `<p style="color:#8c8267;line-height:1.7;">No confirmed bookings yet for today.</p>`;
+
+  const html = shell(
+    `Yesterday's takings — ${s.dateLabel}`,
+    `<p style="line-height:1.7;color:#cabfa6;">${s.count === 0 ? "No bills were rung up yesterday." : `${s.count} bill${s.count === 1 ? "" : "s"} totalling <b style="color:#e7c878;">${aed(s.total)}</b>.`}</p>
+     ${takings}
+     <div style="margin-top:26px;font-size:14px;color:#e7c878;font-weight:bold;">Today's bookings — ${s.todayLabel}</div>
+     ${bookings}
+     <p style="margin-top:18px;"><a href="${SITE.url.replace("//", "//app.")}/erp/sales?range=yesterday" style="display:inline-block;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:11px 24px;border-radius:999px;">Open Sales in the ERP</a></p>`
+  );
+
+  try {
+    await resend.emails.send({ from: FROM, to, subject: `Daily takings — ${s.dateLabel} · Qasr Alshar`, html });
+    return true;
+  } catch (e) {
+    console.error("[email] daily summary send failed:", e);
+    return false;
+  }
+}

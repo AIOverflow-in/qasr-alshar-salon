@@ -10,6 +10,8 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileBookingBar } from "@/components/MobileBookingBar";
 import { SocialFab } from "@/components/SocialFab";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { headers } from "next/headers";
 
 const playfair = Playfair_Display({
@@ -100,6 +102,8 @@ export default async function RootLayout({
         {!isInternal && <Footer />}
         {!isInternal && <MobileBookingBar />}
         {!isInternal && <SocialFab />}
+        {!isInternal && <Analytics />}
+        {!isInternal && <SpeedInsights />}
       </body>
     </html>
   );
