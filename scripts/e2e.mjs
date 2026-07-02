@@ -386,6 +386,13 @@ try {
     }
   }
 
+  section("Calendar page RBAC");
+  ok((await code("/erp/calendar", "ADMIN")) === "200", "calendar: admin 200");
+  ok((await code("/erp/calendar", "RECEPTION")) === "200", "calendar: reception 200");
+  ok((await code("/erp/calendar", "STYLIST")) === "200", "calendar: stylist (crown artist) 200");
+  ok((await code("/erp/calendar", null)) === "REDIR", "calendar: unauth blocked");
+  ok((await code("/erp/calendar?week=2026-07-06", "ADMIN")) === "200", "calendar: week nav param 200");
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
