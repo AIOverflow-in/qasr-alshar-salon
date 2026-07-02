@@ -39,6 +39,39 @@ function dayRange(off = 0) {
   return { start, end: new Date(start.getTime() + 864e5) };
 }
 
+// ── test-data markers ──────────────────────────────────────────────────────
+// Everything the suite creates is tagged with one of these so the final sweep can
+// remove it — making the suite SAFE TO RUN ON PRODUCTION (it leaves the DB as it found it).
+const TAG = "__E2E_";            // names / line descriptions
+const REQ = "e2e-";              // clientRequestId prefix (idempotency keys)
+const adminToken = () => tok("SUPER_ADMIN"); // (role-only) token for read checks
+
+// Poll a value until it equals `expected` (or times out) — avoids read-after-write races.
+async function poll(fn, expected, tries = 25, ms = 100) {
+  for (let i = 0; i < tries; i++) { const v = await fn(); if (v === expected || i === tries - 1) return v; await new Promise((r) => setTimeout(r, ms)); }
+}
+
+// Remove every row this suite could have created. Idempotent; safe to run repeatedly / on prod.
+async function cleanupSweep() {
+  const testOrders = await prisma.salesOrder.findMany({
+    where: { OR: [
+      { lines: { some: { description: { startsWith: TAG } } } },
+      { lines: { some: { description: { startsWith: "__DBG_" } } } },
+      { clientRequestId: { startsWith: REQ } },
+    ] },
+    select: { id: true },
+  });
+  const oIds = testOrders.map((o) => o.id);
+  if (oIds.length) {
+    await prisma.commission.deleteMany({ where: { orderId: { in: oIds } } });
+    await prisma.salesOrder.deleteMany({ where: { id: { in: oIds } } }); // OrderLine cascades
+  }
+  const bk = await prisma.booking.deleteMany({ where: { customerName: { startsWith: TAG } } }); // BookingItem cascades
+  const cl = await prisma.client.deleteMany({ where: { name: { startsWith: TAG } } });
+  const sv = await prisma.service.deleteMany({ where: { name: { startsWith: TAG } } });
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count };
+}
+
 try {
   section("Public + ERP pages load");
   ok((await code("/")) === "200", "home 200");
@@ -393,11 +426,96 @@ try {
   ok((await code("/erp/calendar", null)) === "REDIR", "calendar: unauth blocked");
   ok((await code("/erp/calendar?week=2026-07-06", "ADMIN")) === "200", "calendar: week nav param 200");
 
+  // ═══════════ Extended edge cases (all data tagged → removed by the finally sweep) ═══════════
+  const eu = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+  const esvc = await prisma.service.findFirst({ where: { active: true }, select: { id: true, name: true, priceAED: true } });
+  const estaff = await prisma.staff.findFirst({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true } });
+  const eh = async (role = "ADMIN") => ({ "Content-Type": "application/json", cookie: `qa_admin=${await new SignJWT({ email: "e2e@qa.test", role }).setProtectedHeader({ alg: "HS256" }).setSubject(eu.id).setIssuedAt().setExpirationTime("1h").sign(secret)}` });
+
+  if (!eu || !esvc || !estaff) {
+    ok(false, "extended edge cases need an active user + service + staff");
+  } else {
+    section("Idempotent checkout: duplicate request key → one bill");
+    {
+      const hdr = await eh();
+      const rid = `${REQ}idem-${Date.now()}`;
+      const b = JSON.stringify({ clientRequestId: rid, lines: [{ kind: "SERVICE", description: `${TAG}IDEM`, qty: 1, unitAED: 100 }] });
+      const i1 = (await (await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: b })).json().catch(() => ({})))?.order?.id;
+      const i2 = (await (await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: b })).json().catch(() => ({})))?.order?.id;
+      const cnt = await poll(() => prisma.salesOrder.count({ where: { clientRequestId: rid } }), 1);
+      ok(!!i1 && i1 === i2 && cnt === 1, `duplicate submit → exactly one bill (same id: ${i1 === i2}, count ${cnt})`);
+    }
+
+    section("Edit bill reverses & re-applies client spend");
+    {
+      const hdr = await eh();
+      const cr = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}rev-${Date.now()}`, customerName: `${TAG}Rev`, customerPhone: "0500000091", lines: [{ kind: "SERVICE", description: `${TAG}REV`, qty: 1, unitAED: 100 }] }) });
+      const oid = (await cr.json().catch(() => ({})))?.order?.id;
+      const cid = oid ? (await prisma.salesOrder.findUnique({ where: { id: oid }, select: { clientId: true } }))?.clientId : null;
+      if (oid && cid) await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: hdr, body: JSON.stringify({ orderId: oid, clientId: cid, lines: [{ kind: "SERVICE", description: `${TAG}REV`, qty: 1, unitAED: 200 }] }) });
+      const spend = cid ? await poll(async () => (await prisma.client.findUnique({ where: { id: cid }, select: { totalSpentAED: true } }))?.totalSpentAED, 210) : -1;
+      const visits = cid ? (await prisma.client.findUnique({ where: { id: cid }, select: { visits: true } }))?.visits : -1;
+      ok(spend === 210 && visits === 1, `client after edit: spend ${spend}==210, ${visits}==1 visit (old reversed, new applied)`);
+    }
+
+    section("Client dedup by phone");
+    {
+      const hdr = await eh("RECEPTION");
+      const phone = "0509998887";
+      const mk = (nm) => fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], startISO: new Date(dayRange(1).start.getTime() + 11 * 3600e3).toISOString(), customerName: nm, phone, email: "", serviceMode: "SALON", enforceAvailability: false }) });
+      const b1 = (await (await mk(`${TAG}Dedup`)).json().catch(() => ({})))?.booking?.id;
+      const b2 = (await (await mk(`${TAG}Dedup2`)).json().catch(() => ({})))?.booking?.id;
+      const c1 = b1 ? (await prisma.booking.findUnique({ where: { id: b1 }, select: { clientId: true } }))?.clientId : null;
+      const c2 = b2 ? (await prisma.booking.findUnique({ where: { id: b2 }, select: { clientId: true } }))?.clientId : null;
+      ok(!!c1 && c1 === c2, "two bookings, same phone → one shared client (dedup)");
+    }
+
+    section("Invoice PDF renders");
+    {
+      const hdr = await eh();
+      const invNo = (await (await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}inv-${Date.now()}`, customerName: `${TAG}Inv`, lines: [{ kind: "SERVICE", description: `${TAG}INV`, qty: 1, unitAED: 150 }] }) })).json().catch(() => ({})))?.order?.invoiceNo;
+      const pdf = invNo ? await fetch(`${BASE}/api/erp/invoice/${invNo}`, { headers: hdr }) : null;
+      ok(!!pdf && pdf.status === 200 && (pdf.headers.get("content-type") || "").includes("application/pdf"), `invoice ${invNo} → PDF (${pdf?.status}, ${pdf?.headers.get("content-type")})`);
+    }
+
+    section("Booking edit sets the marketer");
+    {
+      const hdr = await eh("RECEPTION");
+      const bid = (await (await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], startISO: new Date(dayRange(1).start.getTime() + 13 * 3600e3).toISOString(), customerName: `${TAG}Mkt`, phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) })).json().catch(() => ({})))?.booking?.id;
+      if (bid) await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], marketerId: estaff.id }) });
+      const mkId = bid ? await poll(async () => (await prisma.booking.findUnique({ where: { id: bid }, select: { marketerId: true } }))?.marketerId, estaff.id) : null;
+      ok(mkId === estaff.id, "booking edit persists the marketer");
+    }
+
+    section("Validation guards");
+    {
+      const hdr = await eh();
+      ok((await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}empty-${Date.now()}`, lines: [] }) })).status === 400, "POS empty cart → 400");
+      ok((await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: await eh("RECEPTION"), body: JSON.stringify({ services: [], startISO: new Date().toISOString(), customerName: `${TAG}NoSvc`, phone: "", email: "", serviceMode: "SALON" }) })).status === 400, "booking with no service → 400");
+      const cb = await prisma.booking.create({ data: { serviceId: esvc.id, serviceName: esvc.name, priceAED: esvc.priceAED, durationMin: 60, customerName: `${TAG}Cancelled`, email: "", phone: "", startAt: new Date(dayRange(1).start.getTime() + 10 * 3600e3), endAt: new Date(dayRange(1).start.getTime() + 11 * 3600e3), status: "CANCELLED", source: "WALKIN" } });
+      ok((await fetch(`${BASE}/api/erp/bookings/${cb.id}`, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ services: [{ serviceId: esvc.id }] }) })).status === 409, "edit a cancelled booking → 409");
+      const bb = await prisma.booking.create({ data: { serviceId: esvc.id, serviceName: esvc.name, priceAED: esvc.priceAED, durationMin: 60, customerName: `${TAG}Billed`, email: "", phone: "", startAt: new Date(dayRange(1).start.getTime() + 9 * 3600e3), endAt: new Date(dayRange(1).start.getTime() + 10 * 3600e3), status: "CONFIRMED", source: "WALKIN" } });
+      await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ bookingId: bb.id, clientRequestId: `${REQ}billed-${Date.now()}`, lines: [{ kind: "SERVICE", description: `${TAG}BILLED`, qty: 1, unitAED: esvc.priceAED }] }) });
+      ok((await fetch(`${BASE}/api/erp/bookings/${bb.id}`, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ services: [{ serviceId: esvc.id }] }) })).status === 409, "edit a billed booking → 409");
+    }
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
   fail++;
 } finally {
+  // Guaranteed cleanup — runs even if a check threw. Leaves the DB exactly as found.
+  try {
+    const swept = await cleanupSweep();
+    const total = swept.orders + swept.bookings + swept.clients + swept.services;
+    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services${total === 0 ? " (nothing left behind ✅)" : ""}`);
+    const residue = await prisma.salesOrder.count({ where: { OR: [{ lines: { some: { description: { startsWith: TAG } } } }, { clientRequestId: { startsWith: REQ } }] } })
+      + await prisma.booking.count({ where: { customerName: { startsWith: TAG } } })
+      + await prisma.client.count({ where: { name: { startsWith: TAG } } });
+    console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
+    if (residue !== 0) fail++;
+  } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }
   await prisma.$disconnect();
 }
 process.exit(fail === 0 ? 0 : 1);
