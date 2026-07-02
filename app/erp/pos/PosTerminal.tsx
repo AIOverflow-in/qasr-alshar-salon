@@ -38,7 +38,14 @@ export type PosPrefill = {
   marketerCommission?: number; // existing marketer/referral commission (edit mode)
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
+  saleDateISO?: string; // existing sale date when editing a bill
 };
+
+// Format a Date as a `datetime-local` input value (browser-local wall clock — Dubai at the salon).
+function toLocalInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 export function PosTerminal({ services, staff, clients: initialClients, products = [], prefill, attachableBookings = [] }: {
   services: Service[];
@@ -80,6 +87,8 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [commissionEdits, setCommissionEdits] = useState<Record<string, number>>({});
   const [marketerCommission, setMarketerCommission] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  // Effective sale date/time (defaults to the bill's date when editing, else now).
+  const [saleDate, setSaleDate] = useState<string>(prefill?.saleDateISO ? toLocalInput(new Date(prefill.saleDateISO)) : toLocalInput(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientEmail: string | null; clientPhone: string | null } | null>(null);
@@ -269,6 +278,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           customerEmail: selectedClient ? null : (newClient.email.trim() || null),
           bookingId: bookingId || null,
           notes: notes || null,
+          saleDateISO: saleDate ? new Date(saleDate).toISOString() : undefined,
           lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffIds[0] ?? null, staffIds: l.staffIds })),
         }),
       });
@@ -703,6 +713,17 @@ export function PosTerminal({ services, staff, clients: initialClients, products
               </div>
             </div>
           )}
+          <div className="mt-1">
+            <label className="mb-1 block text-xs text-muted">Sale date &amp; time</label>
+            <input
+              type="datetime-local"
+              value={saleDate}
+              max={toLocalInput(new Date())}
+              onChange={(e) => setSaleDate(e.target.value)}
+              className="w-full rounded-lg border border-ink-line bg-transparent px-3 py-2 text-sm text-cream outline-none focus:border-gold/40 [color-scheme:dark]"
+            />
+            <p className="mt-1 text-[0.7rem] text-muted">Rung up after midnight? Set this to the previous day so it counts in that day&apos;s sales.</p>
+          </div>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

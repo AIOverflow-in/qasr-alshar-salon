@@ -498,6 +498,27 @@ try {
       await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ bookingId: bb.id, clientRequestId: `${REQ}billed-${Date.now()}`, lines: [{ kind: "SERVICE", description: `${TAG}BILLED`, qty: 1, unitAED: esvc.priceAED }] }) });
       ok((await fetch(`${BASE}/api/erp/bookings/${bb.id}`, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ services: [{ serviceId: esvc.id }] }) })).status === 409, "edit a billed booking → 409");
     }
+
+    section("Editable sale date: back-date + align commission + reject future");
+    {
+      const hdr = await eh();
+      const target = dayRange(-3);
+      const soldISO = new Date(target.start.getTime() + 12 * 3600e3).toISOString();
+      const inRange = (d, r) => !!d && d >= r.start && d < r.end;
+      const oid = (await (await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}date-${Date.now()}`, staffId: estaff.id, saleDateISO: soldISO, lines: [{ kind: "SERVICE", description: `${TAG}DATE`, qty: 1, unitAED: 100 }] }) })).json().catch(() => ({})))?.order?.id;
+      const o = oid ? await prisma.salesOrder.findUnique({ where: { id: oid }, select: { createdAt: true, paidAt: true } }) : null;
+      ok(inRange(o?.createdAt, target) && inRange(o?.paidAt, target), "new bill back-dated 3 days (createdAt & paidAt land in target day)");
+      const comm = oid ? await prisma.commission.findFirst({ where: { orderId: oid, type: "SALES_SPLIT" }, select: { createdAt: true } }) : null;
+      ok(inRange(comm?.createdAt, target), "commission dated to the sale date (payroll period matches)");
+      const t2 = dayRange(-5);
+      if (oid) await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: hdr, body: JSON.stringify({ orderId: oid, staffId: estaff.id, saleDateISO: new Date(t2.start.getTime() + 12 * 3600e3).toISOString(), lines: [{ kind: "SERVICE", description: `${TAG}DATE`, qty: 1, unitAED: 100 }] }) });
+      const moved = oid ? await poll(async () => inRange((await prisma.salesOrder.findUnique({ where: { id: oid }, select: { createdAt: true } }))?.createdAt, t2), true) : false;
+      ok(moved === true, "edit re-dates the bill to 5 days ago");
+      const comm2 = oid ? await prisma.commission.findFirst({ where: { orderId: oid, type: "SALES_SPLIT" }, select: { createdAt: true } }) : null;
+      ok(inRange(comm2?.createdAt, t2), "commission re-dated together with the bill");
+      const fr = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}fut-${Date.now()}`, saleDateISO: new Date(Date.now() + 3 * 864e5).toISOString(), lines: [{ kind: "SERVICE", description: `${TAG}FUT`, qty: 1, unitAED: 50 }] }) });
+      ok(fr.status === 400, `future-dated sale rejected (${fr.status})`);
+    }
   }
 
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
