@@ -62,7 +62,9 @@ export default async function ErpBookings({
     await Promise.all([
       prisma.booking.findMany({
         where,
-        orderBy: { startAt: when === "all" ? "desc" : "asc" },
+        // Newest entry first (most recently added at the top), matching the Sales table.
+        // The Calendar page is the chronological, time-ordered view of the day.
+        orderBy: { createdAt: "desc" },
         take: 500,
         include: {
           staff: { select: { name: true, phone: true } },
