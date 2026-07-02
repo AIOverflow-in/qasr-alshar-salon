@@ -426,6 +426,15 @@ try {
   ok((await code("/erp/calendar", null)) === "REDIR", "calendar: unauth blocked");
   ok((await code("/erp/calendar?week=2026-07-06", "ADMIN")) === "200", "calendar: week nav param 200");
 
+  section("Crown artist: read-only, no booking access");
+  ok((await code("/erp/bookings", "STYLIST")) === "REDIR", "bookings table: stylist blocked (→ calendar)");
+  ok((await code("/erp", "STYLIST")) === "REDIR", "dashboard: stylist redirected (→ calendar)");
+  {
+    const st = await tok("STYLIST");
+    const be = await fetch(`${BASE}/api/erp/bookings/nonexistent-id`, { method: "PATCH", headers: { "Content-Type": "application/json", cookie: `qa_admin=${st}` }, body: JSON.stringify({ services: [{ serviceId: "x" }] }) });
+    ok(be.status === 403, `booking edit API: stylist 403 (${be.status})`);
+  }
+
   // ═══════════ Extended edge cases (all data tagged → removed by the finally sweep) ═══════════
   const eu = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
   const esvc = await prisma.service.findFirst({ where: { active: true }, select: { id: true, name: true, priceAED: true } });
