@@ -33,6 +33,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const session = await getSession();
   if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"].includes(session.role)) redirect("/erp");
 
+  // A Crown artist sees their own schedule; managers/reception see the whole salon.
+  let onlyStaffId: string | null = null;
+  if (session.role === "STYLIST") {
+    const me = await prisma.adminUser.findUnique({ where: { id: session.sub }, select: { staffId: true } });
+    onlyStaffId = me?.staffId ?? null;
+  }
+
   const sp = await searchParams;
   const ref = sp.week && /^\d{4}-\d{2}-\d{2}$/.test(sp.week) ? sp.week : todayISO();
   const monday = mondayOf(ref);
@@ -42,7 +49,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   });
   const weekStart = days[0].range.start, weekEnd = days[6].range.end;
 
-  const where: Prisma.BookingWhereInput = { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: weekStart, lt: weekEnd } };
+  const where: Prisma.BookingWhereInput = { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: weekStart, lt: weekEnd }, ...(onlyStaffId ? { staffId: onlyStaffId } : {}) };
   const bookings = await prisma.booking.findMany({
     where,
     orderBy: { startAt: "asc" },
@@ -61,8 +68,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl text-cream">Calendar</h1>
-          <p className="text-sm text-muted">Who’s busy this week — {rangeLabel}.</p>
+          <h1 className="font-display text-3xl text-cream">{onlyStaffId ? "My Calendar" : "Calendar"}</h1>
+          <p className="text-sm text-muted">{onlyStaffId ? "Your appointments this week" : "Who’s busy this week"} — {rangeLabel}.</p>
         </div>
         <div className="flex items-center gap-1.5">
           <Link href={`/erp/calendar?week=${prev}`} className="grid h-9 w-9 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50" aria-label="Previous week"><ChevronLeft size={16} /></Link>

@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
 
 const NAV = [
-  { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"] },
+  { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "INVESTOR"] },
   { href: "/erp/pos", label: "POS Checkout", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/sales", label: "Sales", icon: Receipt, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"] },
@@ -65,7 +65,11 @@ export function ErpShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = NAV.filter((n) => (n.roles as readonly string[]).includes(role));
+  const visible = NAV.filter((n) => (n.roles as readonly string[]).includes(role));
+  // Crown artists live in the calendar — surface it at the very top of their nav.
+  const items = role === "STYLIST"
+    ? [...visible].sort((a, b) => Number(b.href === "/erp/calendar") - Number(a.href === "/erp/calendar"))
+    : visible;
 
   const sidebar = (
     <div className="flex h-full flex-col">

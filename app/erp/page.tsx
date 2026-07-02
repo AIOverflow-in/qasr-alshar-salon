@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   CalendarDays,
   Users,
@@ -17,6 +18,8 @@ const REVENUE_TARGET = 100_000;
 
 export default async function ErpDashboard() {
   const session = await getSession();
+  // Crown artists open straight into their calendar (their home screen), not the dashboard.
+  if (session?.role === "STYLIST") redirect("/erp/calendar");
   const canSeeFinance = !!session && FINANCE_ROLES.includes(session.role);
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();
