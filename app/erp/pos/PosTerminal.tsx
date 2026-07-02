@@ -41,11 +41,11 @@ export type PosPrefill = {
   saleDateISO?: string; // existing sale date when editing a bill
 };
 
-// Format a Date as a `datetime-local` input value (browser-local wall clock — Dubai at the salon).
-function toLocalInput(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+// Split a Date into separate `date` and `time` input values (browser-local — Dubai at the salon).
+// Two native pickers are far more reliable to operate than one datetime-local control.
+const pad2 = (n: number) => String(n).padStart(2, "0");
+function toDateInput(d: Date): string { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function toTimeInput(d: Date): string { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
 
 export function PosTerminal({ services, staff, clients: initialClients, products = [], prefill, attachableBookings = [] }: {
   services: Service[];
@@ -88,7 +88,9 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [marketerCommission, setMarketerCommission] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   // Effective sale date/time (defaults to the bill's date when editing, else now).
-  const [saleDate, setSaleDate] = useState<string>(prefill?.saleDateISO ? toLocalInput(new Date(prefill.saleDateISO)) : toLocalInput(new Date()));
+  const saleInit = prefill?.saleDateISO ? new Date(prefill.saleDateISO) : new Date();
+  const [saleDay, setSaleDay] = useState<string>(toDateInput(saleInit));   // YYYY-MM-DD
+  const [saleTime, setSaleTime] = useState<string>(toTimeInput(saleInit)); // HH:mm
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientEmail: string | null; clientPhone: string | null } | null>(null);
@@ -278,7 +280,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           customerEmail: selectedClient ? null : (newClient.email.trim() || null),
           bookingId: bookingId || null,
           notes: notes || null,
-          saleDateISO: saleDate ? new Date(saleDate).toISOString() : undefined,
+          saleDateISO: (saleDay && saleTime) ? new Date(`${saleDay}T${saleTime}`).toISOString() : undefined,
           lines: lines.map((l) => ({ kind: l.kind, description: l.description, qty: l.qty, unitAED: l.unitAED, productId: l.productId ?? null, staffId: l.staffIds[0] ?? null, staffIds: l.staffIds })),
         }),
       });
@@ -715,14 +717,22 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           )}
           <div className="mt-1">
             <label className="mb-1 block text-xs text-muted">Sale date &amp; time</label>
-            <input
-              type="datetime-local"
-              value={saleDate}
-              max={toLocalInput(new Date())}
-              onChange={(e) => setSaleDate(e.target.value)}
-              className="w-full rounded-lg border border-ink-line bg-transparent px-3 py-2 text-sm text-cream outline-none focus:border-gold/40 [color-scheme:dark]"
-            />
-            <p className="mt-1 text-[0.7rem] text-muted">Rung up after midnight? Set this to the previous day so it counts in that day&apos;s sales.</p>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={saleDay}
+                max={toDateInput(new Date())}
+                onChange={(e) => setSaleDay(e.target.value)}
+                className="w-full rounded-lg border border-ink-line bg-transparent px-3 py-2 text-sm text-cream outline-none focus:border-gold/40 [color-scheme:dark]"
+              />
+              <input
+                type="time"
+                value={saleTime}
+                onChange={(e) => setSaleTime(e.target.value)}
+                className="w-36 rounded-lg border border-ink-line bg-transparent px-3 py-2 text-sm text-cream outline-none focus:border-gold/40 [color-scheme:dark]"
+              />
+            </div>
+            <p className="mt-1 text-[0.7rem] text-muted">Rung up after midnight? Set the date to the previous day so it counts in that day&apos;s sales.</p>
           </div>
           <textarea
             value={notes}
