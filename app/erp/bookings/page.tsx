@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { aed } from "@/lib/utils";
@@ -33,6 +34,9 @@ export default async function ErpBookings({
   searchParams: Promise<{ when?: string; status?: string; source?: string }>;
 }) {
   const session = await getSession();
+  // Crown artists have no access to the bookings table (view or edit) — they get a
+  // read-only view of their own schedule on the calendar instead.
+  if (session?.role === "STYLIST") redirect("/erp/calendar");
   // Reception + admins can amend bills (stylists cannot).
   const canEditBill = ["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session?.role ?? "");
 
