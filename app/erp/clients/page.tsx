@@ -1,10 +1,13 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth";
 import { ClientsManager } from "./ClientsManager";
 import { ClientsGrid } from "@/components/erp/ClientsGrid";
 
 export const dynamic = "force-dynamic";
 
 export default async function ErpClients() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN", "RECEPTION"]))) redirect("/erp");
   const clients = await prisma.client.findMany({
     orderBy: { updatedAt: "desc" },
     take: 2000,

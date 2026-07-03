@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
+import { lineArtistIds } from "./artists";
 
 /** "YYYY-MM" of the current Dubai month. */
 export function currentDubaiMonth(): string {
@@ -29,13 +30,14 @@ export type PayrollRow = {
   name: string;
   role: string;
   active: boolean;
-  salary: number;
+  servicesAED: number;     // total service revenue this person generated (their "sales")
+  salary: number;          // base salary — a guaranteed FLOOR
   salesCommission: number; // SALES_SPLIT (+ any INCENTIVE) commission
-  referral: number;        // REFERRAL commission
-  commission: number;      // salesCommission + referral
+  referral: number;        // REFERRAL commission (marketer) — always added on top
+  commission: number;      // salesCommission + referral (for display)
   bonus: number;
   deductions: number;      // advances + deductions
-  net: number;             // salary + commission + bonus − deductions
+  net: number;             // max(salesCommission, salary) + referral + bonus − deductions
   paid: boolean;
   paidAt: string | null;
 };
@@ -43,20 +45,38 @@ export type PayrollRow = {
 export type PayrollMonth = {
   month: string;
   rows: PayrollRow[];
-  totals: { salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
+  totals: { services: number; salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
 };
 
-/** Full additive payroll for a Dubai month: net = salary + commission + bonus − (advances+deductions). */
+/**
+ * Payroll for a Dubai month, using the salon's actual pay model (from Jacqueline's sheet):
+ * base salary is a guaranteed FLOOR, so an artist earns their 40% sales commission ONLY if it beats
+ * their base; the marketer's referral is always added on top. Formula per staff:
+ *   net = max(salesCommission, baseSalary) + referral + bonus − (advances + deductions)
+ */
 export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> {
   const month = monthISO && /^\d{4}-\d{2}$/.test(monthISO) ? monthISO : currentDubaiMonth();
   const { start, end } = dubaiMonthRange(month);
 
-  const [staff, commByType, adjByType, payments] = await Promise.all([
+  const [staff, commByType, adjByType, payments, serviceLines] = await Promise.all([
     prisma.staff.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true, role: true, active: true, salaryAED: true } }),
     prisma.commission.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { createdAt: { gte: start, lt: end } } }),
     prisma.payAdjustment.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { month } }),
     prisma.payrollPayment.findMany({ where: { month } }),
+    // Per-artist service revenue ("Services" column) — same attribution the commission engine uses.
+    prisma.orderLine.findMany({
+      where: { kind: "SERVICE", order: { status: "PAID", createdAt: { gte: start, lt: end } } },
+      select: { lineAED: true, staffId: true, staffIds: true, order: { select: { staffId: true } } },
+    }),
   ]);
+
+  const services = new Map<string, number>();
+  for (const l of serviceLines) {
+    const ids = lineArtistIds(l, l.order.staffId);
+    if (!ids.length) continue;
+    const share = l.lineAED / ids.length; // shared lines split equally
+    for (const id of ids) services.set(id, (services.get(id) ?? 0) + share);
+  }
 
   const comm = new Map<string, { sales: number; referral: number }>();
   for (const g of commByType) {
@@ -78,10 +98,12 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
     const c = comm.get(s.id) ?? { sales: 0, referral: 0 };
     const a = adj.get(s.id) ?? { bonus: 0, deductions: 0 };
     const commission = c.sales + c.referral;
-    const net = s.salaryAED + commission + a.bonus - a.deductions;
+    // Base is a floor: earn sales commission only if it beats base; referral always added on top.
+    const net = Math.max(c.sales, s.salaryAED) + c.referral + a.bonus - a.deductions;
     const pay = paidMap.get(s.id);
     return {
       staffId: s.id, name: s.name, role: s.role, active: s.active,
+      servicesAED: Math.round(services.get(s.id) ?? 0),
       salary: s.salaryAED, salesCommission: c.sales, referral: c.referral, commission,
       bonus: a.bonus, deductions: a.deductions, net,
       paid: !!pay, paidAt: pay?.paidAt.toISOString() ?? null,
@@ -90,6 +112,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
 
   const totals = rows.reduce(
     (t, r) => ({
+      services: t.services + r.servicesAED,
       salary: t.salary + r.salary,
       commission: t.commission + r.commission,
       bonus: t.bonus + r.bonus,
@@ -98,7 +121,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       paidNet: t.paidNet + (r.paid ? r.net : 0),
       outstandingNet: t.outstandingNet + (r.paid ? 0 : r.net),
     }),
-    { salary: 0, commission: 0, bonus: 0, deductions: 0, net: 0, paidNet: 0, outstandingNet: 0 }
+    { services: 0, salary: 0, commission: 0, bonus: 0, deductions: 0, net: 0, paidNet: 0, outstandingNet: 0 }
   );
 
   return { month, rows, totals };

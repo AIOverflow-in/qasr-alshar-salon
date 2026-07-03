@@ -49,18 +49,46 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   });
   const weekStart = days[0].range.start, weekEnd = days[6].range.end;
 
-  // A crown artist sees bookings they perform (staffId); a marketer sees the ones they referred
-  // (marketerId). Covering both means someone who does both roles sees all of theirs.
-  const where: Prisma.BookingWhereInput = { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: weekStart, lt: weekEnd }, ...(onlyStaffId ? { OR: [{ staffId: onlyStaffId }, { marketerId: onlyStaffId }] } : {}) };
+  // A crown artist sees any booking they were part of, by any signal:
+  //  - the booking's main artist (staffId) or the one who referred it (marketerId)
+  //  - a per-service artist on a booking item (items.staffId)
+  //  - an artist on the linked bill's service lines (salesOrders.lines.staffIds) — catches a
+  //    secondary artist on a SHARED service, whose attribution lives only on the bill.
+  const where: Prisma.BookingWhereInput = {
+    status: { in: ["CONFIRMED", "COMPLETED"] },
+    startAt: { gte: weekStart, lt: weekEnd },
+    ...(onlyStaffId
+      ? {
+          OR: [
+            { staffId: onlyStaffId },
+            { marketerId: onlyStaffId },
+            { items: { some: { staffId: onlyStaffId } } },
+            { salesOrders: { some: { lines: { some: { staffIds: { has: onlyStaffId } } } } } },
+          ],
+        }
+      : {}),
+  };
   const bookings = await prisma.booking.findMany({
     where,
     orderBy: { startAt: "asc" },
-    select: { startAt: true, serviceName: true, customerName: true, status: true, staff: { select: { name: true } } },
+    select: {
+      startAt: true, serviceName: true, customerName: true, status: true, staffId: true, marketerId: true,
+      staff: { select: { name: true } },
+      items: { select: { serviceName: true, staffId: true } },
+    },
   });
 
   for (const b of bookings) {
     const day = days.find((d) => b.startAt >= d.range.start && b.startAt < d.range.end);
-    if (day) day.bookings.push({ time: timeFmt.format(b.startAt), artist: b.staff?.name ?? "Any artist", service: b.serviceName, client: b.customerName, done: b.status === "COMPLETED" });
+    if (!day) continue;
+    // For a crown artist, show the service(s) THEY performed on this booking (so they see their part).
+    let service = b.serviceName;
+    if (onlyStaffId) {
+      const mine = b.items.filter((it) => it.staffId === onlyStaffId).map((it) => it.serviceName);
+      if (mine.length) service = mine.join(", ");
+      else if (b.marketerId === onlyStaffId && b.staffId !== onlyStaffId) service = `${b.serviceName} · referred`;
+    }
+    day.bookings.push({ time: timeFmt.format(b.startAt), artist: b.staff?.name ?? "Any artist", service, client: b.customerName, done: b.status === "COMPLETED" });
   }
 
   const prev = addDaysISO(monday, -7), next = addDaysISO(monday, 7);

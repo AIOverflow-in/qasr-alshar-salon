@@ -87,6 +87,7 @@ export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmai
     `<p style="line-height:1.7;color:#cabfa6;">Dear ${b.customerName}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
      ${detailsTable(b)}
      <a href="${SITE.url}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
+     ${shopButton()}
      <p style="margin-top:18px;font-size:13px;color:#8c8267;">Need to reschedule? Reply to this email or call us at ${SITE.phones[0].label}.</p>
      ${termsBlock()}`
   );
@@ -145,6 +146,7 @@ export async function sendInvoiceEmail(inv: InvoiceEmail) {
        <tr><td style="padding:8px 0;color:#8c8267;">Total paid</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">AED ${inv.totalAED.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
      </table>
      <a href="${inv.publicUrl}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">View / download invoice</a>
+     ${shopButton()}
      <p style="margin-top:18px;font-size:13px;color:#8c8267;">We'd love to see you again soon. Book anytime at <a href="${SITE.url}/book" style="color:#e7c878;">${SITE.url.replace(/^https?:\/\//, "")}/book</a>.</p>`
   );
 
@@ -245,4 +247,37 @@ export async function sendDailySummaryEmail(to: string[], s: DailySummary): Prom
     console.error("[email] daily summary send failed:", e);
     return false;
   }
+}
+
+// Optional "shop our products" button, shown only when a storefront URL is configured.
+function shopButton(): string {
+  if (!SITE.storefront) return "";
+  return `<a href="${SITE.storefront}" style="display:inline-block;margin-top:12px;background:transparent;border:1px solid #e7c878;color:#e7c878;text-decoration:none;font-weight:bold;padding:10px 22px;border-radius:999px;">Shop aftercare & hair</a>`;
+}
+
+/** Post-service thank-you + a nudge to leave a Google review. Never throws; returns whether it sent. */
+export async function sendFeedbackEmail(to: string, d: { customerName: string; serviceName: string }): Promise<boolean> {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping feedback email"); return false; }
+  const html = shell(
+    "Thank you for visiting 💛",
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${d.customerName}, we hope you loved your <b style="color:#f6f0e2;">${d.serviceName}</b> at Qasr Alshar Salon.</p>
+     <p style="line-height:1.7;color:#cabfa6;">If you have a moment, a quick Google review means the world to us and helps other clients find us.</p>
+     <a href="${SITE.social.googleBusiness}" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Rate us on Google</a>
+     ${shopButton()}`
+  );
+  try { await resend.emails.send({ from: FROM, to, subject: "How was your visit? — Qasr Alshar Salon", html }); return true; }
+  catch (e) { console.error("[email] feedback send failed:", e); return false; }
+}
+
+/** Follow-up a few weeks later: time to refresh the look — book again. Never throws. */
+export async function sendRebookEmail(to: string, d: { customerName: string; serviceName: string }): Promise<boolean> {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping rebook email"); return false; }
+  const html = shell(
+    "Time to refresh your look ✨",
+    `<p style="line-height:1.7;color:#cabfa6;">Hi ${d.customerName}, it's been a few weeks since your <b style="color:#f6f0e2;">${d.serviceName}</b>. To keep it looking its best, book your next visit with us.</p>
+     <a href="${SITE.url}/book" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Book your next visit</a>
+     ${shopButton()}`
+  );
+  try { await resend.emails.send({ from: FROM, to, subject: "Ready for your next visit? — Qasr Alshar Salon", html }); return true; }
+  catch (e) { console.error("[email] rebook send failed:", e); return false; }
 }

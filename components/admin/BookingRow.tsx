@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/erp/BookingDetailModal";
 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
-type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null; marketerId?: string | null };
+type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number; staffId: string | null }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null; marketerId?: string | null };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {

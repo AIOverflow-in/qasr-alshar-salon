@@ -26,7 +26,7 @@ export function NewBookingButton({ services, staff, clients }: { services: Servi
 function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
   services: Service[]; staff: Staff[]; clients: Client[]; onClose: () => void; onSaved: () => void;
 }) {
-  const [lines, setLines] = useState<{ serviceId: string; price: number | "" }[]>([]);
+  const [lines, setLines] = useState<{ serviceId: string; price: number | ""; staffId: string }[]>([]);
   const [staffId, setStaffId] = useState("");
   const [marketerId, setMarketerId] = useState("");
   const [when, setWhen] = useState("");
@@ -56,9 +56,10 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
   const addLine = (id: string) => {
     const svc = services.find((s) => s.id === id);
     if (!svc || lines.some((l) => l.serviceId === id)) return;
-    setLines((ls) => [...ls, { serviceId: id, price: svc.priceAED }]);
+    setLines((ls) => [...ls, { serviceId: id, price: svc.priceAED, staffId: "" }]);
   };
   const updateLine = (i: number, price: number | "") => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, price } : l)));
+  const updateLineStaff = (i: number, staffId: string) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, staffId } : l)));
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   const input = "w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
@@ -77,7 +78,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
       const res = await fetch("/api/erp/bookings", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          services: lines.map((l) => ({ serviceId: l.serviceId, priceAED: l.price === "" ? null : l.price })),
+          services: lines.map((l) => ({ serviceId: l.serviceId, priceAED: l.price === "" ? null : l.price, staffId: l.staffId || null })),
           startISO, staffId: staffId || null, marketerId: marketerId || null,
           clientId: newClient ? null : selClient?.id ?? null,
           customerName: name,
@@ -175,13 +176,20 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
                 {lines.map((l, i) => {
                   const svc = services.find((s) => s.id === l.serviceId);
                   return (
-                    <div key={l.serviceId} className="flex items-center gap-2">
-                      <span className="flex-1 truncate text-sm text-cream">{svc?.name ?? "—"}</span>
-                      <span className="text-xs text-muted">AED</span>
-                      <input type="number" min={0} value={l.price}
-                        onChange={(e) => updateLine(i, e.target.value === "" ? "" : Number(e.target.value))}
-                        className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60" />
-                      <button onClick={() => removeLine(i)} className="text-muted hover:text-red-400"><X size={14} /></button>
+                    <div key={l.serviceId} className="space-y-1 rounded-lg border border-ink-line/60 bg-ink-card/40 p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 truncate text-sm text-cream">{svc?.name ?? "—"}</span>
+                        <span className="text-xs text-muted">AED</span>
+                        <input type="number" min={0} value={l.price}
+                          onChange={(e) => updateLine(i, e.target.value === "" ? "" : Number(e.target.value))}
+                          className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60" />
+                        <button onClick={() => removeLine(i)} className="text-muted hover:text-red-400"><X size={14} /></button>
+                      </div>
+                      <select value={l.staffId} onChange={(e) => updateLineStaff(i, e.target.value)}
+                        className="w-full rounded-lg border border-ink-line bg-ink-card px-2 py-1 text-xs text-cream outline-none focus:border-gold/60" title="Artist for this service">
+                        <option value="">By: main artist</option>
+                        {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
                     </div>
                   );
                 })}
@@ -198,10 +206,13 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
               </select>
             )}
           </div>
-          <select className={input} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-            <option value="">— Any Crown Artist —</option>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Main artist — default for any service left as “main artist”</label>
+            <select className={input} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+              <option value="">— Any Crown Artist —</option>
+              {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-xs text-muted">Marketer (referral) — who brought the lead</label>
             <select className={input} value={marketerId} onChange={(e) => setMarketerId(e.target.value)}>

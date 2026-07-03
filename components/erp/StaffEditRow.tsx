@@ -16,6 +16,7 @@ export function StaffEditRow({
   salaryAED,
   commissionPct,
   referralPct,
+  joinedOn,
   active,
 }: {
   id: string;
@@ -27,6 +28,7 @@ export function StaffEditRow({
   salaryAED: number;
   commissionPct: number;
   referralPct: number;
+  joinedOn: string | null;
   active: boolean;
 }) {
   const [r, setR] = useState(role);
@@ -36,16 +38,17 @@ export function StaffEditRow({
   const [sal, setSal] = useState(salaryAED);
   const [comm, setComm] = useState(commissionPct);
   const [ref, setRef] = useState(referralPct);
+  const [joined, setJoined] = useState(joinedOn ?? "");
   const [isActive, setIsActive] = useState(active);
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
 
   const dirty =
-    r !== role || h !== hours || off !== (offDay ?? "") || ph !== (phone ?? "") || sal !== salaryAED || comm !== commissionPct || ref !== referralPct || isActive !== active;
+    r !== role || h !== hours || off !== (offDay ?? "") || ph !== (phone ?? "") || sal !== salaryAED || comm !== commissionPct || ref !== referralPct || joined !== (joinedOn ?? "") || isActive !== active;
 
   function save() {
     start(async () => {
-      await updateStaff(id, { role: r, hours: h, offDay: off, phone: ph, salaryAED: sal, commissionPct: comm, referralPct: ref, active: isActive });
+      await updateStaff(id, { role: r, hours: h, offDay: off, phone: ph, salaryAED: sal, commissionPct: comm, referralPct: ref, joinedOn: joined || null, active: isActive });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     });
@@ -61,6 +64,7 @@ export function StaffEditRow({
       <td className="p-3"><input value={r} onChange={(e) => setR(e.target.value)} className={cn(input, "w-32 text-sm")} /></td>
       <td className="p-3"><input value={h} onChange={(e) => setH(e.target.value)} className={cn(input, "w-36 text-xs")} /></td>
       <td className="p-3"><input value={off} onChange={(e) => setOff(e.target.value)} placeholder="—" className={cn(input, "w-24 text-sm")} /></td>
+      <td className="p-3"><input type="date" value={joined} onChange={(e) => setJoined(e.target.value)} className={cn(input, "w-36 text-xs")} title="Joining date — drives leave entitlement" /></td>
       <td className="p-3"><input value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+9715…" className={cn(input, "w-32 text-sm")} title="Phone for WhatsApp booking reminders" /></td>
       <td className="p-3"><input type="number" value={sal} min={0} step={100} onChange={(e) => setSal(Number(e.target.value))} className={cn(input, "w-24 text-right text-sm")} title="Base monthly salary (0 = commission-only)" /></td>
       <td className="p-3">

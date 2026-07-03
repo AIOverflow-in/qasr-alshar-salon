@@ -2,9 +2,12 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { sessionIsMarketer } from "@/lib/staff-access";
 import { aed, cn } from "@/lib/utils";
 import { lineArtistIds } from "@/lib/artists";
 import { currentDubaiMonth, dubaiMonthRange, recentMonths } from "@/lib/payroll";
+import { leaveSummary } from "@/lib/leave";
+import { StaffAdmin } from "@/components/erp/StaffAdmin";
 import { ArrowLeft, Printer, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -31,13 +34,14 @@ export default async function ArtistPerformance({
   if (!session) redirect("/admin/login");
 
   const isAdmin = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
-  // Admins see anyone; a Crown Artist may only see their own linked record. Everyone else out.
+  // Admins see anyone. Among crown artists, only a MARKETER may see their own earnings page;
+  // service artists are calendar-only (per the lockdown). Everyone else out.
   if (!isAdmin) {
-    const me = await prisma.adminUser.findUnique({ where: { id: session.sub }, select: { staffId: true } });
-    if (!me?.staffId || me.staffId !== id) redirect("/erp");
+    const { isMarketer, staffId } = await sessionIsMarketer(session.sub);
+    if (!(isMarketer && staffId === id)) redirect(session.role === "STYLIST" ? "/erp/calendar" : "/erp");
   }
 
-  const staff = await prisma.staff.findUnique({ where: { id }, select: { id: true, name: true, role: true, commissionPct: true, referralPct: true } });
+  const staff = await prisma.staff.findUnique({ where: { id }, select: { id: true, name: true, role: true, commissionPct: true, referralPct: true, joinedOn: true } });
   if (!staff) notFound();
 
   const sp = await searchParams;
@@ -93,6 +97,20 @@ export default async function ArtistPerformance({
   const referrals = referralComms
     .map((c) => { const o = refOrderMap.get(c.orderId); return { when: o?.createdAt ?? c.createdAt, client: o?.client?.name ?? "Walk-in", invoiceNo: o?.invoiceNo ?? "—", amount: c.amountAED }; })
     .sort((a, b) => b.when.getTime() - a.when.getTime());
+
+  // Documents & leave — managers only (never loaded for a crown artist viewing their own page).
+  let documents: { id: string; type: string; expiry: string | null; uploadedAt: string }[] = [];
+  let leaves: { id: string; startDate: string; endDate: string; days: number; type: string; note: string | null }[] = [];
+  let leaveSum = { eligible: false, entitlement: 0, taken: 0, remaining: 0 };
+  if (isAdmin) {
+    const [docs, lv] = await Promise.all([
+      prisma.staffDocument.findMany({ where: { staffId: id }, orderBy: { uploadedAt: "desc" }, select: { id: true, type: true, expiry: true, uploadedAt: true } }),
+      prisma.staffLeave.findMany({ where: { staffId: id }, orderBy: { startDate: "desc" }, select: { id: true, startDate: true, endDate: true, days: true, type: true, note: true } }),
+    ]);
+    leaveSum = leaveSummary(staff.joinedOn, lv);
+    documents = docs.map((d) => ({ id: d.id, type: d.type, expiry: d.expiry?.toISOString() ?? null, uploadedAt: d.uploadedAt.toISOString() }));
+    leaves = lv.map((l) => ({ id: l.id, startDate: l.startDate.toISOString(), endDate: l.endDate.toISOString(), days: l.days, type: l.type, note: l.note }));
+  }
 
   return (
     <div className="space-y-6">
@@ -213,6 +231,14 @@ export default async function ArtistPerformance({
 
       {mine.length === 0 && referrals.length === 0 && (
         <div className="surface rounded-2xl p-12 text-center text-muted">No activity in {monthLabel(month)}.</div>
+      )}
+
+      {/* Personnel — documents & leave (managers only) */}
+      {isAdmin && (
+        <div className="space-y-3 border-t border-ink-line pt-6">
+          <h2 className="font-display text-xl text-cream">Personnel</h2>
+          <StaffAdmin staffId={id} documents={documents} leaves={leaves} summary={leaveSum} />
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Scissors, Clock, Newspaper, Receipt } from "lucide-react";
+import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +11,8 @@ const LINKS = [
   { href: "/erp/blog", label: "Blog", icon: Newspaper, desc: "AI articles + generate now" },
 ];
 
-export default function ErpSettings() {
+export default async function ErpSettings() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
   return (
     <div className="space-y-6">
       <h1 className="font-display text-3xl text-cream">Settings</h1>

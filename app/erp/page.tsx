@@ -18,8 +18,10 @@ const REVENUE_TARGET = 100_000;
 
 export default async function ErpDashboard() {
   const session = await getSession();
-  // Crown artists open straight into their calendar (their home screen), not the dashboard.
+  // Crown artists open straight into their calendar; reception into bookings — the dashboard is
+  // owner/investor-only (per the meeting: block dashboards for the general team & reception).
   if (session?.role === "STYLIST") redirect("/erp/calendar");
+  if (session?.role === "RECEPTION") redirect("/erp/bookings");
   const canSeeFinance = !!session && FINANCE_ROLES.includes(session.role);
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();
@@ -38,6 +40,17 @@ export default async function ErpDashboard() {
   const revenue = canSeeFinance ? await getMonthlyRevenue() : null;
   const monthRevenue = revenue?.gross ?? 0;
   const pct = Math.min(100, Math.round((monthRevenue / REVENUE_TARGET) * 100));
+
+  // Staff documents expiring within 30 days (or already expired) — managers only.
+  const isManager = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+  const DOC_LABEL: Record<string, string> = { PASSPORT: "Passport", VISA: "Visa", LABOR_CARD: "Labour card", EMIRATES_ID: "Emirates ID", OTHER: "Document" };
+  const expiringDocs = isManager
+    ? await prisma.staffDocument.findMany({
+        where: { expiry: { lte: new Date(Date.now() + 30 * 864e5) } },
+        orderBy: { expiry: "asc" }, take: 12,
+        select: { id: true, type: true, expiry: true, staff: { select: { name: true } } },
+      })
+    : [];
 
   const stats = [
     { label: "Today's Bookings", value: todayCount, icon: CalendarDays, href: "/erp/bookings" },
@@ -107,6 +120,36 @@ export default async function ErpDashboard() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {isManager && expiringDocs.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-xl text-cream">Documents expiring soon</h2>
+            <Link href="/erp/staff" className="inline-flex items-center gap-1 text-sm text-gold hover:underline">Staff <ArrowRight size={14} /></Link>
+          </div>
+          <div className="surface overflow-hidden rounded-2xl">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-ink-line/60">
+                {expiringDocs.map((d) => {
+                  const exp = d.expiry ? new Date(d.expiry) : null;
+                  const expired = exp ? exp.getTime() < Date.now() : false;
+                  return (
+                    <tr key={d.id}>
+                      <td className="p-4 text-sand">{d.staff?.name ?? "—"}</td>
+                      <td className="p-4 text-xs text-muted">{DOC_LABEL[d.type] ?? d.type}</td>
+                      <td className="p-4 text-right">
+                        <span className={`rounded-full border px-2.5 py-1 text-xs ${expired ? "border-red-500/40 text-red-400" : "border-gold/40 text-gold"}`}>
+                          {expired ? "expired" : "expires"} {exp ? exp.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : ""}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

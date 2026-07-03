@@ -24,6 +24,7 @@ export function EditBookingServices({
   initialPrices = {},
   initialStartISO,
   initialMarketerId = null,
+  initialStaff = {},
 }: {
   bookingId: string;
   services: Service[];
@@ -32,12 +33,14 @@ export function EditBookingServices({
   initialPrices?: Record<string, number>;
   initialStartISO: string;
   initialMarketerId?: string | null;
+  initialStaff?: Record<string, string>; // serviceId → current per-service artist (to preserve on edit)
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>(initialServiceIds);
   const [prices, setPrices] = useState<Record<string, number | "">>({});
+  const [staffPer, setStaffPer] = useState<Record<string, string>>({});
   const [when, setWhen] = useState("");
   const [marketerId, setMarketerId] = useState(initialMarketerId ?? "");
   const [saving, setSaving] = useState(false);
@@ -64,6 +67,7 @@ export function EditBookingServices({
     } else {
       setPicked([...picked, id]);
       setPrices((p) => (p[id] === undefined || p[id] === "" ? { ...p, [id]: priceFor(id) } : p));
+      setStaffPer((sp) => (sp[id] === undefined ? { ...sp, [id]: initialStaff[id] ?? "" } : sp));
     }
   }
   const setPrice = (id: string, val: number | "") => setPrices((p) => ({ ...p, [id]: val }));
@@ -71,6 +75,7 @@ export function EditBookingServices({
   function openModal() {
     setPicked(initialServiceIds);
     setPrices(Object.fromEntries(initialServiceIds.map((id) => [id, priceFor(id)])));
+    setStaffPer(Object.fromEntries(initialServiceIds.map((id) => [id, initialStaff[id] ?? ""])));
     setWhen(toDubaiLocal(initialStartISO));
     setMarketerId(initialMarketerId ?? "");
     setError(null);
@@ -89,7 +94,7 @@ export function EditBookingServices({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          services: picked.map((id) => ({ serviceId: id, priceAED: prices[id] === "" || prices[id] == null ? null : prices[id] })),
+          services: picked.map((id) => ({ serviceId: id, priceAED: prices[id] === "" || prices[id] == null ? null : prices[id], staffId: staffPer[id] || null })),
           startISO,
           marketerId: marketerId || null,
         }),
@@ -161,28 +166,37 @@ export function EditBookingServices({
               {filtered.map((s) => {
                 const on = picked.includes(s.id);
                 return (
-                  <div key={s.id} className={cn("flex w-full items-center justify-between gap-2 px-3 py-2.5", on && "bg-gold/5")}>
-                    <button onClick={() => toggle(s.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-start">
-                      <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-md border", on ? "border-gold bg-gold-gradient text-espresso" : "border-ink-line text-transparent")}>
-                        <CheckCircle2 size={12} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm text-cream">{s.name}</span>
-                        <span className="text-xs text-muted">{s.category}</span>
-                      </span>
-                    </button>
-                    {on ? (
-                      <span className="flex shrink-0 items-center gap-1">
-                        <span className="text-xs text-muted">AED</span>
-                        <input
-                          type="number" min={0}
-                          value={prices[s.id] ?? ""}
-                          onChange={(e) => setPrice(s.id, e.target.value === "" ? "" : Number(e.target.value))}
-                          className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60"
-                        />
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-sm font-semibold text-gold">{aed(s.priceAED)}</span>
+                  <div key={s.id} className={cn("px-3 py-2.5", on && "bg-gold/5")}>
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <button onClick={() => toggle(s.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-start">
+                        <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-md border", on ? "border-gold bg-gold-gradient text-espresso" : "border-ink-line text-transparent")}>
+                          <CheckCircle2 size={12} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-cream">{s.name}</span>
+                          <span className="text-xs text-muted">{s.category}</span>
+                        </span>
+                      </button>
+                      {on ? (
+                        <span className="flex shrink-0 items-center gap-1">
+                          <span className="text-xs text-muted">AED</span>
+                          <input
+                            type="number" min={0}
+                            value={prices[s.id] ?? ""}
+                            onChange={(e) => setPrice(s.id, e.target.value === "" ? "" : Number(e.target.value))}
+                            className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60"
+                          />
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-sm font-semibold text-gold">{aed(s.priceAED)}</span>
+                      )}
+                    </div>
+                    {on && staff.length > 0 && (
+                      <select value={staffPer[s.id] ?? ""} onChange={(e) => setStaffPer((sp) => ({ ...sp, [s.id]: e.target.value }))}
+                        className="mt-2 w-full rounded-lg border border-ink-line bg-ink-card px-2 py-1 text-xs text-cream outline-none focus:border-gold/60" title="Artist for this service">
+                        <option value="">By: main artist</option>
+                        {staff.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                      </select>
                     )}
                   </div>
                 );

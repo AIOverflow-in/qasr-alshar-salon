@@ -1,10 +1,13 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth";
 import { InventoryActions } from "./InventoryActions";
 import { InventoryTable } from "@/components/erp/InventoryTable";
 
 export const dynamic = "force-dynamic";
 
 export default async function ErpInventory() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN", "RECEPTION"]))) redirect("/erp");
   const [products, grouped, lowCount] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },

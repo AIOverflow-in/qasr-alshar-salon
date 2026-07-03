@@ -72,7 +72,7 @@ export default async function ErpBookings({
         take: 500,
         include: {
           staff: { select: { name: true, phone: true } },
-          items: { select: { serviceId: true, serviceName: true, priceAED: true, durationMin: true } },
+          items: { select: { serviceId: true, serviceName: true, priceAED: true, durationMin: true, staffId: true } },
           createdBy: { select: { name: true } },
           salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
         },
@@ -174,7 +174,7 @@ export default async function ErpBookings({
                       canEditServices={canEditServices}
                       canEditBill={canEditBill}
                       detail={{
-                        items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin })),
+                        items: b.items.map((it) => ({ serviceId: it.serviceId, name: it.serviceName, price: it.priceAED, duration: it.durationMin, staffId: it.staffId })),
                         staffPhone: b.staff?.phone ?? null,
                         enteredBy: b.createdBy?.name ?? null,
                         marketer: b.marketerId ? (staffName.get(b.marketerId) ?? null) : null,

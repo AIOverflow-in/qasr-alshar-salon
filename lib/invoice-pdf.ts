@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage, type PDFImage } from "pdf-lib";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { SITE } from "./site";
 
 const GOLD = rgb(0.78, 0.6, 0.16);
 const INK = rgb(0.09, 0.08, 0.06);
@@ -172,12 +173,16 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
     page.drawText(order.notes.slice(0, 160), { x: M, y, size: 9, font: reg, color: GREY }); y -= 18;
   }
 
+  const site = SITE.url.replace(/^https?:\/\//, "");
   const terms = [
     "Terms: Prices include 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
     "Cancellations within 24 hours and no-shows may be charged. Home-service bookings require prior confirmation.",
-    "Full terms & conditions: qasralsharsalon.com/terms",
+    `Full terms & conditions: ${site}/terms`,
   ];
-  let ty = 96;
+  // Storefront + bank-transfer lines appear only when configured (empty until the shop / IBAN are set).
+  if (SITE.storefront) terms.push(`Shop aftercare & hair: ${SITE.storefront.replace(/^https?:\/\//, "")}`);
+  if (SITE.pay.iban) terms.push(`Bank transfer: ${SITE.pay.accountName} · IBAN ${SITE.pay.iban} · ${SITE.pay.bic} (${SITE.pay.bank})`);
+  let ty = 72 + (terms.length - 1) * 11; // grow upward so the last line stays above the divider
   for (const t of terms) { page.drawText(t, { x: M, y: ty, size: 7.5, font: reg, color: GREY }); ty -= 11; }
   page.drawLine({ start: { x: M, y: 60 }, end: { x: RIGHT, y: 60 }, thickness: 1, color: GOLD });
   page.drawText("Thank you for choosing Qasr Alshar Salon — Dubai's Crown of Beauty.", { x: M, y: 44, size: 8.5, font: bold, color: INK });

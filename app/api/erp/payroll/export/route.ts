@@ -19,14 +19,14 @@ export async function GET(req: Request) {
   const month = new URL(req.url).searchParams.get("month") ?? undefined;
   const payroll = await getPayrollMonth(month);
 
-  const header = ["Staff", "Role", "Salary AED", "Sales commission AED", "Referral AED", "Bonus AED", "Advances/Deductions AED", "Net pay AED", "Status"];
+  const header = ["Staff", "Role", "Services AED", "Salary AED", "Sales commission AED", "Referral AED", "Bonus AED", "Advances/Deductions AED", "Net pay AED", "Status"];
   const rows = [header.join(",")];
   for (const r of payroll.rows) {
     if (r.net === 0 && !r.paid) continue; // skip staff with nothing this month
-    rows.push([r.name, r.role, r.salary, r.salesCommission, r.referral, r.bonus, r.deductions, r.net, r.paid ? "Paid" : "Due"].map(cell).join(","));
+    rows.push([r.name, r.role, r.servicesAED, r.salary, r.salesCommission, r.referral, r.bonus, r.deductions, r.net, r.paid ? "Paid" : "Due"].map(cell).join(","));
   }
   const t = payroll.totals;
-  rows.push(["TOTAL", "", t.salary, "", "", t.bonus, t.deductions, t.net, ""].map(cell).join(","));
+  rows.push(["TOTAL", "", t.services, t.salary, "", "", t.bonus, t.deductions, t.net, ""].map(cell).join(","));
 
   return new Response(rows.join("\n"), {
     headers: {

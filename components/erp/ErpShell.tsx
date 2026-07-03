@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
 
 const NAV = [
-  { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "INVESTOR"] },
+  { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
   { href: "/erp/pos", label: "POS Checkout", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/sales", label: "Sales", icon: Receipt, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
@@ -57,15 +57,20 @@ const ROLE_LABEL: Record<Role, string> = {
 export function ErpShell({
   email,
   role,
+  isMarketer = false,
   children,
 }: {
   email: string;
   role: Role;
+  isMarketer?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const visible = NAV.filter((n) => (n.roles as readonly string[]).includes(role));
+  const visible = NAV
+    .filter((n) => (n.roles as readonly string[]).includes(role))
+    // "My Work" (own earnings) is only for a marketer; service crown artists are calendar-only.
+    .filter((n) => n.href !== "/erp/staff/me" || isMarketer);
   // Crown artists live in the calendar — surface it at the very top of their nav.
   const items = role === "STYLIST"
     ? [...visible].sort((a, b) => Number(b.href === "/erp/calendar") - Number(a.href === "/erp/calendar"))

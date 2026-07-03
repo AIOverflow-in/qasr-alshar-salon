@@ -9,10 +9,12 @@ import { resolveClientId } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
 
-// Each chosen service carries an optional agreed price (reception can override the menu price per line).
+// Each chosen service carries an optional agreed price + an optional per-service artist
+// (reception can assign a different crown artist per service, or leave it to the main artist).
 const lineSchema = z.object({
   serviceId: z.string().min(1),
   priceAED: z.number().int().nonnegative().optional().nullable(),
+  staffId: z.string().optional().nullable(),
 });
 
 const schema = z.object({
@@ -54,17 +56,18 @@ export async function POST(req: Request) {
   // Build the requested line list (preserve the chosen order). New multi-service path or legacy single.
   const requested = d.services?.length
     ? d.services
-    : [{ serviceId: d.serviceId!, priceAED: d.priceAED }];
+    : [{ serviceId: d.serviceId!, priceAED: d.priceAED, staffId: null as string | null }];
 
   const ids = requested.map((r) => r.serviceId);
   const found = await prisma.service.findMany({ where: { id: { in: ids } } });
-  // Each line keeps its agreed price (override) or falls back to the menu price.
+  // Each line keeps its agreed price (override) or falls back to the menu price, and an optional
+  // per-service artist (falls back to the booking's main artist).
   const lines = requested
     .map((r) => {
       const svc = found.find((s) => s.id === r.serviceId);
-      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED } : null;
+      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED, staffId: r.staffId ?? null } : null;
     })
-    .filter((x): x is { svc: (typeof found)[number]; price: number } => x !== null);
+    .filter((x): x is { svc: (typeof found)[number]; price: number; staffId: string | null } => x !== null);
   if (!lines.length) return NextResponse.json({ error: "Service not found." }, { status: 404 });
 
   const totalDuration = lines.reduce((s, l) => s + l.svc.durationMin, 0);
@@ -94,7 +97,7 @@ export async function POST(req: Request) {
       notes: d.notes?.trim() || null, startAt: start, endAt: end, status: "CONFIRMED",
       staffId: d.staffId || null, marketerId: d.marketerId || null, clientId, source: "WALKIN", createdById: session.sub,
       serviceMode: d.serviceMode, address: d.serviceMode === "HOME" ? d.address?.trim() || null : null,
-      items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: d.staffId || null })) },
+      items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: l.staffId || d.staffId || null })) },
     },
   });
 

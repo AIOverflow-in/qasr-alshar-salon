@@ -7,18 +7,18 @@ import { aed, cn } from "@/lib/utils";
 import { addPayAdjustment, payStaffMonth } from "@/lib/actions/admin";
 
 export type PayrollRow = {
-  staffId: string; name: string; role: string;
+  staffId: string; name: string; role: string; servicesAED: number;
   salary: number; salesCommission: number; referral: number; commission: number;
   bonus: number; deductions: number; net: number; paid: boolean; paidAt: string | null;
 };
-export type PayrollTotals = { salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
+export type PayrollTotals = { services: number; salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
 
 function monthLabel(m: string) {
   const [y, mm] = m.split("-").map(Number);
   return new Date(Date.UTC(y, mm - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-export function PayrollTable({ month, months, rows, totals }: { month: string; months: string[]; rows: PayrollRow[]; totals: PayrollTotals }) {
+export function PayrollTable({ month, months, rows, totals, totalSales }: { month: string; months: string[]; rows: PayrollRow[]; totals: PayrollTotals; totalSales: number }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [adjFor, setAdjFor] = useState<PayrollRow | null>(null);
@@ -34,10 +34,11 @@ export function PayrollTable({ month, months, rows, totals }: { month: string; m
     start(async () => { for (const r of due) await payStaffMonth(r.staffId, month); router.refresh(); });
   }
 
+  // Owner's monthly P&L view (mirrors the March salary sheet): Total Sales, Net Salary, Gross Profit.
   const cards = [
-    { label: "Salary bill", value: aed(totals.salary) },
-    { label: "Commission", value: aed(totals.commission) },
-    { label: "Net payroll", value: aed(totals.net), accent: true },
+    { label: "Total sales", value: aed(totalSales) },
+    { label: "Net salary payable", value: aed(totals.net), accent: true },
+    { label: "Gross profit", value: aed(totalSales - totals.net) },
     { label: "Outstanding", value: aed(totals.outstandingNet) },
   ];
 
@@ -73,10 +74,11 @@ export function PayrollTable({ month, months, rows, totals }: { month: string; m
       </div>
 
       <div className="surface overflow-x-auto rounded-2xl">
-        <table className="w-full min-w-[920px] text-sm">
+        <table className="w-full min-w-[1000px] text-sm">
           <thead className="border-b border-ink-line text-left text-muted">
             <tr>
               <th className="p-4 font-medium">Staff</th>
+              <th className="p-4 text-right font-medium">Services</th>
               <th className="p-4 text-right font-medium">Salary</th>
               <th className="p-4 text-right font-medium">Commission</th>
               <th className="p-4 text-right font-medium">Bonus</th>
@@ -93,8 +95,9 @@ export function PayrollTable({ month, months, rows, totals }: { month: string; m
                   <div className="text-cream">{r.name}</div>
                   <div className="text-xs text-muted">{r.role}</div>
                 </td>
-                <td className="p-4 text-right tabular-nums text-sand">{r.salary ? aed(r.salary) : "—"}</td>
-                <td className="p-4 text-right tabular-nums text-sand" title={`Sales ${aed(r.salesCommission)} · Referral ${aed(r.referral)}`}>{r.commission ? aed(r.commission) : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title="Service revenue this person generated">{r.servicesAED ? aed(r.servicesAED) : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title="Base salary (guaranteed floor)">{r.salary ? aed(r.salary) : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title={`Sales split ${aed(r.salesCommission)} · Referral ${aed(r.referral)} · paid only if it beats base`}>{r.commission ? aed(r.commission) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-green-400">{r.bonus ? aed(r.bonus) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-red-400">{r.deductions ? `−${aed(r.deductions)}` : "—"}</td>
                 <td className="p-4 text-right font-semibold tabular-nums text-cream">{aed(r.net)}</td>
