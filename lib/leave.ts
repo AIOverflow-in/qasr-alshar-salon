@@ -39,7 +39,7 @@ export function leaveSummary(
   const taken = leaves
     .filter((l) => l.type === "ANNUAL" && l.startDate.getUTCFullYear() === year)
     .reduce((s, l) => s + l.days, 0);
-  return { eligible, entitlement, taken, remaining: entitlement - taken };
+  return { eligible, entitlement, taken, remaining: Math.max(0, entitlement - taken) };
 }
 
 /**

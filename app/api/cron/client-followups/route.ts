@@ -49,9 +49,10 @@ async function run(req: Request) {
   });
   let rebookSent = 0;
   for (const b of rebookDue) {
-    // If they've already booked again since, mark done and skip the nudge.
+    // If they've genuinely booked again since (a live/kept booking, not a cancelled/no-show one),
+    // mark done and skip the nudge.
     if (b.clientId) {
-      const newer = await prisma.booking.findFirst({ where: { clientId: b.clientId, startAt: { gt: b.endAt } }, select: { id: true } });
+      const newer = await prisma.booking.findFirst({ where: { clientId: b.clientId, startAt: { gt: b.endAt }, status: { in: ["CONFIRMED", "COMPLETED"] } }, select: { id: true } });
       if (newer) { await prisma.booking.update({ where: { id: b.id }, data: { rebookSentAt: new Date() } }); continue; }
     }
     if (await sendRebookEmail(b.email, { customerName: b.customerName, serviceName: b.serviceName })) {

@@ -23,8 +23,9 @@ export default async function ErpStaff({
     prisma.staff.findMany({ orderBy: { order: "asc" } }),
     getPayrollMonth(monthParam),
   ]);
-  // Total PAID sales for the month (services + products) — for the P&L summary (Gross Profit = sales − net payroll).
-  const totalSales = (await getSalesBreakdown(dubaiMonthRange(payroll.month))).total;
+  // Month sales for the P&L summary — ex-VAT (the salon's actual revenue; VAT is held for the FTA,
+  // and it matches the charged-price basis of Jacqueline's sheet). Gross Profit = sales − net payroll.
+  const totalSales = (await getSalesBreakdown(dubaiMonthRange(payroll.month))).net;
 
   return (
     <div className="space-y-8">

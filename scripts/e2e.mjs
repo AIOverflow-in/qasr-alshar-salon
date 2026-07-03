@@ -30,6 +30,13 @@ async function body(path, role) {
   const r = await fetch(BASE + path, { headers: { cookie: `qa_admin=${t}` } });
   return { status: r.status, text: await r.text() };
 }
+// Mint a token for a SPECIFIC user id (for real linked adminUser accounts, e.g. a marketer).
+const mintTok = (sub, role) => new SignJWT({ email: `e2e-${sub}@qa.test`, role })
+  .setProtectedHeader({ alg: "HS256" }).setSubject(sub).setIssuedAt().setExpirationTime("1h").sign(secret);
+async function codeTok(path, t) {
+  const r = await fetch(BASE + path, { headers: { cookie: `qa_admin=${t}` }, redirect: "manual" });
+  return (r.type === "opaqueredirect" || r.status === 0 || r.status === 307 || r.status === 308) ? "REDIR" : String(r.status);
+}
 
 function dubaiMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit" }).format(new Date()); }
 function dayRange(off = 0) {
@@ -69,8 +76,9 @@ async function cleanupSweep() {
   const bk = await prisma.booking.deleteMany({ where: { customerName: { startsWith: TAG } } }); // BookingItem cascades
   const cl = await prisma.client.deleteMany({ where: { name: { startsWith: TAG } } });
   const sv = await prisma.service.deleteMany({ where: { name: { startsWith: TAG } } });
+  const usr = await prisma.adminUser.deleteMany({ where: { email: { startsWith: TAG } } });
   const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
-  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count };
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count };
 }
 
 try {
@@ -558,7 +566,13 @@ try {
       const items = bid ? await prisma.bookingItem.findMany({ where: { bookingId: bid }, select: { serviceId: true, staffId: true } }) : [];
       const a = items.find((i) => i.serviceId === esvc.id)?.staffId;
       const b2 = items.find((i) => i.serviceId === svc2?.id)?.staffId;
-      ok(!!bid && a === estaff.id && b2 === staff2?.id, `each service kept its own artist (svc1→${a === estaff.id}, svc2→${b2 === staff2?.id})`);
+      ok(!!bid && a === estaff.id && b2 === staff2?.id, `create: each service kept its own artist (svc1→${a === estaff.id}, svc2→${b2 === staff2?.id})`);
+      // PATCH: swap the two artists → items reflect the new per-service assignment
+      if (bid && staff2 && svc2) await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id, staffId: staff2.id }, { serviceId: svc2.id, staffId: estaff.id }] }) });
+      const items2 = bid ? await prisma.bookingItem.findMany({ where: { bookingId: bid }, select: { serviceId: true, staffId: true } }) : [];
+      const a2 = items2.find((i) => i.serviceId === esvc.id)?.staffId;
+      const c2 = items2.find((i) => i.serviceId === svc2?.id)?.staffId;
+      ok(a2 === staff2?.id && c2 === estaff.id, `edit: per-service artists swapped (svc1→${a2 === staff2?.id}, svc2→${c2 === estaff.id})`);
     }
 
     section("Staff document routes: manager-only");
@@ -587,6 +601,35 @@ try {
         return line ? line.split(",")[8] : null;
       }, "1000");
       ok(net === "1000", `net = max(200 comm, 1000 base) = 1000, not additive 1200 (got ${net})`);
+      const services = await poll(async () => {
+        const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
+        const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
+        return line ? line.split(",")[2] : null;
+      }, "500");
+      ok(services === "500", `per-person Services column = 500 (got ${services})`);
+    }
+
+    section("Marketer keeps earnings page; linked artist sees own calendar; others don't");
+    {
+      const rc = await eh("RECEPTION");
+      const mStaff = await prisma.staff.create({ data: { name: `${TAG}Mktr`, role: "Marketing", commissionPct: 40, referralPct: 5 } });
+      const mUser = await prisma.adminUser.create({ data: { email: `${TAG}mktr@qa.test`, name: "E2E Marketer", role: "STYLIST", staffId: mStaff.id, passwordHash: "x" } });
+      const mTok = await mintTok(mUser.id, "STYLIST");
+      ok((await codeTok(`/erp/staff/${mStaff.id}`, mTok)) === "200", "marketer can view own earnings page");
+      ok((await codeTok(`/erp/staff/${estaff.id}`, mTok)) === "REDIR", "marketer cannot view another staff's page");
+
+      const aStaff = await prisma.staff.create({ data: { name: `${TAG}Artist`, role: "Crown Artist", commissionPct: 40 } });
+      const aUser = await prisma.adminUser.create({ data: { email: `${TAG}artist@qa.test`, name: "E2E Artist", role: "STYLIST", staffId: aStaff.id, passwordHash: "x" } });
+      const aTok = await mintTok(aUser.id, "STYLIST");
+      ok((await codeTok(`/erp/staff/${aStaff.id}`, aTok)) === "REDIR", "service artist blocked from own earnings page");
+
+      const when = new Date(dayRange(2).start.getTime() + 14 * 3600e3);
+      await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: rc, body: JSON.stringify({ services: [{ serviceId: esvc.id, staffId: aStaff.id }], startISO: when.toISOString(), customerName: `${TAG}CalCust`, phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) });
+      const wkISO = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(when);
+      const seen = await (await fetch(`${BASE}/erp/calendar?week=${wkISO}`, { headers: { cookie: `qa_admin=${aTok}` } })).text();
+      ok(seen.includes(`${TAG}CalCust`), "linked artist sees the booking they performed on their calendar");
+      const notSeen = await (await fetch(`${BASE}/erp/calendar?week=${wkISO}`, { headers: { cookie: `qa_admin=${mTok}` } })).text();
+      ok(!notSeen.includes(`${TAG}CalCust`), "another artist does NOT see that booking");
     }
   }
 
@@ -598,12 +641,13 @@ try {
   // Guaranteed cleanup — runs even if a check threw. Leaves the DB exactly as found.
   try {
     const swept = await cleanupSweep();
-    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff;
-    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff${total === 0 ? " (nothing left behind ✅)" : ""}`);
+    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users;
+    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users${total === 0 ? " (nothing left behind ✅)" : ""}`);
     const residue = await prisma.salesOrder.count({ where: { OR: [{ lines: { some: { description: { startsWith: TAG } } } }, { clientRequestId: { startsWith: REQ } }] } })
       + await prisma.booking.count({ where: { customerName: { startsWith: TAG } } })
       + await prisma.client.count({ where: { name: { startsWith: TAG } } })
-      + await prisma.staff.count({ where: { name: { startsWith: TAG } } });
+      + await prisma.staff.count({ where: { name: { startsWith: TAG } } })
+      + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } });
     console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
     if (residue !== 0) fail++;
   } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }

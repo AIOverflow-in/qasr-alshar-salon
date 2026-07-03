@@ -35,9 +35,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   // A Crown artist sees their own schedule; managers/reception see the whole salon.
   let onlyStaffId: string | null = null;
+  let stylistUnlinked = false; // a STYLIST with no linked Staff record must see NOTHING (fail closed)
   if (session.role === "STYLIST") {
     const me = await prisma.adminUser.findUnique({ where: { id: session.sub }, select: { staffId: true } });
     onlyStaffId = me?.staffId ?? null;
+    if (!onlyStaffId) stylistUnlinked = true;
   }
 
   const sp = await searchParams;
@@ -57,7 +59,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const where: Prisma.BookingWhereInput = {
     status: { in: ["CONFIRMED", "COMPLETED"] },
     startAt: { gte: weekStart, lt: weekEnd },
-    ...(onlyStaffId
+    ...(stylistUnlinked
+      ? { id: "__none__" } // unlinked crown artist → no results, never the whole salon
+      : onlyStaffId
       ? {
           OR: [
             { staffId: onlyStaffId },

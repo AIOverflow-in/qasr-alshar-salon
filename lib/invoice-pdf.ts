@@ -182,8 +182,10 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   // Storefront + bank-transfer lines appear only when configured (empty until the shop / IBAN are set).
   if (SITE.storefront) terms.push(`Shop aftercare & hair: ${SITE.storefront.replace(/^https?:\/\//, "")}`);
   if (SITE.pay.iban) terms.push(`Bank transfer: ${SITE.pay.accountName} · IBAN ${SITE.pay.iban} · ${SITE.pay.bic} (${SITE.pay.bank})`);
-  let ty = 72 + (terms.length - 1) * 11; // grow upward so the last line stays above the divider
-  for (const t of terms) { page.drawText(t, { x: M, y: ty, size: 7.5, font: reg, color: GREY }); ty -= 11; }
+  // Anchor the block at a fixed top (96) and tighten the step so extra optional lines pack downward
+  // toward the divider (y=60) rather than growing UP into the totals box on a long invoice.
+  let ty = 96;
+  for (const t of terms) { page.drawText(t, { x: M, y: ty, size: 7, font: reg, color: GREY }); ty -= 8.5; }
   page.drawLine({ start: { x: M, y: 60 }, end: { x: RIGHT, y: 60 }, thickness: 1, color: GOLD });
   page.drawText("Thank you for choosing Qasr Alshar Salon — Dubai's Crown of Beauty.", { x: M, y: 44, size: 8.5, font: bold, color: INK });
   page.drawText("@qasr.alshar   ·   @qasralsharsalon   ·   hello@qasralshar.ae", { x: M, y: 31, size: 8, font: reg, color: GREY });
