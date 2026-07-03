@@ -49,7 +49,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   });
   const weekStart = days[0].range.start, weekEnd = days[6].range.end;
 
-  const where: Prisma.BookingWhereInput = { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: weekStart, lt: weekEnd }, ...(onlyStaffId ? { staffId: onlyStaffId } : {}) };
+  // A crown artist sees bookings they perform (staffId); a marketer sees the ones they referred
+  // (marketerId). Covering both means someone who does both roles sees all of theirs.
+  const where: Prisma.BookingWhereInput = { status: { in: ["CONFIRMED", "COMPLETED"] }, startAt: { gte: weekStart, lt: weekEnd }, ...(onlyStaffId ? { OR: [{ staffId: onlyStaffId }, { marketerId: onlyStaffId }] } : {}) };
   const bookings = await prisma.booking.findMany({
     where,
     orderBy: { startAt: "asc" },
