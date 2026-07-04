@@ -139,7 +139,9 @@ async function syncBookingToBill(
     data: {
       serviceId: items[0].serviceId, serviceName: summary, priceAED: price, durationMin: dur,
       ...(bk ? { endAt: new Date(bk.startAt.getTime() + dur * 60_000) } : {}),
-      staffId: orderStaffId ?? null, marketerId: marketerId ?? null,
+      // Booking's main Crown Artist follows the artist who actually performed the (primary) service on
+      // the bill — so changing a line's artist in POS updates the booking, not just the item.
+      staffId: items[0]?.staffId ?? orderStaffId ?? null, marketerId: marketerId ?? null,
       ...(complete ? { status: "COMPLETED" as const } : {}),
       items: { create: items },
     },
