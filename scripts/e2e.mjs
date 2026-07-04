@@ -652,6 +652,27 @@ try {
       ok(!notSeen.includes(`${TAG}CalCust`), "another artist does NOT see that booking");
     }
 
+    section("Security hardening: allowlists + immediate session revocation");
+    {
+      // INVESTOR (read-only finance) must not reach the bookings table / client PII, even by URL.
+      ok((await codeTok("/erp/bookings", await tok("INVESTOR"))) === "REDIR", "INVESTOR redirected away from /erp/bookings");
+      // Crown artist can't pull the whole-salon recent-bookings feed; reception still can.
+      const styFeed = await fetch(BASE + "/api/erp/recent-bookings", { headers: { cookie: `qa_admin=${await tok("STYLIST")}` } });
+      ok(styFeed.status === 403, `recent-bookings: crown artist blocked (${styFeed.status})`);
+      const recFeed = await fetch(BASE + "/api/erp/recent-bookings", { headers: { cookie: `qa_admin=${await tok("RECEPTION")}` } });
+      ok(recFeed.status === 200, `recent-bookings: reception allowed (${recFeed.status})`);
+
+      // Deactivating an account revokes its still-valid token immediately (offboarding).
+      const su = await prisma.adminUser.create({ data: { email: `${TAG}revoke@qa.test`, name: `${TAG}Revoke`, role: "ADMIN", passwordHash: "x", active: true } });
+      const stok = await mintTok(su.id, "ADMIN");
+      const before = await fetch(BASE + "/api/erp/recent-bookings", { headers: { cookie: `qa_admin=${stok}` } });
+      ok(before.status === 200, `active account's token works (${before.status})`);
+      await prisma.adminUser.update({ where: { id: su.id }, data: { active: false } });
+      const after = await fetch(BASE + "/api/erp/recent-bookings", { headers: { cookie: `qa_admin=${stok}` } });
+      ok(after.status === 401, `deactivated account's token revoked immediately (${after.status})`);
+      await prisma.adminUser.delete({ where: { id: su.id } });
+    }
+
     section("Scheduled payments + reminder cron");
     {
       let schemaOk = true;

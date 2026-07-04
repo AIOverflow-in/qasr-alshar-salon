@@ -81,7 +81,7 @@ node -e "console.log(require('bcryptjs').hashSync('YOUR_PASSWORD',10))"
 ## 🔐 Admin
 
 - URL: `/admin` (login at `/admin/login`)
-- Default credentials (seeded): `admin@qasralshar.ae` / `QasrAlshar@2026` — **change the password after first login** by updating `ADMIN_PASSWORD_HASH` and re-seeding.
+- The seeded admin account's email and password hash come from `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` (env only — never commit the plaintext password). Generate a hash with `bcrypt` and re-seed to set or rotate it.
 
 Admin can manage bookings, services & prices, opening hours, booking capacity, blocked dates, and the blog (generate, publish/unpublish, delete).
 

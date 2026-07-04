@@ -37,6 +37,9 @@ export default async function ErpBookings({
   // Crown artists have no access to the bookings table (view or edit) — they get a
   // read-only view of their own schedule on the calendar instead.
   if (session?.role === "STYLIST") redirect("/erp/calendar");
+  // Operational page — reception + admins only. INVESTOR (read-only finance) must not reach the
+  // client PII here even by typed URL; the nav already hides it, this enforces it server-side.
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) redirect("/erp");
   // Reception + admins can amend bills (stylists cannot).
   const canEditBill = ["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session?.role ?? "");
 

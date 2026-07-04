@@ -53,8 +53,16 @@ export async function getSession(): Promise<Session | null> {
     // silently grant elevated access on a malformed/legacy token.
     const role = payload.role as Role | undefined;
     if (!role || !VALID_ROLES.includes(role)) return null;
+    const sub = String(payload.sub);
+    // Immediate revocation on offboarding: a deactivated account's 7-day token would otherwise stay
+    // valid. Re-check the DB each request. A DB hiccup must not lock everyone out, so on error (or an
+    // unknown sub, e.g. a token minted for a non-DB user) we trust the already-verified token.
+    try {
+      const u = await prisma.adminUser.findUnique({ where: { id: sub }, select: { active: true } });
+      if (u && !u.active) return null;
+    } catch { /* DB unavailable — fall through to the verified token */ }
     return {
-      sub: String(payload.sub),
+      sub,
       email: String(payload.email),
       role,
     };
@@ -72,9 +80,16 @@ export async function requireRole(allowed: Role[]): Promise<Session | null> {
   return s;
 }
 
+// A valid bcrypt hash (of a random string) used only to spend one compare on the miss path, so
+// unknown/inactive emails don't respond faster than real ones (defeats account enumeration).
+const DUMMY_HASH = "$2b$10$C6UzMDM.H6dfI/f/IKcEeO3jHhq3vX3q5Yl3sJ8oJ0oQx8kQ9y8pC";
+
 export async function verifyCredentials(email: string, password: string) {
   const user = await prisma.adminUser.findUnique({ where: { email } });
-  if (!user || !user.active) return null; // deactivated accounts cannot log in
+  if (!user || !user.active) {
+    await bcrypt.compare(password, DUMMY_HASH); // constant-time: same cost as a real check
+    return null; // deactivated / unknown accounts cannot log in
+  }
   const ok = await bcrypt.compare(password, user.passwordHash);
   return ok ? user : null;
 }

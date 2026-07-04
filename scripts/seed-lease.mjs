@@ -9,12 +9,14 @@ const LEASE = "Dalmok Series · Unit 3 Mezzanine (Office 3) · lease 16 Dec 2025
 // dueDate anchored at 08:00 Dubai so day math is stable.
 const at = (ymd) => new Date(`${ymd}T08:00:00+04:00`);
 
+// Post-dated cheques past their due date are assumed cashed (marked PAID) — the owner can flip any
+// that didn't clear in the Finance UI. Only genuinely upcoming installments stay PENDING (reminders).
 const rows = [
   { label: "Shop rent — 1st installment (cash)", category: "RENT", amountAED: 27500, dueDate: "2025-11-15", method: "CASH", reference: null, status: "PAID", paidAt: "2025-11-15", notes: LEASE },
   { label: "Shop rent — security deposit (refundable)", category: "OTHER", amountAED: 7875, dueDate: "2025-11-15", method: "CASH", reference: null, status: "PAID", paidAt: "2025-11-15", notes: "Refundable security deposit — not a P&L expense" },
-  { label: "Shop rent — 2nd installment (cheque #8)", category: "RENT", amountAED: 26000, dueDate: "2026-02-15", method: "CHEQUE", reference: "8" },
-  { label: "Shop rent — 3rd installment (cheque #9)", category: "RENT", amountAED: 26000, dueDate: "2026-04-15", method: "CHEQUE", reference: "9" },
-  { label: "Shop rent — 4th installment (cheque #10)", category: "RENT", amountAED: 26000, dueDate: "2026-06-15", method: "CHEQUE", reference: "10" },
+  { label: "Shop rent — 2nd installment (cheque #8)", category: "RENT", amountAED: 26000, dueDate: "2026-02-15", method: "CHEQUE", reference: "8", status: "PAID", paidAt: "2026-02-15" },
+  { label: "Shop rent — 3rd installment (cheque #9)", category: "RENT", amountAED: 26000, dueDate: "2026-04-15", method: "CHEQUE", reference: "9", status: "PAID", paidAt: "2026-04-15" },
+  { label: "Shop rent — 4th installment (cheque #10)", category: "RENT", amountAED: 26000, dueDate: "2026-06-15", method: "CHEQUE", reference: "10", status: "PAID", paidAt: "2026-06-15" },
   { label: "Shop rent — 5th installment (cheque #11)", category: "RENT", amountAED: 26000, dueDate: "2026-08-15", method: "CHEQUE", reference: "11" },
   { label: "Shop rent — 6th installment (cheque #12)", category: "RENT", amountAED: 26000, dueDate: "2026-10-15", method: "CHEQUE", reference: "12" },
 ];
