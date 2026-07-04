@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { MapPin, Phone, Clock, MessageCircle } from "lucide-react";
+import { MapPin, Phone, Clock, MessageCircle, Mail } from "lucide-react";
 import { InstagramIcon } from "@/components/icons";
 import { PageHero } from "@/components/PageHero";
 import { ButtonLink } from "@/components/ui/Button";
@@ -66,6 +66,16 @@ export default function ContactPage() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="surface rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <Mail className="mt-1 shrink-0 text-gold" />
+                  <div>
+                    <h3 className="font-display text-xl text-cream">Email Us</h3>
+                    <a href={`mailto:${SITE.emailAdmin}`} className="mt-1 inline-block text-sand/85 hover:text-gold">{SITE.emailAdmin}</a>
                   </div>
                 </div>
               </div>

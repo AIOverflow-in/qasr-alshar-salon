@@ -42,6 +42,7 @@ export const SITE = {
   // Primary booking / WhatsApp line
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "+97142727616",
   email: "hello@qasralshar.ae",
+  emailAdmin: "admin@qasralsharsalon.com", // primary admin/contact email (shown in site contact info)
 
   social: {
     instagram: "https://www.instagram.com/qasr.alshar?igsh=N3Z0MG1lb2YwMTVs&utm_source=qr",

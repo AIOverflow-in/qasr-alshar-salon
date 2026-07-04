@@ -47,6 +47,7 @@ export function localBusinessSchema() {
     image: `${SITE.url}/og/default.jpg`,
     url: SITE.url,
     telephone: SITE.phones[0].value,
+    email: SITE.emailAdmin,
     priceRange: "AED 10 – AED 400",
     currenciesAccepted: "AED",
     address: {

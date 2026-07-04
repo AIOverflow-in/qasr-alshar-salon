@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Phone, Clock } from "lucide-react";
+import { MapPin, Phone, Clock, Mail } from "lucide-react";
 import { Logo } from "./Logo";
 import { InstagramIcon, TikTokIcon, FacebookIcon, SnapchatIcon, GoogleIcon } from "./icons";
 import { SITE } from "@/lib/site";
@@ -90,6 +90,12 @@ export async function Footer() {
               <Phone size={18} className="mt-0.5 shrink-0 text-gold" />
               <a href={`tel:${SITE.phones[0].value}`} className="hover:text-gold">
                 {SITE.phones[0].label}
+              </a>
+            </li>
+            <li className="flex gap-3">
+              <Mail size={18} className="mt-0.5 shrink-0 text-gold" />
+              <a href={`mailto:${SITE.emailAdmin}`} className="hover:text-gold">
+                {SITE.emailAdmin}
               </a>
             </li>
             <li className="flex gap-3">
