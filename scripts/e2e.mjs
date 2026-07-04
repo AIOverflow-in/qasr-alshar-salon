@@ -673,6 +673,25 @@ try {
       await prisma.adminUser.delete({ where: { id: su.id } });
     }
 
+    section("Document vault: admin-only");
+    {
+      let docSchemaOk = true;
+      try { await prisma.companyDocument.count(); } catch { docSchemaOk = false; }
+      ok(docSchemaOk, "CompanyDocument model queryable");
+      const up = async (role) => (await fetch(BASE + "/api/erp/company-docs", { method: "POST", headers: { cookie: `qa_admin=${await tok(role)}` }, body: new FormData() })).status;
+      ok((await up("RECEPTION")) === 403, "company-docs upload: reception blocked (403)");
+      ok((await up("STYLIST")) === 403, "company-docs upload: crown artist blocked (403)");
+      ok((await up("ADMIN")) === 400, "company-docs upload: admin reaches validation (400 without title/file)");
+      const serveRec = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("RECEPTION")}` } });
+      ok(serveRec.status === 403, "company-doc serve: reception blocked (403)");
+      const serve404 = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("ADMIN")}` } });
+      ok(serve404.status === 404, "company-doc serve: 404 for unknown id (admin)");
+      const delRec = await fetch(BASE + "/api/erp/company-doc/nope", { method: "DELETE", headers: { cookie: `qa_admin=${await tok("RECEPTION")}` } });
+      ok(delRec.status === 403, "company-doc delete: reception blocked (403)");
+      ok((await codeTok("/erp/documents", await tok("ADMIN"))) === "200", "documents page: admin 200");
+      ok((await codeTok("/erp/documents", await tok("RECEPTION"))) === "REDIR", "documents page: reception redirected");
+    }
+
     section("Scheduled payments + reminder cron");
     {
       let schemaOk = true;
