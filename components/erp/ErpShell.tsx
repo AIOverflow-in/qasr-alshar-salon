@@ -44,6 +44,7 @@ const NAV = [
   { href: "/erp/documents", label: "Documents", icon: FolderLock, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/blog", label: "Blog", icon: Newspaper, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/products", label: "Storefront", icon: ShoppingBag, roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/erp/orders", label: "Shop Orders", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
   { href: "/erp/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "ADMIN"] },
 ] as const;

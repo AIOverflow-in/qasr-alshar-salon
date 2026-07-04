@@ -79,6 +79,7 @@ async function cleanupSweep() {
   const usr = await prisma.adminUser.deleteMany({ where: { email: { startsWith: TAG } } });
   const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
   const sp = await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: TAG } } });
+  const so = await prisma.shopOrder.deleteMany({ where: { customerName: { startsWith: TAG } } });
   const tagProducts = await prisma.product.findMany({ where: { name: { startsWith: TAG } }, select: { id: true } });
   let prodCount = 0;
   if (tagProducts.length) {
@@ -86,7 +87,7 @@ async function cleanupSweep() {
     await prisma.stockMovement.deleteMany({ where: { productId: { in: pids } } });
     prodCount = (await prisma.product.deleteMany({ where: { id: { in: pids } } })).count;
   }
-  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count, scheduled: sp.count, products: prodCount };
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count, scheduled: sp.count, products: prodCount, shopOrders: so.count };
 }
 
 try {
@@ -697,6 +698,35 @@ try {
       if (pid) { await prisma.stockMovement.deleteMany({ where: { productId: pid } }); await prisma.product.delete({ where: { id: pid } }); }
     }
 
+    section("Shop: public COD checkout + orders admin");
+    {
+      const jhdr = async (role) => ({ "Content-Type": "application/json", cookie: `qa_admin=${await tok(role)}` });
+      const prod = await prisma.product.create({ data: { name: `${TAG}ShopHair`, category: "Hair Extensions", saleAED: 100, qty: 5, retail: true, active: true, imageUrl: "https://example.com/h.jpg" } });
+      const crid = `${REQ}shop-${Date.now()}`;
+      const res = await fetch(BASE + "/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ productId: prod.id, qty: 10 }], customerName: `${TAG}Buyer`, phone: "0500000000", address: "Villa 1, Dubai", emirate: "Dubai", clientRequestId: crid }) });
+      const data = await res.json().catch(() => ({}));
+      const oid = data?.order?.id ?? null;
+      ok(res.ok && !!oid && data.order.itemCount === 5 && data.order.totalAED === 500, `COD order placed, qty clamped to stock (${data?.order?.itemCount}==5, ${data?.order?.totalAED}==500)`);
+      ok((await prisma.product.findUnique({ where: { id: prod.id }, select: { qty: true } }))?.qty === 0, "stock decremented 5→0");
+      const dup = await fetch(BASE + "/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerName: `${TAG}Buyer`, phone: "0500000000", address: "Villa 1, Dubai", clientRequestId: crid }) });
+      ok(dup.ok && (await dup.json().catch(() => ({})))?.order?.id === oid, "idempotent checkout returns the same order (no double-decrement)");
+      const oos = await fetch(BASE + "/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerName: `${TAG}Buyer2`, phone: "0500000001", address: "Villa 2, Dubai" }) });
+      ok(oos.status === 400, `out-of-stock item rejected (${oos.status})`);
+      ok((await fetch(`${BASE}/api/erp/shop-orders/${oid}`, { method: "PATCH", headers: await jhdr("STYLIST"), body: JSON.stringify({ status: "CONFIRMED" }) })).status === 403, "shop order status: crown artist blocked (403)");
+      const recPatch = await fetch(`${BASE}/api/erp/shop-orders/${oid}`, { method: "PATCH", headers: await jhdr("RECEPTION"), body: JSON.stringify({ status: "CONFIRMED" }) });
+      ok(recPatch.ok && (await prisma.shopOrder.findUnique({ where: { id: oid }, select: { status: true } }))?.status === "CONFIRMED", "reception confirms the order");
+      await fetch(`${BASE}/api/erp/shop-orders/${oid}`, { method: "PATCH", headers: await jhdr("ADMIN"), body: JSON.stringify({ status: "CANCELLED" }) });
+      ok((await prisma.product.findUnique({ where: { id: prod.id }, select: { qty: true } }))?.qty === 5, "cancelling the order restocks (0→5)");
+      const revive = await fetch(`${BASE}/api/erp/shop-orders/${oid}`, { method: "PATCH", headers: await jhdr("ADMIN"), body: JSON.stringify({ status: "CONFIRMED" }) });
+      ok(revive.status === 409, `cancelled order is terminal — revive blocked (${revive.status})`);
+      ok((await prisma.product.findUnique({ where: { id: prod.id }, select: { qty: true } }))?.qty === 5, "no phantom re-deduct after blocked revive (stock stays 5)");
+      ok((await codeTok("/erp/orders", await tok("RECEPTION"))) === "200", "shop orders page: reception 200");
+      ok((await codeTok("/erp/orders", await tok("STYLIST"))) === "REDIR", "shop orders page: crown artist redirected");
+      await prisma.shopOrder.deleteMany({ where: { customerName: { startsWith: `${TAG}Buyer` } } });
+      await prisma.stockMovement.deleteMany({ where: { productId: prod.id } });
+      await prisma.product.delete({ where: { id: prod.id } });
+    }
+
     section("Dashboard analytics: super-admin only");
     {
       const sa = await (await fetch(BASE + "/erp", { headers: { cookie: `qa_admin=${await tok("SUPER_ADMIN")}` } })).text();
@@ -831,15 +861,16 @@ try {
   // Guaranteed cleanup — runs even if a check threw. Leaves the DB exactly as found.
   try {
     const swept = await cleanupSweep();
-    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users + swept.scheduled + swept.products;
-    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users, ${swept.scheduled} scheduled payments, ${swept.products} products${total === 0 ? " (nothing left behind ✅)" : ""}`);
+    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users + swept.scheduled + swept.products + swept.shopOrders;
+    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users, ${swept.scheduled} scheduled payments, ${swept.products} products, ${swept.shopOrders} shop orders${total === 0 ? " (nothing left behind ✅)" : ""}`);
     const residue = await prisma.salesOrder.count({ where: { OR: [{ lines: { some: { description: { startsWith: TAG } } } }, { clientRequestId: { startsWith: REQ } }] } })
       + await prisma.booking.count({ where: { customerName: { startsWith: TAG } } })
       + await prisma.client.count({ where: { name: { startsWith: TAG } } })
       + await prisma.staff.count({ where: { name: { startsWith: TAG } } })
       + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } })
       + await prisma.scheduledPayment.count({ where: { label: { startsWith: TAG } } })
-      + await prisma.product.count({ where: { name: { startsWith: TAG } } });
+      + await prisma.product.count({ where: { name: { startsWith: TAG } } })
+      + await prisma.shopOrder.count({ where: { customerName: { startsWith: TAG } } });
     console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
     if (residue !== 0) fail++;
   } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }

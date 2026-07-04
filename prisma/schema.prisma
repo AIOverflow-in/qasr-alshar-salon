@@ -515,6 +515,38 @@ model ScheduledPayment {
   @@index([dueDate])
 }
 
+enum ShopOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+/// A customer storefront order (cash-on-delivery). Line items are snapshotted as JSON so the order
+/// is immutable even if a product's price/name later changes. Stock is decremented on creation and
+/// restored if the order is cancelled.
+model ShopOrder {
+  id              String          @id @default(cuid())
+  clientRequestId String?         @unique // idempotency: a double-submitted checkout returns the same order
+  customerName    String
+  phone           String
+  email           String?
+  address         String
+  emirate         String?
+  items           Json            // [{ productId, name, priceAED, qty, lineAED }]
+  itemCount       Int
+  totalAED        Int
+  paymentMethod   String          @default("COD")
+  status          ShopOrderStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
 enum DocumentCategory {
   TAX
   LICENSE

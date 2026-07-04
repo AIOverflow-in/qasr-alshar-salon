@@ -13,6 +13,8 @@ import { getI18n } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { breadcrumbSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import { getPublishedProducts } from "@/lib/shop";
+import { ShopSection } from "@/components/shop/ShopSection";
 
 export const revalidate = 3600;
 
@@ -45,6 +47,8 @@ export default async function HomePage() {
     .map((s) => CATEGORIES.find((c) => c.slug === s)!)
     .filter(Boolean);
 
+  const shopProducts = await getPublishedProducts().catch(() => []);
+
   return (
     <>
       <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }])} />
@@ -72,6 +76,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* SHOP — published products, cash on delivery */}
+      <ShopSection products={shopProducts} />
 
       {/* HENNA FEATURE */}
       <section className="relative overflow-hidden border-y border-ink-line bg-ink-soft section-y">

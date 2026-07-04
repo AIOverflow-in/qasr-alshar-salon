@@ -312,6 +312,36 @@ export async function sendPaymentReminderEmail(to: string[], payments: DuePaymen
   }
 }
 
+type ShopOrderEmail = { ref: string; customerName: string; email: string | null; phone: string; address: string; emirate: string | null; totalAED: number; itemCount: number };
+
+/** Customer order confirmation + salon alert for a cash-on-delivery storefront order. Never throws. */
+export async function sendShopOrderEmails(o: ShopOrderEmail): Promise<void> {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping shop order email"); return; }
+  const aed = (n: number) => `AED ${n.toLocaleString("en-AE")}`;
+  const details = `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    <tr><td style="padding:8px 0;color:#8c8267;width:38%;">Order</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${esc(o.ref)}</td></tr>
+    <tr><td style="padding:8px 0;color:#8c8267;">Items</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${o.itemCount}</td></tr>
+    <tr><td style="padding:8px 0;color:#8c8267;">Total (cash on delivery)</td><td style="padding:8px 0;color:#e7c878;font-weight:bold;">${aed(o.totalAED)}</td></tr>
+    <tr><td style="padding:8px 0;color:#8c8267;">Deliver to</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${esc(o.address)}${o.emirate ? ", " + esc(o.emirate) : ""}</td></tr>
+    <tr><td style="padding:8px 0;color:#8c8267;">Phone</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${esc(o.phone)}</td></tr>
+  </table>`;
+
+  const sends: Promise<unknown>[] = [];
+  if (o.email) {
+    sends.push(resend.emails.send({
+      from: FROM, to: o.email, subject: `Your Qasr Alshar order ${o.ref} — cash on delivery`,
+      html: shell("Order received 🛍️", `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(o.customerName)}, thank you for your order. We'll call you on ${esc(o.phone)} to confirm and arrange <b style="color:#f6f0e2;">cash-on-delivery</b>.</p>${details}<p style="font-size:13px;color:#8c8267;">Pay in cash when your order arrives.</p>`),
+    }));
+  }
+  sends.push(resend.emails.send({
+    from: FROM, to: process.env.SALON_NOTIFICATION_EMAIL || o.email || FROM, replyTo: o.email || undefined,
+    subject: `New shop order ${o.ref} · ${aed(o.totalAED)} (COD)`,
+    html: shell("New shop order 🛍️", `<p style="line-height:1.7;color:#cabfa6;">A new cash-on-delivery order just came in from ${esc(o.customerName)}.</p>${details}`),
+  }));
+  const results = await Promise.allSettled(sends);
+  results.forEach((r) => { if (r.status === "rejected") console.error("[email] shop order send failed:", r.reason); });
+}
+
 // Optional "shop our products" button, shown only when a storefront URL is configured.
 function shopButton(): string {
   if (!SITE.storefront) return "";
