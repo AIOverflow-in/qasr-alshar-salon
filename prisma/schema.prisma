@@ -336,6 +336,7 @@ model SalesOrder {
   @@index([status])
   @@index([staffId])
   @@index([createdAt])
+  @@index([status, createdAt]) // dashboard analytics + sales windows: PAID orders in a date range
   @@index([bookingId])
   @@index([createdById])
 }
