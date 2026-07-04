@@ -273,6 +273,40 @@ export async function sendDailySummaryEmail(to: string[], s: DailySummary): Prom
   }
 }
 
+type DuePayment = { label: string; amountAED: number; dueLabel: string; daysUntil: number; payee?: string | null; reference?: string | null; method?: string | null };
+
+/** Reminder to the owner about upcoming / overdue scheduled payments (rent cheques etc.). Never throws. */
+export async function sendPaymentReminderEmail(to: string[], payments: DuePayment[]): Promise<boolean> {
+  if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping payment reminder"); return false; }
+  if (!payments.length) return false;
+  const aed = (n: number) => `AED ${n.toLocaleString("en-AE")}`;
+  const overdue = payments.filter((p) => p.daysUntil < 0);
+  const row = (p: DuePayment) => {
+    const when = p.daysUntil < 0 ? `<span style="color:#e08a8a;">Overdue by ${-p.daysUntil} day${-p.daysUntil === 1 ? "" : "s"}</span>`
+      : p.daysUntil === 0 ? `<span style="color:#e7c878;">Due today</span>`
+      : `Due in ${p.daysUntil} day${p.daysUntil === 1 ? "" : "s"}`;
+    const meta = [p.payee ? `to ${p.payee}` : null, p.method && p.method !== "CHEQUE" ? p.method.toLowerCase() : null, p.reference ? `cheque/ref ${p.reference}` : null].filter(Boolean).join(" · ");
+    return `<tr>
+      <td style="padding:9px 0;color:#f6f0e2;font-weight:bold;">${p.label}<div style="color:#8c8267;font-size:12px;font-weight:normal;">${p.dueLabel}${meta ? " · " + meta : ""}</div></td>
+      <td style="padding:9px 0;text-align:right;white-space:nowrap;"><div style="color:#e7c878;font-weight:bold;">${aed(p.amountAED)}</div><div style="font-size:12px;">${when}</div></td>
+    </tr>`;
+  };
+  const total = payments.reduce((s, p) => s + p.amountAED, 0);
+  const html = shell(
+    overdue.length ? "Action needed: payments due" : "Upcoming payments reminder",
+    `<p style="line-height:1.7;color:#cabfa6;">${payments.length} scheduled payment${payments.length === 1 ? "" : "s"} need${payments.length === 1 ? "s" : ""} your attention (make sure the cheque${payments.length === 1 ? " is" : "s are"} funded). Total <b style="color:#e7c878;">${aed(total)}</b>.</p>
+     <table style="width:100%;border-collapse:collapse;margin:12px 0;">${payments.map(row).join("")}</table>
+     <p style="margin-top:16px;"><a href="${SITE.url.replace("//", "//app.")}/erp/finance" style="display:inline-block;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:11px 24px;border-radius:999px;">Open Finance</a></p>`
+  );
+  try {
+    await resend.emails.send({ from: FROM, to, subject: `${overdue.length ? "⚠ " : ""}Payments due — Qasr Alshar Salon`, html });
+    return true;
+  } catch (e) {
+    console.error("[email] payment reminder send failed:", e);
+    return false;
+  }
+}
+
 // Optional "shop our products" button, shown only when a storefront URL is configured.
 function shopButton(): string {
   if (!SITE.storefront) return "";

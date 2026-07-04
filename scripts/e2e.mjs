@@ -78,7 +78,8 @@ async function cleanupSweep() {
   const sv = await prisma.service.deleteMany({ where: { name: { startsWith: TAG } } });
   const usr = await prisma.adminUser.deleteMany({ where: { email: { startsWith: TAG } } });
   const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
-  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count };
+  const sp = await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: TAG } } });
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count, scheduled: sp.count };
 }
 
 try {
@@ -651,6 +652,39 @@ try {
       ok(!notSeen.includes(`${TAG}CalCust`), "another artist does NOT see that booking");
     }
 
+    section("Scheduled payments + reminder cron");
+    {
+      let schemaOk = true;
+      try { await prisma.scheduledPayment.count(); } catch { schemaOk = false; }
+      ok(schemaOk, "ScheduledPayment model queryable");
+
+      // The cron must reject unauthenticated calls (guards against accidental/abusive sends).
+      const noSecret = await fetch(BASE + "/api/cron/payment-reminders", { redirect: "manual" });
+      ok(noSecret.status === 401, `payment-reminders cron: 401 without secret (${noSecret.status})`);
+
+      // Reminder-eligibility rule (mirrors the cron): PENDING, inside its lead window (or overdue),
+      // and not reminded within the last 7 days. Verified via the DB selection — we intentionally do
+      // NOT invoke the authorized cron here so no real reminder email is sent during tests.
+      const D = 86_400_000;
+      const at = (days) => new Date(Date.now() + days * D);
+      const mk = (label, o) => prisma.scheduledPayment.create({ data: { label: `${TAG}${label}`, category: "RENT", amountAED: 1000, dueDate: o.dueDate, status: o.status ?? "PENDING", reminderSentAt: o.reminderSentAt ?? null, remindDaysBefore: 7 } });
+      await mk("SPdue", { dueDate: at(3) });                                // due in 3d → eligible
+      await mk("SPfar", { dueDate: at(60) });                              // due in 60d → not yet
+      await mk("SPover", { dueDate: at(-5) });                             // overdue → eligible
+      await mk("SPrecent", { dueDate: at(2), reminderSentAt: new Date() }); // reminded today → deduped
+      await mk("SPpaid", { dueDate: at(3), status: "PAID" });              // paid → excluded
+
+      const rows = await prisma.scheduledPayment.findMany({ where: { label: { startsWith: `${TAG}SP` } } });
+      const now = Date.now();
+      const dayStr = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+      const du = (due) => Math.round((Date.parse(dayStr(new Date(due)) + "T12:00:00") - Date.parse(dayStr(new Date(now)) + "T12:00:00")) / D);
+      const eligible = rows.filter((p) => p.status === "PENDING" && du(p.dueDate) <= p.remindDaysBefore && !(p.reminderSentAt && now - p.reminderSentAt.getTime() < 7 * D)).map((p) => p.label);
+      ok(eligible.includes(`${TAG}SPdue`) && eligible.includes(`${TAG}SPover`), "reminder rule selects due-soon + overdue");
+      ok(!eligible.includes(`${TAG}SPfar`) && !eligible.includes(`${TAG}SPrecent`) && !eligible.includes(`${TAG}SPpaid`), "reminder rule excludes far-off / recently-reminded / paid");
+
+      await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: `${TAG}SP` } } });
+    }
+
     section("Booking deposit: optional, non-blocking, reception-confirmed, POS pre-credit");
     {
       const dsvc = await prisma.service.findFirst({ where: { active: true }, select: { id: true, name: true, priceAED: true, durationMin: true } });
@@ -725,13 +759,14 @@ try {
   // Guaranteed cleanup — runs even if a check threw. Leaves the DB exactly as found.
   try {
     const swept = await cleanupSweep();
-    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users;
-    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users${total === 0 ? " (nothing left behind ✅)" : ""}`);
+    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users + swept.scheduled;
+    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users, ${swept.scheduled} scheduled payments${total === 0 ? " (nothing left behind ✅)" : ""}`);
     const residue = await prisma.salesOrder.count({ where: { OR: [{ lines: { some: { description: { startsWith: TAG } } } }, { clientRequestId: { startsWith: REQ } }] } })
       + await prisma.booking.count({ where: { customerName: { startsWith: TAG } } })
       + await prisma.client.count({ where: { name: { startsWith: TAG } } })
       + await prisma.staff.count({ where: { name: { startsWith: TAG } } })
-      + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } });
+      + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } })
+      + await prisma.scheduledPayment.count({ where: { label: { startsWith: TAG } } });
     console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
     if (residue !== 0) fail++;
   } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }
