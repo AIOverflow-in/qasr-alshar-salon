@@ -586,11 +586,12 @@ try {
       if (bid && s2) await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], staffId: s2.id }) });
       const b2 = bid ? await prisma.booking.findUnique({ where: { id: bid }, select: { staffId: true, items: { select: { staffId: true } } } }) : null;
       ok(b2?.staffId === s2?.id && b2?.items.every((i) => i.staffId === s2?.id), "edit: main artist updated + item inherits it");
-      // Bill the booking in POS with a different main artist → syncs back to the booking
+      // Bill the booking with the MAIN selector = s2 but the LINE artist = estaff → the booking's
+      // Crown Artist must follow the LINE artist (estaff), not the stale main selector.
       const ahdr = await eh();
-      await fetch(BASE + "/api/erp/pos", { method: "POST", headers: ahdr, body: JSON.stringify({ bookingId: bid, clientRequestId: `${REQ}mainart-${Date.now()}`, staffId: estaff.id, lines: [{ kind: "SERVICE", description: `${TAG}MASVC`, qty: 1, unitAED: 100, staffId: estaff.id, staffIds: [estaff.id] }] }) });
+      await fetch(BASE + "/api/erp/pos", { method: "POST", headers: ahdr, body: JSON.stringify({ bookingId: bid, clientRequestId: `${REQ}mainart-${Date.now()}`, staffId: s2?.id ?? estaff.id, lines: [{ kind: "SERVICE", description: `${TAG}MASVC`, qty: 1, unitAED: 100, staffId: estaff.id, staffIds: [estaff.id] }] }) });
       const synced = bid ? await poll(async () => (await prisma.booking.findUnique({ where: { id: bid }, select: { staffId: true } }))?.staffId, estaff.id) : null;
-      ok(synced === estaff.id, "POS bill syncs the main artist back to the booking");
+      ok(synced === estaff.id, "POS: the line artist (not the main selector) drives the booking's Crown Artist");
     }
 
     section("Staff document routes: manager-only");

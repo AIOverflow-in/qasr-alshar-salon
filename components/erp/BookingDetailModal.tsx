@@ -36,6 +36,17 @@ export function BookingDetailModal({
   const clientDigits = (b.phone ?? "").replace(/\D/g, "");
   const artistDigits = (b.staffPhone ?? "").replace(/\D/g, "");
 
+  // Resolve each service line's artist (per-service artist → main Crown Artist fallback), and the
+  // distinct set across the whole booking — so editing the invoice's artist(s) shows up here, and a
+  // booking with different artists per service lists every one of them.
+  const staffNameById = new Map(staff.map((s) => [s.id, s.name] as const));
+  const artistFor = (it: Item): string | null =>
+    (it.staffId && staffNameById.get(it.staffId)) || b.staffName || null;
+  const artistNames = Array.from(
+    new Set(b.items.map((it) => it.staffId && staffNameById.get(it.staffId)).filter((n): n is string => !!n)),
+  );
+  if (!artistNames.length && b.staffName) artistNames.push(b.staffName);
+
   const Row = ({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) => (
     <div className="flex gap-3 py-2">
       <span className="mt-0.5 shrink-0 text-gold">{icon}</span>
@@ -67,8 +78,11 @@ export function BookingDetailModal({
           <div className="mb-1.5 text-[0.65rem] uppercase tracking-wider text-muted">Services ({b.items.length})</div>
           <ul className="divide-y divide-ink-line/40">
             {b.items.map((it, i) => (
-              <li key={i} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                <span className="text-cream">{it.name} <span className="text-xs text-muted">· {it.duration} min</span></span>
+              <li key={i} className="flex items-start justify-between gap-3 py-1.5 text-sm">
+                <div className="min-w-0">
+                  <div className="text-cream">{it.name} <span className="text-xs text-muted">· {it.duration} min</span></div>
+                  {artistFor(it) && <div className="mt-0.5 flex items-center gap-1 text-xs text-muted"><Scissors size={11} className="text-gold/70" /> {artistFor(it)}</div>}
+                </div>
                 <span className="tabular-nums text-gold">{aed(it.price)}</span>
               </li>
             ))}
@@ -85,7 +99,7 @@ export function BookingDetailModal({
           <Row icon={<MapPin size={15} />} label="Where">
             {b.serviceMode === "HOME" ? <>Home service{b.address ? <div className="text-xs text-muted">{b.address}</div> : null}</> : "At the salon"}
           </Row>
-          <Row icon={<Scissors size={15} />} label="Crown Artist">{b.staffName ?? "Any available"}</Row>
+          <Row icon={<Scissors size={15} />} label={artistNames.length > 1 ? "Crown Artists" : "Crown Artist"}>{artistNames.length ? artistNames.join(", ") : "Any available"}</Row>
           <Row icon={<UserCheck size={15} />} label="Entered by">{b.enteredBy ?? "—"}</Row>
           {b.marketer && <Row icon={<Megaphone size={15} />} label="Referral (marketer)">{b.marketer}</Row>}
         </div>
