@@ -119,7 +119,8 @@ export function ErpShell({
 
   return (
     <div className="min-h-svh bg-ink">
-      <NotificationBell />
+      {/* Crown artists are calendar-only; the booking-feed notifications aren't for them. */}
+      {role !== "STYLIST" && <NotificationBell />}
       <div className="flex items-center justify-between border-b border-ink-line p-4 lg:hidden">
         <Link href="/erp" className="flex items-center gap-2">
           <Emblem className="h-8 w-auto" />

@@ -18,9 +18,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ docId: 
   const upstream = await fetch(doc.fileUrl);
   if (!upstream.ok) return NextResponse.json({ error: "File unavailable" }, { status: 502 });
   const buf = await upstream.arrayBuffer();
+  // Serve as a download with a locked content type + nosniff so an uploaded .html/.svg can never
+  // execute as script on the ERP origin (stored-XSS defence — the type is never sniffed/rendered inline).
   return new Response(buf, {
     headers: {
-      "Content-Type": upstream.headers.get("content-type") || "application/octet-stream",
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": "attachment",
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
     },
   });

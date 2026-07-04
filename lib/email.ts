@@ -9,6 +9,11 @@ const resend = process.env.RESEND_API_KEY
 
 const FROM = process.env.FROM_EMAIL || "Qasr Alshar Salon <onboarding@resend.dev>";
 
+// Escape user-supplied values before interpolating into HTML emails — a public booking's name/notes/
+// address/custom-request would otherwise inject links/markup into the salon's own inbox.
+const esc = (s: unknown) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
 type BookingEmail = {
   customerName: string;
   email: string;
@@ -44,7 +49,7 @@ function shell(title: string, body: string) {
 
 function detailsTable(b: BookingEmail) {
   const row = (k: string, v: string) =>
-    `<tr><td style="padding:8px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
+    `<tr><td style="padding:8px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${esc(v)}</td></tr>`;
   const isHome = b.serviceMode === "HOME";
   return `<table style="width:100%;border-collapse:collapse;margin:16px 0;">
     ${b.ref ? row("Booking Ref", b.ref) : ""}
@@ -65,7 +70,7 @@ function detailsTable(b: BookingEmail) {
 function depositBlock(b: BookingEmail) {
   if (!b.depositAED || b.depositAED <= 0) return "";
   const line = (k: string, v: string) =>
-    `<tr><td style="padding:4px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:4px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
+    `<tr><td style="padding:4px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:4px 0;color:#f6f0e2;font-weight:bold;">${esc(v)}</td></tr>`;
   const account = SITE.pay.iban
     ? `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
         ${line("Amount", `AED ${b.depositAED}`)}
@@ -107,7 +112,7 @@ export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmai
 
   const customerHtml = shell(
     "Your appointment is confirmed 🎉",
-    `<p style="line-height:1.7;color:#cabfa6;">Dear ${b.customerName}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(b.customerName)}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
      ${detailsTable(b)}
      ${depositBlock(b)}
      <a href="${SITE.url}" style="display:inline-block;margin-top:18px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
@@ -164,7 +169,7 @@ export async function sendInvoiceEmail(inv: InvoiceEmail) {
 
   const html = shell(
     "Your invoice from Qasr Alshar 🧾",
-    `<p style="line-height:1.7;color:#cabfa6;">Dear ${inv.clientName}, thank you for visiting Qasr Alshar Salon. Your invoice <b style="color:#f6f0e2;">${inv.invoiceNo}</b> is attached as a PDF.</p>
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(inv.clientName)}, thank you for visiting Qasr Alshar Salon. Your invoice <b style="color:#f6f0e2;">${esc(inv.invoiceNo)}</b> is attached as a PDF.</p>
      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
        <tr><td style="padding:8px 0;color:#8c8267;width:38%;">Invoice</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${inv.invoiceNo}</td></tr>
        <tr><td style="padding:8px 0;color:#8c8267;">Total paid</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">AED ${inv.totalAED.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
@@ -200,7 +205,7 @@ export async function sendAftercareEmail(a: AftercareEmail) {
 
   const html = shell(
     "Caring for your new look 💛",
-    `<p style="line-height:1.7;color:#cabfa6;">Dear ${a.customerName}, thank you for visiting Qasr Alshar Salon! To keep your <b style="color:#f6f0e2;">${a.serviceName}</b> looking its best, here are a few aftercare tips and products we love.</p>
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(a.customerName)}, thank you for visiting Qasr Alshar Salon! To keep your <b style="color:#f6f0e2;">${esc(a.serviceName)}</b> looking its best, here are a few aftercare tips and products we love.</p>
      ${list}
      <p style="margin-top:16px;color:#cabfa6;">Message us on WhatsApp anytime for product advice or to reserve any of these — we'll set them aside for you.</p>
      <a href="${SITE.url}/book" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Book your next visit</a>`
@@ -250,7 +255,7 @@ export async function sendDailySummaryEmail(to: string[], s: DailySummary): Prom
     ? `<table style="width:100%;border-collapse:collapse;margin:8px 0;">
         ${s.todayBookings.map((b) => `<tr>
           <td style="padding:7px 0;color:#e7c878;font-weight:bold;width:22%;">${b.time}</td>
-          <td style="padding:7px 0;color:#f6f0e2;">${b.customer}<div style="color:#8c8267;font-size:12px;">${b.service} · ${b.artist}</div></td>
+          <td style="padding:7px 0;color:#f6f0e2;">${esc(b.customer)}<div style="color:#8c8267;font-size:12px;">${esc(b.service)} · ${esc(b.artist)}</div></td>
         </tr>`).join("")}
       </table>`
     : `<p style="color:#8c8267;line-height:1.7;">No confirmed bookings yet for today.</p>`;
@@ -318,7 +323,7 @@ export async function sendFeedbackEmail(to: string, d: { customerName: string; s
   if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping feedback email"); return false; }
   const html = shell(
     "Thank you for visiting 💛",
-    `<p style="line-height:1.7;color:#cabfa6;">Dear ${d.customerName}, we hope you loved your <b style="color:#f6f0e2;">${d.serviceName}</b> at Qasr Alshar Salon.</p>
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(d.customerName)}, we hope you loved your <b style="color:#f6f0e2;">${esc(d.serviceName)}</b> at Qasr Alshar Salon.</p>
      <p style="line-height:1.7;color:#cabfa6;">If you have a moment, a quick Google review means the world to us and helps other clients find us.</p>
      <a href="${SITE.social.googleBusiness}" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Rate us on Google</a>
      ${shopButton()}`
@@ -332,7 +337,7 @@ export async function sendRebookEmail(to: string, d: { customerName: string; ser
   if (!resend) { console.warn("[email] RESEND_API_KEY not set — skipping rebook email"); return false; }
   const html = shell(
     "Time to refresh your look ✨",
-    `<p style="line-height:1.7;color:#cabfa6;">Hi ${d.customerName}, it's been a few weeks since your <b style="color:#f6f0e2;">${d.serviceName}</b>. To keep it looking its best, book your next visit with us.</p>
+    `<p style="line-height:1.7;color:#cabfa6;">Hi ${esc(d.customerName)}, it's been a few weeks since your <b style="color:#f6f0e2;">${esc(d.serviceName)}</b>. To keep it looking its best, book your next visit with us.</p>
      <a href="${SITE.url}/book" style="display:inline-block;margin-top:14px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Book your next visit</a>
      ${shopButton()}`
   );

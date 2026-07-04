@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const allowed = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"];
+  // Crown artists are calendar-only and must not see the whole salon's booking feed — exclude STYLIST.
+  const allowed = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
   if (!allowed.includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Only the last few hours matter for "new booking" toasts — keeps the polled query cheap.
