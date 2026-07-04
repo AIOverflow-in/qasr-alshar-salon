@@ -4,6 +4,7 @@ import { requireRole, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { getMonthlyRevenue, monthStartUTC } from "@/lib/finance";
 import { FinanceManager } from "@/components/erp/FinanceManager";
+import { ScheduledPayments } from "@/components/erp/ScheduledPayments";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,13 @@ export default async function ErpFinance() {
 
   const monthStart = monthStartUTC();
 
-  const [revenue, monthExpenseAgg, expenses, capital, capitalAgg] = await Promise.all([
+  const [revenue, monthExpenseAgg, expenses, capital, capitalAgg, scheduled] = await Promise.all([
     getMonthlyRevenue(),
     prisma.expense.aggregate({ _sum: { amountAED: true }, where: { incurredOn: { gte: monthStart } } }),
     prisma.expense.findMany({ orderBy: { incurredOn: "desc" }, take: 100 }),
     prisma.capitalEntry.findMany({ orderBy: { contributedOn: "desc" }, take: 100 }),
     prisma.capitalEntry.aggregate({ _sum: { amountAED: true } }),
+    prisma.scheduledPayment.findMany({ orderBy: { dueDate: "asc" }, take: 200 }),
   ]);
 
   const monthExpenses = monthExpenseAgg._sum.amountAED ?? 0;
@@ -53,6 +55,14 @@ export default async function ErpFinance() {
           </div>
         ))}
       </div>
+
+      <ScheduledPayments
+        canEdit={canEdit}
+        payments={scheduled.map((p) => ({
+          id: p.id, label: p.label, category: p.category, amountAED: p.amountAED, dueDate: p.dueDate.toISOString(),
+          payee: p.payee, method: p.method, reference: p.reference, status: p.status, paidAt: p.paidAt ? p.paidAt.toISOString() : null, remindDaysBefore: p.remindDaysBefore,
+        }))}
+      />
 
       <FinanceManager
         canEdit={canEdit}

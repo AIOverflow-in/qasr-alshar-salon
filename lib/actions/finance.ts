@@ -67,3 +67,82 @@ export async function deleteCapital(id: string) {
   await prisma.capitalEntry.delete({ where: { id } });
   revalidatePath("/erp/finance");
 }
+
+// ---- scheduled / recurring payments (rent cheques, utilities, licence renewals) ----
+
+export async function addScheduledPayment(data: {
+  label: string;
+  category: string;
+  amountAED: number;
+  dueDate: string;
+  payee?: string | null;
+  method?: string | null;
+  reference?: string | null;
+  remindDaysBefore?: number | null;
+  notes?: string | null;
+}) {
+  await requireFinanceWriter();
+  const category = (CATEGORIES.includes(data.category as ExpenseCategory) ? data.category : "OTHER") as ExpenseCategory;
+  const amountAED = Math.max(0, Math.round(data.amountAED || 0));
+  const due = data.dueDate ? new Date(data.dueDate) : null;
+  if (!data.label?.trim() || amountAED <= 0 || !due || Number.isNaN(due.getTime())) {
+    throw new Error("Label, a positive amount and a valid due date are required.");
+  }
+  const method = ["CHEQUE", "CASH", "TRANSFER"].includes(String(data.method)) ? String(data.method) : "CHEQUE";
+  await prisma.scheduledPayment.create({
+    data: {
+      label: data.label.trim(),
+      category,
+      amountAED,
+      dueDate: due,
+      payee: data.payee?.trim() || null,
+      method,
+      reference: data.reference?.trim() || null,
+      remindDaysBefore: Math.max(0, Math.min(90, Math.round(data.remindDaysBefore ?? 7))),
+      notes: data.notes?.trim() || null,
+    },
+  });
+  revalidatePath("/erp/finance");
+}
+
+export async function deleteScheduledPayment(id: string) {
+  await requireFinanceWriter();
+  // Remove the linked P&L expense too, if one was created when it was marked paid.
+  const sp = await prisma.scheduledPayment.findUnique({ where: { id }, select: { expenseId: true } });
+  await prisma.$transaction(async (tx) => {
+    if (sp?.expenseId) await tx.expense.delete({ where: { id: sp.expenseId } }).catch(() => {});
+    await tx.scheduledPayment.delete({ where: { id } });
+  });
+  revalidatePath("/erp/finance");
+}
+
+/** Mark a scheduled payment paid (logs a linked Expense → P&L) or revert it (removes that Expense). */
+export async function setScheduledPaymentPaid(id: string, paid: boolean) {
+  await requireFinanceWriter();
+  const sp = await prisma.scheduledPayment.findUnique({ where: { id } });
+  if (!sp) throw new Error("Payment not found.");
+
+  await prisma.$transaction(async (tx) => {
+    if (paid) {
+      let expenseId = sp.expenseId;
+      if (!expenseId) {
+        const exp = await tx.expense.create({
+          data: {
+            category: sp.category,
+            description: sp.label,
+            amountAED: sp.amountAED,
+            incurredOn: new Date(),
+            recurring: true,
+            notes: [sp.payee ? `Payee: ${sp.payee}` : null, sp.reference ? `Ref: ${sp.reference}` : null].filter(Boolean).join(" · ") || null,
+          },
+        });
+        expenseId = exp.id;
+      }
+      await tx.scheduledPayment.update({ where: { id }, data: { status: "PAID", paidAt: new Date(), expenseId } });
+    } else {
+      if (sp.expenseId) await tx.expense.delete({ where: { id: sp.expenseId } }).catch(() => {});
+      await tx.scheduledPayment.update({ where: { id }, data: { status: "PENDING", paidAt: null, expenseId: null } });
+    }
+  });
+  revalidatePath("/erp/finance");
+}

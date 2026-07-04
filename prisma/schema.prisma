@@ -482,3 +482,32 @@ model CapitalEntry {
 
   @@index([contributedOn])
 }
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+/// A dated / recurring obligation (rent cheques, utilities, licence renewal) that the salon must pay.
+/// Drives due-date reminders; marking one PAID logs a linked Expense so it flows into the P&L.
+model ScheduledPayment {
+  id               String          @id @default(cuid())
+  label            String
+  category         ExpenseCategory @default(OTHER)
+  amountAED        Int
+  dueDate          DateTime
+  payee            String?
+  method           String          @default("CHEQUE") // CHEQUE | CASH | TRANSFER
+  reference        String?         // cheque number / reference
+  status           PaymentStatus   @default(PENDING)
+  paidAt           DateTime?
+  remindDaysBefore Int             @default(7)
+  reminderSentAt   DateTime?       // "due soon" reminder sent (dedupe)
+  expenseId        String?         // Expense created when marked paid (removed if un-marked)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([status, dueDate])
+  @@index([dueDate])
+}
