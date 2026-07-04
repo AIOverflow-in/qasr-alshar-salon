@@ -511,3 +511,31 @@ model ScheduledPayment {
   @@index([status, dueDate])
   @@index([dueDate])
 }
+
+enum DocumentCategory {
+  TAX
+  LICENSE
+  LEASE
+  INSURANCE
+  FINANCE
+  HR
+  OTHER
+}
+
+/// Company document vault (admins only) — tax filings, agreements, licences, etc. The file lives on
+/// Vercel Blob and is only ever served through the auth-gated /api/erp/company-doc/[id] route.
+model CompanyDocument {
+  id           String           @id @default(cuid())
+  title        String
+  description  String?
+  category     DocumentCategory @default(OTHER)
+  fileUrl      String
+  pathname     String
+  fileName     String?
+  sizeBytes    Int?
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+}
