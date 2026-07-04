@@ -265,6 +265,7 @@ export async function updateSettings(data: {
   slotMinutes: number;
   leadTimeMinutes: number;
   maxAdvanceDays: number;
+  depositAED: number;
 }) {
   await requireManager();
   await prisma.salonSettings.upsert({

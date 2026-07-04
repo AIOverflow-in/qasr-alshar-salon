@@ -65,6 +65,10 @@ model Booking {
   customRequest String?      // free-text request when the client can't find a service
   feedbackSentAt DateTime?   // post-service feedback email sent (dedupe for the follow-ups cron)
   rebookSentAt   DateTime?   // rebook reminder email sent (dedupe)
+  // Deposit to secure the booking (bank transfer). depositAED = amount requested (0 = none);
+  // depositPaidAt is set by reception once the transfer is confirmed received (null = pending).
+  depositAED     Int         @default(0)
+  depositPaidAt  DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -108,6 +112,7 @@ model SalonSettings {
   slotMinutes     Int    @default(30) // granularity of bookable slots
   leadTimeMinutes Int    @default(60) // min notice before a booking
   maxAdvanceDays  Int    @default(60) // how far ahead booking is allowed
+  depositAED      Int    @default(0)  // deposit requested on online bookings to secure the slot (0 = off)
   updatedAt       DateTime @updatedAt
 }
 

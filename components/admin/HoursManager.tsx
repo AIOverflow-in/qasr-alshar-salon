@@ -12,7 +12,7 @@ import {
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 type Hours = { weekday: number; open: string; close: string; closed: boolean };
-type Settings = { capacity: number; slotMinutes: number; leadTimeMinutes: number; maxAdvanceDays: number };
+type Settings = { capacity: number; slotMinutes: number; leadTimeMinutes: number; maxAdvanceDays: number; depositAED: number };
 type Block = { id: string; startAt: string; endAt: string; reason: string | null };
 
 export function HoursManager({
@@ -107,6 +107,7 @@ function SettingsCard({ settings }: { settings: Settings }) {
     { key: "slotMinutes", label: "Slot interval (min)", hint: "granularity of bookable times" },
     { key: "leadTimeMinutes", label: "Lead time (min)", hint: "min notice before a booking" },
     { key: "maxAdvanceDays", label: "Max advance (days)", hint: "how far ahead clients can book" },
+    { key: "depositAED", label: "Booking deposit (AED)", hint: "asked on online bookings to secure the slot · 0 = off" },
   ];
 
   function save() {

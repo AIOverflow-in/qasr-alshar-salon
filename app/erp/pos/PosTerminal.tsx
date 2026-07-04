@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2 } from "lucide-react";
+import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2, Wallet } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 
 const VAT_PCT = 5;
@@ -39,6 +39,7 @@ export type PosPrefill = {
   client?: { id?: string; name?: string; phone?: string | null; email?: string | null };
   bookingLabel?: string;
   saleDateISO?: string; // existing sale date when editing a bill
+  depositAED?: number; // deposit already received (bank transfer) — pre-credited so only the balance is collected
 };
 
 // Split a Date into separate `date` and `time` input values (browser-local — Dubai at the salon).
@@ -76,10 +77,13 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [selectedClient, setSelectedClient] = useState<string>(prefill?.client?.id ?? "");
   const [clientQuery, setClientQuery] = useState(prefill?.client?.id ? prefill.client.name ?? "" : "");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">(prefill?.paymentMethod ?? "CASH");
-  const [split, setSplit] = useState<boolean>(prefill?.splitPayment ?? false);
+  // Deposit already received (bank transfer) on the linked booking. Pre-credited as the transfer
+  // leg of a split so the cashier only collects the remaining balance in cash/card.
+  const depositApplied = prefill?.depositAED ?? 0;
+  const [split, setSplit] = useState<boolean>(prefill?.splitPayment ?? depositApplied > 0);
   const [cashAED, setCashAED] = useState<number | "">(prefill?.cashAED ?? "");
   const [cardAED, setCardAED] = useState<number | "">(prefill?.cardAED ?? "");
-  const [transferAED, setTransferAED] = useState<number | "">(prefill?.transferAED ?? "");
+  const [transferAED, setTransferAED] = useState<number | "">(prefill?.transferAED ?? (depositApplied > 0 ? depositApplied : ""));
   // Per-artist commission overrides (AED). Empty for an artist ⇒ auto-compute from their %.
   // Commission always starts from the live auto-calc (services × %). We intentionally do NOT
   // prefill stored amounts on edit — that recomputes cleanly and self-heals old bills
@@ -341,6 +345,11 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         {bookingId && !editing && (
           <div className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/5 px-4 py-2.5 text-sm text-gold">
             <CalendarCheck size={16} /> Billing booking {prefill?.bookingLabel ? `· ${prefill.bookingLabel}` : ""} — add, drop or edit items below before charging.
+          </div>
+        )}
+        {depositApplied > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-green-500/40 bg-green-500/10 px-4 py-2.5 text-sm text-green-300">
+            <Wallet size={16} /> Deposit of {aed(depositApplied)} already received by bank transfer — pre-filled as Transfer below. Collect only the remaining balance.
           </div>
         )}
         {!editing && !bookingId && attachableBookings.length > 0 && (
@@ -664,9 +673,15 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         <div className="surface rounded-2xl p-4 space-y-2">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs text-muted">Payment{split ? " — split across methods" : " method"}</div>
-            <button onClick={() => setSplit((v) => !v)} className="text-xs text-gold hover:text-gold-deep">
-              {split ? "Single method" : "Split payment"}
-            </button>
+            {depositApplied > 0 ? (
+              // A received deposit is pre-credited as the Transfer leg — keep split on so it can't be
+              // dropped (switching to a single method would collect the full total on top of the deposit).
+              <span className="text-[0.7rem] text-muted">Transfer = deposit received</span>
+            ) : (
+              <button onClick={() => setSplit((v) => !v)} className="text-xs text-gold hover:text-gold-deep">
+                {split ? "Single method" : "Split payment"}
+              </button>
+            )}
           </div>
           {!split ? (
             <div className="flex gap-2">

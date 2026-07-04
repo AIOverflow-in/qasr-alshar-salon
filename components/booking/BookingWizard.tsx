@@ -66,6 +66,7 @@ export function BookingWizard({
   categoryOrder,
   initialServiceId,
   initialCategory,
+  depositAED = 0,
 }: {
   locale: Locale;
   dict: Dict;
@@ -74,6 +75,7 @@ export function BookingWizard({
   categoryOrder: string[];
   initialServiceId?: string;
   initialCategory?: string;
+  depositAED?: number;
 }) {
   const preselected = initialServiceId
     ? services.find((s) => s.id === initialServiceId) ?? null
@@ -117,7 +119,7 @@ export function BookingWizard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeBookingMsg, setActiveBookingMsg] = useState<string | null>(null);
-  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null; ref?: string | null } | null>(null);
+  const [done, setDone] = useState<{ serviceName: string; whenLabel: string; priceAED: number; serviceMode: "SALON" | "HOME"; emailWarning?: string | null; ref?: string | null; deposit?: { amountAED: number; accountName: string; bank: string; iban: string; bic: string } | null } | null>(null);
 
   // fetch availability whenever date / selection changes on step 3
   useEffect(() => {
@@ -194,6 +196,7 @@ export function BookingWizard({
         serviceMode: form.serviceMode,
         emailWarning: data.emailWarning ?? null,
         ref: data.booking.ref ?? null,
+        deposit: data.deposit ?? null,
       });
       setStep(5);
     } catch {
@@ -241,11 +244,38 @@ export function BookingWizard({
             <Row k="Location" v={done.serviceMode === "HOME" ? "Home service (we come to you)" : `${SITE.address.line1}, ${SITE.address.city}`} />
           </div>
 
-          <p className="mt-4 text-xs text-muted">
-            {done.serviceMode === "HOME"
-              ? "No payment now. Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp."
-              : "No payment now — pay at the salon. We'll message you on WhatsApp to confirm."}
-          </p>
+          {done.serviceMode === "HOME" && (
+            <p className="mt-4 text-xs text-muted">
+              Your home visit is pending — our team will confirm the time and any minimum order on WhatsApp.
+            </p>
+          )}
+
+          {done.deposit && done.deposit.amountAED > 0 ? (
+            <div className="mt-4 rounded-xl border border-gold/40 bg-gold/[0.06] p-4">
+              <div className="text-sm font-semibold text-gold">Optional: secure your slot with a deposit</div>
+              <p className="mt-1 text-xs text-sand/80">
+                Your booking is already confirmed. If you&apos;d like to guarantee your slot, transfer <span className="font-semibold text-cream">{aed(done.deposit.amountAED)}</span>
+                {done.ref ? <> using reference <span className="font-mono text-cream">{done.ref}</span></> : null} — it&apos;s deducted from your final bill.
+              </p>
+              {done.deposit.iban ? (
+                <dl className="mt-3 space-y-1 text-xs">
+                  {[["Bank", done.deposit.bank], ["Account name", done.deposit.accountName], ["IBAN", done.deposit.iban], ["BIC", done.deposit.bic]].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3">
+                      <dt className="text-muted">{k}</dt>
+                      <dd className="text-end font-medium text-cream">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="mt-2 text-xs text-muted">We&apos;ll share the bank transfer details with you on WhatsApp.</p>
+              )}
+              <p className="mt-3 text-xs text-muted">Prefer to pay at the salon? Message us on WhatsApp and we&apos;ll confirm.</p>
+            </div>
+          ) : (
+            done.serviceMode !== "HOME" && (
+              <p className="mt-4 text-xs text-muted">No payment now — pay at the salon. We&apos;ll message you on WhatsApp to confirm.</p>
+            )
+          )}
 
           {/* Full terms & conditions */}
           <div className="mt-6 border-t border-ink-line pt-5">
@@ -587,6 +617,12 @@ export function BookingWizard({
               </span>
             </label>
           </div>
+
+          {depositAED > 0 && totalPrice > 0 && (
+            <p className="mt-4 rounded-lg border border-gold/30 bg-gold/[0.06] p-3 text-xs text-sand/80">
+              Optional: secure your slot with a <span className="font-semibold text-cream">{aed(Math.min(depositAED, totalPrice))}</span> deposit. We&apos;ll show you where to transfer it after you confirm, and it comes off your final bill. Either way your booking is confirmed now — you can also just pay at the salon.
+            </p>
+          )}
 
           {error && (
             <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">

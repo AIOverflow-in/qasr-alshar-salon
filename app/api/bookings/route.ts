@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSlotBookable } from "@/lib/availability";
 import { sendBookingEmails } from "@/lib/email";
 import { resolveClientId, hasActiveBooking } from "@/lib/clients";
+import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,10 @@ export async function POST(req: Request) {
       });
       if (overlapping >= capacity) throw new Error("CAPACITY_FULL");
 
+      // Deposit requested to secure the slot (bank transfer, confirmed later by reception).
+      // Only when the salon has set a deposit amount; capped at the booking total.
+      const depositAED = Math.min(Math.max(settings?.depositAED ?? 0, 0), totalPrice);
+
       return tx.booking.create({
         data: {
           serviceId: services[0].id,
@@ -99,6 +104,7 @@ export async function POST(req: Request) {
           serviceMode: data.serviceMode ?? "SALON",
           address: data.serviceMode === "HOME" ? data.address?.trim() || null : null,
           customRequest: data.customRequest?.trim() || null,
+          depositAED,
           items: {
             create: services.map((s) => ({ serviceId: s.id, serviceName: s.name, priceAED: s.priceAED, durationMin: s.durationMin, staffId: data.staffId || null })),
           },
@@ -116,13 +122,20 @@ export async function POST(req: Request) {
 
   const ref = "QA-" + booking.id.slice(-8).toUpperCase();
 
+  // Deposit to surface to the customer (amount + where to transfer). Bank details come from
+  // SITE.pay (server env); if no IBAN is configured we still show the amount and note that the
+  // team will share transfer details on WhatsApp.
+  const deposit = booking.depositAED > 0
+    ? { amountAED: booking.depositAED, accountName: SITE.pay.accountName, bank: SITE.pay.bank, iban: SITE.pay.iban, bic: SITE.pay.bic }
+    : null;
+
   let customerEmailed = false;
   try {
     const r = await sendBookingEmails({
       customerName: booking.customerName, email: booking.email, phone: booking.phone,
       serviceName: services.map((s) => s.name).join(", "), priceAED: booking.priceAED,
       whenLabel: dubaiLabel(start), notes: booking.notes, serviceMode: booking.serviceMode, address: booking.address, customRequest: booking.customRequest,
-      ref,
+      ref, depositAED: booking.depositAED,
     });
     customerEmailed = r.customerEmailed;
   } catch (e) { console.error("[bookings] email send failed (booking still saved):", e); }
@@ -131,5 +144,6 @@ export async function POST(req: Request) {
     ok: true,
     emailWarning: customerEmailed ? null : "Your booking is saved, but the confirmation email may be delayed — we'll also reach you on WhatsApp.",
     booking: { id: booking.id, ref, serviceName: booking.serviceName, whenLabel: dubaiLabel(start), priceAED: booking.priceAED },
+    deposit,
   });
 }

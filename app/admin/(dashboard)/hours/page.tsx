@@ -26,6 +26,7 @@ export default async function AdminHours() {
           slotMinutes: settings?.slotMinutes ?? 30,
           leadTimeMinutes: settings?.leadTimeMinutes ?? 60,
           maxAdvanceDays: settings?.maxAdvanceDays ?? 60,
+          depositAED: settings?.depositAED ?? 0,
         }}
         blocks={blocks.map((b) => ({
           id: b.id,
