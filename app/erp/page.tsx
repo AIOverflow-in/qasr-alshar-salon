@@ -13,6 +13,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { getMonthlyRevenue, dubaiDayRange } from "@/lib/finance";
+import { getMonthlyAnalytics } from "@/lib/analytics";
+import { MonthlyAnalytics } from "@/components/erp/MonthlyAnalytics";
 
 const REVENUE_TARGET = 100_000;
 
@@ -41,6 +43,10 @@ export default async function ErpDashboard() {
   const monthRevenue = revenue?.gross ?? 0;
   const pct = Math.min(100, Math.round((monthRevenue / REVENUE_TARGET) * 100));
 
+  // Rich analytics charts are SUPER_ADMIN only (for now). One cached query feeds all six views.
+  const isSuperAdmin = session?.role === "SUPER_ADMIN";
+  const analytics = isSuperAdmin ? await getMonthlyAnalytics() : null;
+
   // Staff documents expiring within 30 days (or already expired) — managers only.
   const isManager = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
   const DOC_LABEL: Record<string, string> = { PASSPORT: "Passport", VISA: "Visa", LABOR_CARD: "Labour card", EMIRATES_ID: "Emirates ID", OTHER: "Document" };
@@ -68,8 +74,10 @@ export default async function ErpDashboard() {
         <p className="text-sm text-muted">Qasr Alshar control centre · {session?.email}</p>
       </div>
 
-      {/* revenue vs target — finance roles only */}
-      {canSeeFinance && revenue && (
+      {/* This-month money: super-admin gets the rich analytics hub; other finance roles keep the card. */}
+      {isSuperAdmin && analytics ? (
+        <MonthlyAnalytics data={analytics} />
+      ) : canSeeFinance && revenue ? (
         <div className="surface rounded-2xl p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl text-cream">This Month</h2>
@@ -86,7 +94,7 @@ export default async function ErpDashboard() {
             {revenue.orders} paid {revenue.orders === 1 ? "invoice" : "invoices"} this month · {aed(revenue.net)} net + {aed(revenue.vat)} VAT. Every POS bill updates this in real time.
           </p>
         </div>
-      )}
+      ) : null}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {stats.map((s) => (

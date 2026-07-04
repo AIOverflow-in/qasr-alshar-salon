@@ -673,6 +673,14 @@ try {
       await prisma.adminUser.delete({ where: { id: su.id } });
     }
 
+    section("Dashboard analytics: super-admin only");
+    {
+      const sa = await (await fetch(BASE + "/erp", { headers: { cookie: `qa_admin=${await tok("SUPER_ADMIN")}` } })).text();
+      ok(sa.includes("Heat-Calendar") && sa.includes("Payment Mix") && sa.includes("Crown Dial"), "super-admin sees the analytics charts");
+      const adm = await (await fetch(BASE + "/erp", { headers: { cookie: `qa_admin=${await tok("ADMIN")}` } })).text();
+      ok(!adm.includes("Heat-Calendar") && adm.includes("This Month"), "admin keeps the plain revenue card (no charts)");
+    }
+
     section("Document vault: admin-only");
     {
       let docSchemaOk = true;
