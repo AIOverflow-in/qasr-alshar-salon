@@ -25,6 +25,14 @@ export function EditBookingServices({
   initialStartISO,
   initialMarketerId = null,
   initialStaff = {},
+  initialStaffId = null,
+  initialNotes = null,
+  initialMode = "SALON",
+  initialAddress = null,
+  initialCustomRequest = null,
+  initialName = "",
+  initialPhone = "",
+  initialEmail = "",
 }: {
   bookingId: string;
   services: Service[];
@@ -34,6 +42,14 @@ export function EditBookingServices({
   initialStartISO: string;
   initialMarketerId?: string | null;
   initialStaff?: Record<string, string>; // serviceId → current per-service artist (to preserve on edit)
+  initialStaffId?: string | null;        // main Crown Artist
+  initialNotes?: string | null;
+  initialMode?: string | null;
+  initialAddress?: string | null;
+  initialCustomRequest?: string | null;
+  initialName?: string;
+  initialPhone?: string | null;
+  initialEmail?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -43,6 +59,14 @@ export function EditBookingServices({
   const [staffPer, setStaffPer] = useState<Record<string, string>>({});
   const [when, setWhen] = useState("");
   const [marketerId, setMarketerId] = useState(initialMarketerId ?? "");
+  const [mainStaff, setMainStaff] = useState(initialStaffId ?? "");
+  const [notes, setNotes] = useState(initialNotes ?? "");
+  const [mode, setMode] = useState<"SALON" | "HOME">(initialMode === "HOME" ? "HOME" : "SALON");
+  const [address, setAddress] = useState(initialAddress ?? "");
+  const [custReq, setCustReq] = useState(initialCustomRequest ?? "");
+  const [custName, setCustName] = useState(initialName ?? "");
+  const [custPhone, setCustPhone] = useState(initialPhone ?? "");
+  const [custEmail, setCustEmail] = useState(initialEmail ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +102,14 @@ export function EditBookingServices({
     setStaffPer(Object.fromEntries(initialServiceIds.map((id) => [id, initialStaff[id] ?? ""])));
     setWhen(toDubaiLocal(initialStartISO));
     setMarketerId(initialMarketerId ?? "");
+    setMainStaff(initialStaffId ?? "");
+    setNotes(initialNotes ?? "");
+    setMode(initialMode === "HOME" ? "HOME" : "SALON");
+    setAddress(initialAddress ?? "");
+    setCustReq(initialCustomRequest ?? "");
+    setCustName(initialName ?? "");
+    setCustPhone(initialPhone ?? "");
+    setCustEmail(initialEmail ?? "");
     setError(null);
     setQuery("");
     setOpen(true);
@@ -97,6 +129,14 @@ export function EditBookingServices({
           services: picked.map((id) => ({ serviceId: id, priceAED: prices[id] === "" || prices[id] == null ? null : prices[id], staffId: staffPer[id] || null })),
           startISO,
           marketerId: marketerId || null,
+          staffId: mainStaff || null,
+          notes: notes.trim() || null,
+          serviceMode: mode,
+          address: mode === "HOME" ? address.trim() || null : null,
+          customRequest: custReq.trim() || null,
+          customerName: custName.trim() || undefined, // don't blank the name
+          phone: custPhone.trim(),
+          email: custEmail.trim(),
         }),
       });
       const data = await res.json();
@@ -107,14 +147,16 @@ export function EditBookingServices({
     finally { setSaving(false); }
   }
 
+  const fld = "w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
+
   return (
     <>
       <button
         onClick={openModal}
         className="inline-flex items-center gap-1 text-xs text-sand hover:text-gold"
-        title="Edit services, prices or time"
+        title="Edit booking — artist, services, prices, time, client & details"
       >
-        <Pencil size={12} /> Edit services
+        <Pencil size={12} /> Edit booking
       </button>
 
       {open && (
@@ -128,31 +170,54 @@ export function EditBookingServices({
               <button onClick={() => !saving && setOpen(false)} className="text-muted hover:text-cream"><X size={18} /></button>
             </div>
 
-            <div className="mb-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {staff.length > 0 && (
+              <div>
+                <label className="mb-1 block text-xs text-muted">Crown Artist (main) — default for any service left as “main artist”</label>
+                <select value={mainStaff} onChange={(e) => setMainStaff(e.target.value)} className={fld}>
+                  <option value="">— Any Crown Artist —</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Customer name" className={fld} />
+              <input value={custPhone} onChange={(e) => setCustPhone(e.target.value)} placeholder="Phone" className={fld} />
+              <input value={custEmail} onChange={(e) => setCustEmail(e.target.value)} placeholder="Email" className={fld} />
+            </div>
+
+            <div>
               <label className="mb-1 block text-xs text-muted">Date &amp; time (Dubai)</label>
-              <input
-                type="datetime-local"
-                value={when}
-                onChange={(e) => setWhen(e.target.value)}
-                className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60"
-              />
+              <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={fld} />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs text-muted">Location</label>
+              <div className="flex gap-2">
+                {(["SALON", "HOME"] as const).map((m) => (
+                  <button key={m} type="button" onClick={() => setMode(m)} className={cn("flex-1 rounded-lg border py-2 text-xs font-semibold", mode === m ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-muted hover:border-gold/40")}>
+                    {m === "SALON" ? "At salon" : "Home service"}
+                  </button>
+                ))}
+              </div>
+              {mode === "HOME" && <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Home address" className={cn(fld, "mt-2")} />}
             </div>
 
             {staff.length > 0 && (
-              <div className="mb-3">
+              <div>
                 <label className="mb-1 block text-xs text-muted">Marketer (referral) — who brought the lead</label>
-                <select
-                  value={marketerId}
-                  onChange={(e) => setMarketerId(e.target.value)}
-                  className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60"
-                >
+                <select value={marketerId} onChange={(e) => setMarketerId(e.target.value)} className={fld}>
                   <option value="">— None —</option>
                   {staff.filter((s) => /market/i.test(s.role ?? "")).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}
 
-            <div className="relative mb-3">
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" className={fld} />
+            <input value={custReq} onChange={(e) => setCustReq(e.target.value)} placeholder="Custom request (optional)" className={fld} />
+
+            <div className="relative">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 value={query}
@@ -162,7 +227,7 @@ export function EditBookingServices({
               />
             </div>
 
-            <div className="min-h-0 flex-1 divide-y divide-ink-line/50 overflow-y-auto rounded-lg border border-ink-line/50">
+            <div className="divide-y divide-ink-line/50 rounded-lg border border-ink-line/50">
               {filtered.map((s) => {
                 const on = picked.includes(s.id);
                 return (
@@ -202,6 +267,7 @@ export function EditBookingServices({
                 );
               })}
               {filtered.length === 0 && <div className="px-3 py-8 text-center text-sm text-muted">No services found</div>}
+            </div>
             </div>
 
             {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-sm text-red-300">{error}</p>}

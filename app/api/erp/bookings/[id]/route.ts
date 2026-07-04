@@ -20,6 +20,15 @@ const schema = z.object({
   startISO: z.string().datetime().optional(),
   // Optionally set/clear the marketer (lead source). Omit to leave unchanged.
   marketerId: z.string().nullable().optional(),
+  // Every booking element is editable; each field is applied only when present (undefined = leave as-is).
+  staffId: z.string().nullable().optional(),               // main Crown Artist
+  notes: z.string().max(800).nullable().optional(),
+  serviceMode: z.enum(["SALON", "HOME"]).optional(),
+  address: z.string().max(400).nullable().optional(),
+  customRequest: z.string().max(800).nullable().optional(),
+  customerName: z.string().min(1).max(120).optional(),
+  phone: z.string().max(30).nullable().optional(),
+  email: z.string().email().or(z.literal("")).nullable().optional(),
 }).refine((d) => (d.services && d.services.length) || (d.serviceIds && d.serviceIds.length), { message: "Pick at least one service." });
 
 /**
@@ -67,7 +76,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const summaryName = lines.length === 1 ? lines[0].svc.name : `${lines[0].svc.name} +${lines.length - 1} more`;
   const start = parsed.data.startISO ? new Date(parsed.data.startISO) : booking.startAt;
   const end = new Date(start.getTime() + totalDuration * 60_000);
-  const mainStaffId = booking.staffId; // per-service artist falls back to the booking's main artist
+  // Main Crown Artist: use the new value if provided, else keep the booking's current one.
+  // Per-service artists fall back to this main artist.
+  const mainStaffId = parsed.data.staffId !== undefined ? (parsed.data.staffId || null) : booking.staffId;
+  const d = parsed.data;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -81,7 +93,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           durationMin: totalDuration,
           startAt: start,
           endAt: end,
-          ...(parsed.data.marketerId !== undefined ? { marketerId: parsed.data.marketerId || null } : {}),
+          staffId: mainStaffId,
+          ...(d.marketerId !== undefined ? { marketerId: d.marketerId || null } : {}),
+          ...(d.notes !== undefined ? { notes: d.notes?.trim() || null } : {}),
+          ...(d.serviceMode !== undefined ? { serviceMode: d.serviceMode } : {}),
+          ...(d.address !== undefined ? { address: d.address?.trim() || null } : {}),
+          ...(d.customRequest !== undefined ? { customRequest: d.customRequest?.trim() || null } : {}),
+          ...(d.customerName !== undefined ? { customerName: d.customerName.trim() } : {}),
+          ...(d.phone !== undefined ? { phone: d.phone?.trim() || "" } : {}),
+          ...(d.email !== undefined ? { email: d.email?.trim().toLowerCase() || "" } : {}),
           items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: l.staffId || mainStaffId || null })) },
         },
       });
