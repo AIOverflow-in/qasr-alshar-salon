@@ -10,7 +10,17 @@ export const SITE = {
   description:
     "Qasr Alshar Salon in Dubai — expert braiding, weaving, hair, nails, facials, makeup, henna, lashes, waxing & massage. Book your appointment online at Dalmok Series Building, Union Metro.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://qasr-alshar.netlify.app",
+  // Customer storefront (aftercare/e-commerce). Empty until the shop is live — links are conditional.
+  storefront: process.env.NEXT_PUBLIC_STOREFRONT_URL || "",
   locale: "en_AE",
+
+  // Bank-transfer payin details — shown on invoices/checkout only when the full IBAN is configured.
+  pay: {
+    iban: process.env.PAY_IBAN || "",
+    accountName: process.env.PAY_ACCOUNT_NAME || "QASER ALSHAR LADIES SALON L.L.C",
+    bank: process.env.PAY_BANK || "First Abu Dhabi Bank (FAB)",
+    bic: process.env.PAY_BIC || "NBADAEAA402",
+  },
 
   address: {
     line1: "Dalmok Series Building, Exit 2, Union Metro",
@@ -32,6 +42,7 @@ export const SITE = {
   // Primary booking / WhatsApp line
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "+97142727616",
   email: "hello@qasralshar.ae",
+  emailAdmin: "admin@qasralsharsalon.com", // primary admin/contact email (shown in site contact info)
 
   social: {
     instagram: "https://www.instagram.com/qasr.alshar?igsh=N3Z0MG1lb2YwMTVs&utm_source=qr",

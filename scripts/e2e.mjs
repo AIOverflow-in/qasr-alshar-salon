@@ -30,6 +30,13 @@ async function body(path, role) {
   const r = await fetch(BASE + path, { headers: { cookie: `qa_admin=${t}` } });
   return { status: r.status, text: await r.text() };
 }
+// Mint a token for a SPECIFIC user id (for real linked adminUser accounts, e.g. a marketer).
+const mintTok = (sub, role) => new SignJWT({ email: `e2e-${sub}@qa.test`, role })
+  .setProtectedHeader({ alg: "HS256" }).setSubject(sub).setIssuedAt().setExpirationTime("1h").sign(secret);
+async function codeTok(path, t) {
+  const r = await fetch(BASE + path, { headers: { cookie: `qa_admin=${t}` }, redirect: "manual" });
+  return (r.type === "opaqueredirect" || r.status === 0 || r.status === 307 || r.status === 308) ? "REDIR" : String(r.status);
+}
 
 function dubaiMonth() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit" }).format(new Date()); }
 function dayRange(off = 0) {
@@ -69,7 +76,9 @@ async function cleanupSweep() {
   const bk = await prisma.booking.deleteMany({ where: { customerName: { startsWith: TAG } } }); // BookingItem cascades
   const cl = await prisma.client.deleteMany({ where: { name: { startsWith: TAG } } });
   const sv = await prisma.service.deleteMany({ where: { name: { startsWith: TAG } } });
-  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count };
+  const usr = await prisma.adminUser.deleteMany({ where: { email: { startsWith: TAG } } });
+  const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count };
 }
 
 try {
@@ -78,7 +87,7 @@ try {
   ok((await code("/book")) === "200", "/book 200");
   ok((await code("/terms")) === "200", "/terms 200");
   ok((await code("/admin/login")) === "200", "/admin/login 200");
-  ok((await code("/erp", "RECEPTION")) === "200", "ERP dashboard (reception) 200");
+  ok((await code("/erp", "RECEPTION")) === "REDIR", "ERP dashboard: reception redirected (dashboard is owner-only now)");
 
   section("RBAC matrix");
   ok((await code("/erp/sales", "RECEPTION")) === "200", "sales: reception 200");
@@ -149,11 +158,15 @@ try {
     const b = await prisma.payAdjustment.create({ data: { staffId: s.id, month, type: "BONUS", amountAED: 500 } });
     const a = await prisma.payAdjustment.create({ data: { staffId: s.id, month, type: "ADVANCE", amountAED: 200 } });
     const { start, end } = { start: new Date(Date.UTC(...month.split("-").map(Number).map((v, i) => i ? v - 1 : v), 1) - 4 * 3600e3), end: dayRange(0).end };
-    const comm = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { staffId: s.id, createdAt: { gte: start, lt: end } } }))._sum.amountAED ?? 0;
+    // New pay model: net = max(sales commission, base salary) + referral + bonus − deductions.
+    const commByType = await prisma.commission.groupBy({ by: ["type"], _sum: { amountAED: true }, where: { staffId: s.id, createdAt: { gte: start, lt: end } } });
+    const salesComm = commByType.filter((g) => g.type !== "REFERRAL").reduce((x, g) => x + (g._sum.amountAED ?? 0), 0);
+    const referral = commByType.filter((g) => g.type === "REFERRAL").reduce((x, g) => x + (g._sum.amountAED ?? 0), 0);
     const { text } = await body(`/api/erp/payroll/export?month=${month}`, "ADMIN");
     const row = text.split("\n").find((l) => l.startsWith(s.name) || l.includes(`"${s.name}"`));
     const net = row ? Number(row.split(",").slice(-2, -1)[0]) : NaN;
-    ok(net === 5000 + comm + 500 - 200, `net ${net} == 5000+${comm}+500−200`);
+    const expected = Math.max(salesComm, 5000) + referral + 500 - 200;
+    ok(net === expected, `net ${net} == max(${salesComm} comm, 5000 base) + ${referral} ref + 500 − 200 = ${expected}`);
     await prisma.payAdjustment.deleteMany({ where: { id: { in: [b.id, a.id] } } });
     await prisma.staff.update({ where: { id: s.id }, data: { salaryAED: s.salaryAED } });
   }
@@ -528,6 +541,96 @@ try {
       const fr = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}fut-${Date.now()}`, saleDateISO: new Date(Date.now() + 3 * 864e5).toISOString(), lines: [{ kind: "SERVICE", description: `${TAG}FUT`, qty: 1, unitAED: 50 }] }) });
       ok(fr.status === 400, `future-dated sale rejected (${fr.status})`);
     }
+
+    section("Lockdown: reception + crown-artist page access");
+    ok((await code("/erp", "RECEPTION")) === "REDIR", "reception: dashboard blocked (→ bookings)");
+    ok((await code("/erp/clients", "RECEPTION")) === "200", "reception: clients 200");
+    ok((await code("/erp/inventory", "RECEPTION")) === "200", "reception: inventory 200");
+    ok((await code("/erp/sales", "RECEPTION")) === "200", "reception: sales 200");
+    ok((await code("/erp/products", "RECEPTION")) === "REDIR", "reception: storefront blocked");
+    ok((await code("/erp/settings", "RECEPTION")) === "REDIR", "reception: settings blocked");
+    ok((await code("/erp/staff", "RECEPTION")) === "REDIR", "reception: staff blocked");
+    ok((await code("/erp/finance", "RECEPTION")) === "REDIR", "reception: finance blocked");
+    ok((await code("/erp/clients", "STYLIST")) === "REDIR", "stylist: clients blocked");
+    ok((await code("/erp/inventory", "STYLIST")) === "REDIR", "stylist: inventory blocked");
+    ok((await code("/erp/staff", "STYLIST")) === "REDIR", "stylist: staff blocked");
+    ok((await code("/erp/products", "STYLIST")) === "REDIR", "stylist: storefront blocked");
+    ok((await code(`/erp/staff/${estaff.id}`, "ADMIN")) === "200", "staff detail (docs/leave) renders for admin");
+
+    section("Per-service artist on a booking");
+    {
+      const hdr = await eh("RECEPTION");
+      const staff2 = await prisma.staff.findFirst({ where: { active: true, id: { not: estaff.id } }, orderBy: { order: "asc" }, select: { id: true } });
+      const svc2 = await prisma.service.findFirst({ where: { active: true, id: { not: esvc.id } }, select: { id: true } });
+      const bid = staff2 && svc2 ? (await (await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id, staffId: estaff.id }, { serviceId: svc2.id, staffId: staff2.id }], startISO: new Date(dayRange(1).start.getTime() + 15 * 3600e3).toISOString(), customerName: `${TAG}PerSvc`, phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) })).json().catch(() => ({})))?.booking?.id : null;
+      const items = bid ? await prisma.bookingItem.findMany({ where: { bookingId: bid }, select: { serviceId: true, staffId: true } }) : [];
+      const a = items.find((i) => i.serviceId === esvc.id)?.staffId;
+      const b2 = items.find((i) => i.serviceId === svc2?.id)?.staffId;
+      ok(!!bid && a === estaff.id && b2 === staff2?.id, `create: each service kept its own artist (svc1→${a === estaff.id}, svc2→${b2 === staff2?.id})`);
+      // PATCH: swap the two artists → items reflect the new per-service assignment
+      if (bid && staff2 && svc2) await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id, staffId: staff2.id }, { serviceId: svc2.id, staffId: estaff.id }] }) });
+      const items2 = bid ? await prisma.bookingItem.findMany({ where: { bookingId: bid }, select: { serviceId: true, staffId: true } }) : [];
+      const a2 = items2.find((i) => i.serviceId === esvc.id)?.staffId;
+      const c2 = items2.find((i) => i.serviceId === svc2?.id)?.staffId;
+      ok(a2 === staff2?.id && c2 === estaff.id, `edit: per-service artists swapped (svc1→${a2 === staff2?.id}, svc2→${c2 === estaff.id})`);
+    }
+
+    section("Staff document routes: manager-only");
+    {
+      const st = await tok("STYLIST");
+      const up = await fetch(`${BASE}/api/erp/staff/${estaff.id}/documents`, { method: "POST", headers: { cookie: `qa_admin=${st}` }, body: new FormData() });
+      ok(up.status === 403, `doc upload: stylist 403 (${up.status})`);
+      const rc = await tok("RECEPTION");
+      const dl = await fetch(`${BASE}/api/erp/staff-doc/nonexistent`, { headers: { cookie: `qa_admin=${rc}` } });
+      ok(dl.status === 403, `doc download: reception 403 (${dl.status})`);
+    }
+
+    section("Client-followups cron secured (no send without secret)");
+    ok((await fetch(BASE + "/api/cron/client-followups")).status === 401, "followups cron: 401 without secret (no emails sent)");
+
+    section("Payroll: net = max(commission, base) + referral (not additive)");
+    {
+      const hdr = await eh();
+      const ts = await prisma.staff.create({ data: { name: `${TAG}Payroll`, role: "Crown Artist", salaryAED: 1000, commissionPct: 40, referralPct: 5 } });
+      await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}pay-${Date.now()}`, staffId: ts.id, lines: [{ kind: "SERVICE", description: `${TAG}PAYSVC`, qty: 1, unitAED: 500, staffId: ts.id, staffIds: [ts.id] }] }) });
+      // commission = 40% of 500 = 200; base 1000 is higher → net 1000 (additive would be 1200)
+      const month = dubaiMonth();
+      const net = await poll(async () => {
+        const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
+        const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
+        return line ? line.split(",")[8] : null;
+      }, "1000");
+      ok(net === "1000", `net = max(200 comm, 1000 base) = 1000, not additive 1200 (got ${net})`);
+      const services = await poll(async () => {
+        const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
+        const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
+        return line ? line.split(",")[2] : null;
+      }, "500");
+      ok(services === "500", `per-person Services column = 500 (got ${services})`);
+    }
+
+    section("Marketer keeps earnings page; linked artist sees own calendar; others don't");
+    {
+      const rc = await eh("RECEPTION");
+      const mStaff = await prisma.staff.create({ data: { name: `${TAG}Mktr`, role: "Marketing", commissionPct: 40, referralPct: 5 } });
+      const mUser = await prisma.adminUser.create({ data: { email: `${TAG}mktr@qa.test`, name: "E2E Marketer", role: "STYLIST", staffId: mStaff.id, passwordHash: "x" } });
+      const mTok = await mintTok(mUser.id, "STYLIST");
+      ok((await codeTok(`/erp/staff/${mStaff.id}`, mTok)) === "200", "marketer can view own earnings page");
+      ok((await codeTok(`/erp/staff/${estaff.id}`, mTok)) === "REDIR", "marketer cannot view another staff's page");
+
+      const aStaff = await prisma.staff.create({ data: { name: `${TAG}Artist`, role: "Crown Artist", commissionPct: 40 } });
+      const aUser = await prisma.adminUser.create({ data: { email: `${TAG}artist@qa.test`, name: "E2E Artist", role: "STYLIST", staffId: aStaff.id, passwordHash: "x" } });
+      const aTok = await mintTok(aUser.id, "STYLIST");
+      ok((await codeTok(`/erp/staff/${aStaff.id}`, aTok)) === "REDIR", "service artist blocked from own earnings page");
+
+      const when = new Date(dayRange(2).start.getTime() + 14 * 3600e3);
+      await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: rc, body: JSON.stringify({ services: [{ serviceId: esvc.id, staffId: aStaff.id }], startISO: when.toISOString(), customerName: `${TAG}CalCust`, phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) });
+      const wkISO = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(when);
+      const seen = await (await fetch(`${BASE}/erp/calendar?week=${wkISO}`, { headers: { cookie: `qa_admin=${aTok}` } })).text();
+      ok(seen.includes(`${TAG}CalCust`), "linked artist sees the booking they performed on their calendar");
+      const notSeen = await (await fetch(`${BASE}/erp/calendar?week=${wkISO}`, { headers: { cookie: `qa_admin=${mTok}` } })).text();
+      ok(!notSeen.includes(`${TAG}CalCust`), "another artist does NOT see that booking");
+    }
   }
 
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
@@ -538,11 +641,13 @@ try {
   // Guaranteed cleanup — runs even if a check threw. Leaves the DB exactly as found.
   try {
     const swept = await cleanupSweep();
-    const total = swept.orders + swept.bookings + swept.clients + swept.services;
-    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services${total === 0 ? " (nothing left behind ✅)" : ""}`);
+    const total = swept.orders + swept.bookings + swept.clients + swept.services + swept.staff + swept.users;
+    console.log(`\n🧹 Cleanup sweep: removed ${swept.orders} orders, ${swept.bookings} bookings, ${swept.clients} clients, ${swept.services} services, ${swept.staff} staff, ${swept.users} users${total === 0 ? " (nothing left behind ✅)" : ""}`);
     const residue = await prisma.salesOrder.count({ where: { OR: [{ lines: { some: { description: { startsWith: TAG } } } }, { clientRequestId: { startsWith: REQ } }] } })
       + await prisma.booking.count({ where: { customerName: { startsWith: TAG } } })
-      + await prisma.client.count({ where: { name: { startsWith: TAG } } });
+      + await prisma.client.count({ where: { name: { startsWith: TAG } } })
+      + await prisma.staff.count({ where: { name: { startsWith: TAG } } })
+      + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } });
     console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
     if (residue !== 0) fail++;
   } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }

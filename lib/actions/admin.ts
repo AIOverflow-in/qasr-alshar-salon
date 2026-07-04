@@ -11,6 +11,8 @@ import {
 } from "@/lib/auth";
 import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
+import { inclusiveDays } from "@/lib/leave";
+import { del } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import type { BookingStatus, Role } from "@prisma/client";
 
@@ -139,6 +141,7 @@ export async function updateStaff(
     salaryAED?: number;
     commissionPct?: number;
     referralPct?: number;
+    joinedOn?: string | null;
     active?: boolean;
   }
 ) {
@@ -150,9 +153,41 @@ export async function updateStaff(
     salaryAED: data.salaryAED != null ? Math.max(0, Math.round(data.salaryAED)) : undefined,
     commissionPct: data.commissionPct != null ? Math.max(0, Math.min(100, Math.round(data.commissionPct))) : undefined,
     referralPct: data.referralPct != null ? Math.max(0, Math.min(100, Math.round(data.referralPct))) : undefined,
+    joinedOn: data.joinedOn !== undefined ? (data.joinedOn ? new Date(data.joinedOn) : null) : undefined,
   };
   await prisma.staff.update({ where: { id }, data: clean });
   revalidatePath("/erp/staff");
+}
+
+// ---- staff documents & leave (managers only) ----
+export async function deleteStaffDocument(id: string) {
+  await requireManager();
+  const doc = await prisma.staffDocument.findUnique({ where: { id }, select: { pathname: true, staffId: true } });
+  if (doc?.pathname) { try { await del(doc.pathname); } catch (e) { console.error("[blob] del failed:", e); } }
+  await prisma.staffDocument.delete({ where: { id } });
+  if (doc) revalidatePath(`/erp/staff/${doc.staffId}`);
+}
+
+export async function addStaffLeave(
+  staffId: string,
+  data: { startDate: string; endDate: string; type?: string; note?: string | null }
+) {
+  await requireManager();
+  const start = new Date(data.startDate), end = new Date(data.endDate);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) throw new Error("Invalid dates");
+  if (end < start) throw new Error("End date is before the start date");
+  const type = ["ANNUAL", "SICK", "UNPAID"].includes(data.type ?? "") ? data.type! : "ANNUAL";
+  await prisma.staffLeave.create({
+    data: { staffId, startDate: start, endDate: end, days: inclusiveDays(start, end), type, note: data.note?.trim() || null },
+  });
+  revalidatePath(`/erp/staff/${staffId}`);
+}
+
+export async function deleteStaffLeave(id: string) {
+  await requireManager();
+  const l = await prisma.staffLeave.findUnique({ where: { id }, select: { staffId: true } });
+  await prisma.staffLeave.delete({ where: { id } });
+  if (l) revalidatePath(`/erp/staff/${l.staffId}`);
 }
 
 // ---- payroll: adjustments + monthly pay ----

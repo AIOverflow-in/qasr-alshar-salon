@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { TableSearch } from "@/components/erp/TableSearch";
 import { StaffEditRow } from "@/components/erp/StaffEditRow";
 import { PayrollTable } from "@/components/erp/PayrollTable";
-import { getPayrollMonth, recentMonths } from "@/lib/payroll";
+import { getPayrollMonth, recentMonths, dubaiMonthRange } from "@/lib/payroll";
+import { getSalesBreakdown } from "@/lib/finance";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ export default async function ErpStaff({
     prisma.staff.findMany({ orderBy: { order: "asc" } }),
     getPayrollMonth(monthParam),
   ]);
+  // Month sales for the P&L summary — ex-VAT (the salon's actual revenue; VAT is held for the FTA,
+  // and it matches the charged-price basis of Jacqueline's sheet). Gross Profit = sales − net payroll.
+  const totalSales = (await getSalesBreakdown(dubaiMonthRange(payroll.month))).net;
 
   return (
     <div className="space-y-8">
@@ -42,6 +46,7 @@ export default async function ErpStaff({
                   <th className="p-3 font-medium">Role</th>
                   <th className="p-3 font-medium">Hours</th>
                   <th className="p-3 font-medium">Off Day</th>
+                  <th className="p-3 font-medium">Joined</th>
                   <th className="p-3 font-medium">Phone</th>
                   <th className="p-3 font-medium">Salary (AED/mo)</th>
                   <th className="p-3 font-medium">Commission</th>
@@ -61,6 +66,7 @@ export default async function ErpStaff({
                     salaryAED={s.salaryAED}
                     commissionPct={s.commissionPct}
                     referralPct={s.referralPct}
+                    joinedOn={s.joinedOn ? s.joinedOn.toISOString().slice(0, 10) : null}
                     active={s.active}
                   />
                 ))}
@@ -72,7 +78,7 @@ export default async function ErpStaff({
       </div>
 
       {/* Monthly payroll */}
-      <PayrollTable month={payroll.month} months={recentMonths(12)} rows={payroll.rows} totals={payroll.totals} />
+      <PayrollTable month={payroll.month} months={recentMonths(12)} rows={payroll.rows} totals={payroll.totals} totalSales={totalSales} />
     </div>
   );
 }

@@ -63,6 +63,8 @@ model Booking {
   serviceMode   String       @default("SALON") // SALON | HOME
   address       String?      // home-service address (when serviceMode = HOME)
   customRequest String?      // free-text request when the client can't find a service
+  feedbackSentAt DateTime?   // post-service feedback email sent (dedupe for the follow-ups cron)
+  rebookSentAt   DateTime?   // rebook reminder email sent (dedupe)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -184,6 +186,7 @@ model Staff {
   salaryAED     Int     @default(0)  // base monthly salary (0 = commission-only)
   commissionPct Int     @default(40) // stylist sales split %
   referralPct   Int     @default(5)
+  joinedOn   DateTime?  // hire date — drives annual leave entitlement
   active     Boolean    @default(true)
   order      Int        @default(0)
   createdAt  DateTime   @default(now())
@@ -193,8 +196,40 @@ model Staff {
   salesOrders     SalesOrder[]
   adjustments     PayAdjustment[]
   payrollPayments PayrollPayment[]
+  documents       StaffDocument[]
+  leaves          StaffLeave[]
 
   @@index([active])
+}
+
+/// A staff personnel document (passport/visa/etc). File lives in Vercel Blob; we keep URL + expiry.
+model StaffDocument {
+  id         String    @id @default(cuid())
+  staffId    String
+  staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type       String    // PASSPORT | VISA | LABOR_CARD | EMIRATES_ID | OTHER
+  fileUrl    String    // Vercel Blob URL
+  pathname   String    // Blob pathname, for deletion
+  expiry     DateTime? // for the "expiring soon" alerts
+  uploadedAt DateTime  @default(now())
+
+  @@index([staffId])
+  @@index([expiry])
+}
+
+/// A staff leave / vacation record. 21 days/yr accrue after 12 months (see lib/leave.ts).
+model StaffLeave {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  days      Int
+  type      String   @default("ANNUAL") // ANNUAL | SICK | UNPAID
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([staffId])
 }
 
 /// Salon client / CRM record.

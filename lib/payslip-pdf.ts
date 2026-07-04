@@ -82,14 +82,17 @@ export async function buildPayslipPdf(d: PayslipData): Promise<Uint8Array> {
     page.drawLine({ start: { x: M, y: y + 5 }, end: { x: RIGHT, y: y + 5 }, thickness: 0.3, color: HAIR });
   };
 
-  line("Base salary", d.salary);
-  line("Sales commission", d.salesCommission);
+  // Base salary is a guaranteed floor: the artist earns the HIGHER of base or sales commission.
+  const servicePay = Math.max(d.salary, d.salesCommission);
+  line("Base salary (floor)", d.salary, { muted: true });
+  line("Sales commission", d.salesCommission, { muted: true });
+  line(d.salesCommission > d.salary ? "Earned — commission (beats base)" : "Earned — base salary (floor)", servicePay);
   line("Referral commission", d.referral);
   if (d.bonus) line("Bonus", d.bonus);
   if (d.deductions) line("Advances & deductions", d.deductions, { neg: true });
 
   y -= 8;
-  const earnings = d.salary + d.salesCommission + d.referral + d.bonus;
+  const earnings = servicePay + d.referral + d.bonus;
   rt("Gross earnings", RIGHT - 8, y, 9, reg, GREY); page.drawText("Gross earnings", { x: M + 8, y, size: 9, font: reg, color: GREY });
   rt(money(earnings), RIGHT - 8, y, 9, reg, INK); y -= 22;
 
@@ -99,7 +102,7 @@ export async function buildPayslipPdf(d: PayslipData): Promise<Uint8Array> {
   rt(money(d.net), RIGHT - 10, y + 4, 13, bold, GOLD);
   y -= 50;
 
-  page.drawText("This payslip is computed from base salary + sales/referral commission + bonuses, less advances and deductions, for the period shown.", { x: M, y, size: 7.5, font: reg, color: GREY });
+  page.drawText("Pay = the higher of base salary or sales commission, plus referral and bonuses, less advances and deductions, for the period shown.", { x: M, y, size: 7.5, font: reg, color: GREY });
 
   // footer
   page.drawLine({ start: { x: M, y: 60 }, end: { x: RIGHT, y: 60 }, thickness: 1, color: GOLD });

@@ -6,7 +6,7 @@ import { whatsappLink, aed, cn } from "@/lib/utils";
 import { salonToClientMessage, artistReminderMessage } from "@/lib/booking-format";
 import { EditBookingServices } from "@/components/erp/EditBookingServices";
 
-type Item = { serviceId?: string | null; name: string; price: number; duration: number };
+type Item = { serviceId?: string | null; name: string; price: number; duration: number; staffId?: string | null };
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
 
 const SOURCE_LABEL: Record<string, string> = { ONLINE: "🌐 Online", WALKIN: "🏪 In-store", PHONE: "☎ Phone", WHATSAPP: "WhatsApp" };
@@ -123,6 +123,7 @@ export function BookingDetailModal({
               staff={staff}
               initialServiceIds={b.currentServiceIds}
               initialPrices={Object.fromEntries(b.items.filter((it) => it.serviceId).map((it) => [it.serviceId as string, it.price]))}
+              initialStaff={Object.fromEntries(b.items.filter((it) => it.serviceId && it.staffId).map((it) => [it.serviceId as string, it.staffId as string]))}
               initialStartISO={b.startISO}
               initialMarketerId={b.marketerId ?? null}
             />

@@ -1,8 +1,11 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ErpProducts() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
   const retail = await prisma.product.count({ where: { retail: true, active: true } });
   return (
     <div className="space-y-6">

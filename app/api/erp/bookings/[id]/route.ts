@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const lineSchema = z.object({
   serviceId: z.string().min(1),
   priceAED: z.number().int().nonnegative().optional().nullable(),
+  staffId: z.string().optional().nullable(), // per-service artist (falls back to the booking's main artist)
 });
 
 const schema = z.object({
@@ -50,15 +51,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // (services[]) or a plain id list (serviceIds[], price defaults to the menu rate).
   const requested = parsed.data.services?.length
     ? parsed.data.services
-    : parsed.data.serviceIds!.map((serviceId) => ({ serviceId, priceAED: null as number | null }));
+    : parsed.data.serviceIds!.map((serviceId) => ({ serviceId, priceAED: null as number | null, staffId: null as string | null }));
   const ids = requested.map((r) => r.serviceId);
   const found = await prisma.service.findMany({ where: { id: { in: ids } } });
   const lines = requested
     .map((r) => {
       const svc = found.find((s) => s.id === r.serviceId);
-      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED } : null;
+      return svc ? { svc, price: r.priceAED != null ? r.priceAED : svc.priceAED, staffId: r.staffId ?? null } : null;
     })
-    .filter((x): x is { svc: (typeof found)[number]; price: number } => x !== null);
+    .filter((x): x is { svc: (typeof found)[number]; price: number; staffId: string | null } => x !== null);
   if (!lines.length) return NextResponse.json({ error: "Service not found." }, { status: 404 });
 
   const totalDuration = lines.reduce((s, l) => s + l.svc.durationMin, 0);
@@ -66,7 +67,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const summaryName = lines.length === 1 ? lines[0].svc.name : `${lines[0].svc.name} +${lines.length - 1} more`;
   const start = parsed.data.startISO ? new Date(parsed.data.startISO) : booking.startAt;
   const end = new Date(start.getTime() + totalDuration * 60_000);
-  const staffId = booking.staffId;
+  const mainStaffId = booking.staffId; // per-service artist falls back to the booking's main artist
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -81,7 +82,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           startAt: start,
           endAt: end,
           ...(parsed.data.marketerId !== undefined ? { marketerId: parsed.data.marketerId || null } : {}),
-          items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: staffId || null })) },
+          items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: l.staffId || mainStaffId || null })) },
         },
       });
     });
