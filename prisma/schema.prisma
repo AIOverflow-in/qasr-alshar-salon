@@ -268,7 +268,9 @@ model Product {
   reorderAt Int      @default(3)
   costAED   Int?
   saleAED   Int?
-  retail    Boolean  @default(false) // show in e-commerce/aftercare
+  retail    Boolean  @default(false) // published to the customer storefront (e-commerce/aftercare)
+  description String? // storefront product description
+  imageUrl  String?  // storefront product image (Vercel Blob)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

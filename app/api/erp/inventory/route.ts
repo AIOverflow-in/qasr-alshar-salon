@@ -86,6 +86,8 @@ const createSchema = z.object({
   saleAED: z.number().int().nonnegative().optional().nullable(),
   reorderAt: z.number().int().nonnegative().default(3),
   retail: z.boolean().optional(),
+  description: z.string().max(2000).optional().nullable(),
+  imageUrl: z.string().url().max(1000).optional().nullable(),
 });
 
 // PUT /api/erp/inventory — create a new product
@@ -107,6 +109,8 @@ export async function PUT(req: Request) {
       saleAED: d.saleAED ?? null,
       reorderAt: d.reorderAt,
       retail: d.retail ?? false,
+      description: d.description?.trim() || null,
+      imageUrl: d.imageUrl || null,
     },
   });
   // Record the opening stock as a movement for the audit trail.
@@ -126,6 +130,8 @@ const editSchema = z.object({
   reorderAt: z.number().int().nonnegative().optional(),
   retail: z.boolean().optional(),
   active: z.boolean().optional(),
+  description: z.string().max(2000).optional().nullable(),
+  imageUrl: z.string().url().max(1000).optional().nullable(),
 });
 
 // PATCH /api/erp/inventory — update product fields (not qty; use POST for stock)
@@ -138,6 +144,7 @@ export async function PATCH(req: Request) {
   const { id, ...data } = parsed.data;
   if (data.name) data.name = data.name.trim();
   if (data.barcode !== undefined) data.barcode = data.barcode?.trim() || null;
+  if (data.description !== undefined) data.description = data.description?.trim() || null;
   const product = await prisma.product.update({ where: { id }, data });
   return NextResponse.json({ ok: true, product });
 }
