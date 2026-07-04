@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { X, MessageCircle, Printer, Receipt, Clock, MapPin, Scissors, UserCheck, Megaphone } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, MessageCircle, Printer, Receipt, Clock, MapPin, Scissors, UserCheck, Megaphone, Wallet } from "lucide-react";
 import { whatsappLink, aed, cn } from "@/lib/utils";
 import { salonToClientMessage, artistReminderMessage } from "@/lib/booking-format";
 import { EditBookingServices } from "@/components/erp/EditBookingServices";
@@ -25,6 +27,7 @@ export function BookingDetailModal({
     customRequest?: string | null; notes: string | null; staffId?: string | null; staffName: string | null; staffPhone: string | null;
     enteredBy: string | null; marketer?: string | null; marketerId?: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
     canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
+    depositAED?: number; depositPaidAt?: string | null;
   };
   services: ServiceOpt[];
   staff?: { id: string; name: string; role?: string }[];
@@ -114,6 +117,12 @@ export function BookingDetailModal({
           {b.invoiceNo && <div className="text-xs text-green-400">Billed · {b.invoiceNo}</div>}
         </div>
 
+        {/* Deposit tracker — managers/reception can manage it regardless of booking status (e.g. mark a
+            late transfer received, or record a refund after a cancellation); others see it read-only. */}
+        {(b.canEditBill || (b.depositAED ?? 0) > 0) && (
+          <DepositControl bookingId={b.id} depositAED={b.depositAED ?? 0} depositPaidAt={b.depositPaidAt ?? null} canEdit={!!b.canEditBill} />
+        )}
+
         {/* actions */}
         <div className="mt-5 flex flex-wrap gap-2 border-t border-ink-line pt-4">
           {clientDigits && (
@@ -162,6 +171,76 @@ export function BookingDetailModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Reception/admin deposit tracker: adjust the requested amount and mark the transfer received. */
+function DepositControl({ bookingId, depositAED, depositPaidAt, canEdit }: {
+  bookingId: string; depositAED: number; depositPaidAt: string | null; canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [amount, setAmount] = useState<number | "">(depositAED || "");
+  const [busy, setBusy] = useState(false);
+  const paid = !!depositPaidAt;
+
+  async function patch(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/erp/bookings/${bookingId}/deposit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  const paidLabel = depositPaidAt
+    ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "numeric", month: "short" }).format(new Date(depositPaidAt))
+    : null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-ink-line/60 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-cream">
+          <Wallet size={15} className="text-gold" />
+          {depositAED > 0 ? (
+            <span>Deposit {aed(depositAED)} · {paid ? <span className="text-green-400">received{paidLabel ? ` ${paidLabel}` : ""}</span> : <span className="text-gold">pending</span>}</span>
+          ) : (
+            <span className="text-muted">No deposit requested</span>
+          )}
+        </div>
+        {canEdit && depositAED > 0 && (
+          <button
+            onClick={() => patch({ paid: !paid })}
+            disabled={busy}
+            className={cn("shrink-0 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50",
+              paid ? "border-ink-line text-sand hover:text-cream" : "border-green-500/40 bg-green-500/10 text-green-400 hover:bg-green-500/20")}
+          >
+            {paid ? "Mark unpaid" : "Mark received"}
+          </button>
+        )}
+      </div>
+      {canEdit && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="number" min={0} value={amount} placeholder="Amount"
+            onChange={(e) => setAmount(e.target.value === "" ? "" : Math.max(0, Number(e.target.value)))}
+            className="w-28 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-xs text-cream outline-none focus:border-gold/60"
+          />
+          <button
+            onClick={() => patch({ depositAED: amount === "" ? 0 : Number(amount) })}
+            disabled={busy || (amount === "" ? 0 : Number(amount)) === depositAED}
+            className="rounded-lg border border-gold/40 px-3 py-1.5 text-xs text-gold hover:bg-gold/10 disabled:opacity-40"
+          >
+            {depositAED > 0 ? "Update amount" : "Request deposit"}
+          </button>
+          {depositAED > 0 && (
+            <button onClick={() => { setAmount(""); patch({ depositAED: 0, paid: false }); }} disabled={busy} className="text-xs text-muted hover:text-red-400 disabled:opacity-40">Waive</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

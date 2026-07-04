@@ -21,6 +21,7 @@ type BookingEmail = {
   address?: string | null;
   customRequest?: string | null;
   ref?: string | null; // short customer-facing booking reference
+  depositAED?: number; // deposit requested to secure the slot (0 / undefined = none)
 };
 
 function shell(title: string, body: string) {
@@ -60,6 +61,28 @@ function detailsTable(b: BookingEmail) {
   </table>`;
 }
 
+/** Deposit-to-secure block for the confirmation email (only when a deposit is requested). */
+function depositBlock(b: BookingEmail) {
+  if (!b.depositAED || b.depositAED <= 0) return "";
+  const line = (k: string, v: string) =>
+    `<tr><td style="padding:4px 0;color:#8c8267;width:38%;">${k}</td><td style="padding:4px 0;color:#f6f0e2;font-weight:bold;">${v}</td></tr>`;
+  const account = SITE.pay.iban
+    ? `<table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        ${line("Amount", `AED ${b.depositAED}`)}
+        ${line("Bank", SITE.pay.bank)}
+        ${line("Account name", SITE.pay.accountName)}
+        ${line("IBAN", SITE.pay.iban)}
+        ${line("BIC", SITE.pay.bic)}
+        ${b.ref ? line("Reference", b.ref) : ""}
+      </table>`
+    : `<p style="margin:8px 0 0;font-size:13px;color:#cabfa6;">Amount: <b style="color:#f6f0e2;">AED ${b.depositAED}</b>. Our team will share the bank transfer details with you on WhatsApp.</p>`;
+  return `<div style="margin-top:22px;padding:16px 18px;border:1px solid #3a3020;border-left:3px solid #e7c878;border-radius:10px;background:#171310;">
+    <div style="font-size:14px;color:#e7c878;font-weight:bold;">Secure your booking with a deposit</div>
+    <p style="margin:6px 0 0;font-size:13px;color:#cabfa6;line-height:1.6;">To hold your appointment, please transfer the deposit below${b.ref ? ` using reference <b style="color:#f6f0e2;">${b.ref}</b>` : ""}. It's deducted from your final bill at the salon.</p>
+    ${account}
+  </div>`;
+}
+
 /** Full Terms & Conditions block for the customer confirmation email. */
 function termsBlock() {
   return `<div style="margin-top:26px;padding-top:18px;border-top:1px solid #2a2417;">
@@ -86,7 +109,8 @@ export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmai
     "Your appointment is confirmed 🎉",
     `<p style="line-height:1.7;color:#cabfa6;">Dear ${b.customerName}, thank you for booking with Qasr Alshar Salon. We can't wait to pamper you! Here are your details:</p>
      ${detailsTable(b)}
-     <a href="${SITE.url}" style="display:inline-block;margin-top:8px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
+     ${depositBlock(b)}
+     <a href="${SITE.url}" style="display:inline-block;margin-top:18px;background:linear-gradient(120deg,#9a7a2e,#e7c878,#9a7a2e);color:#0b0a08;text-decoration:none;font-weight:bold;padding:12px 26px;border-radius:999px;">Visit our website</a>
      ${shopButton()}
      <p style="margin-top:18px;font-size:13px;color:#8c8267;">Need to reschedule? Reply to this email or call us at ${SITE.phones[0].label}.</p>
      ${termsBlock()}`

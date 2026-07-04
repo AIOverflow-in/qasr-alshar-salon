@@ -96,6 +96,8 @@ export default async function PosPage({
         bookingId: booking.id,
         bookingLabel: `${booking.customerName} · ${whenLabel}`,
         lines,
+        // A deposit already received (bank transfer) is pre-credited so only the balance is collected.
+        depositAED: booking.depositPaidAt && booking.depositAED > 0 ? booking.depositAED : undefined,
         staffId: booking.staffId ?? undefined,
         marketerId: booking.marketerId ?? undefined, // carry the lead's marketer into the bill
         client: matched

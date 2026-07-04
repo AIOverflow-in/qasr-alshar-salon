@@ -29,8 +29,10 @@ export default async function BookPage({
 
   let services: { id: string; name: string; priceAED: number; durationMin: number; category: string; categorySlug: string }[];
   let stylists: { id: string; name: string; role: string; offDay: string | null }[];
+  let depositAED = 0;
   try {
-    [services, stylists] = await Promise.all([
+    let settings: { depositAED: number } | null;
+    [services, stylists, settings] = await Promise.all([
       prisma.service.findMany({
         where: { active: true },
         orderBy: { order: "asc" },
@@ -41,7 +43,9 @@ export default async function BookPage({
         orderBy: { order: "asc" },
         select: { id: true, name: true, role: true, offDay: true },
       }),
+      prisma.salonSettings.findUnique({ where: { id: "singleton" }, select: { depositAED: true } }),
     ]);
+    depositAED = Math.max(settings?.depositAED ?? 0, 0);
   } catch (e) {
     // Neon free-tier can briefly cold-start; show a friendly retry instead of a 500.
     console.error("[book] services unavailable (DB cold-start?):", e);
@@ -93,6 +97,7 @@ export default async function BookPage({
           categoryOrder={CATEGORY_ORDER}
           initialServiceId={serviceParam && preselected?.id === serviceParam ? preselected.id : undefined}
           initialCategory={initialCategoryName}
+          depositAED={depositAED}
         />
       </div>
     </div>

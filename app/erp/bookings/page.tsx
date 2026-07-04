@@ -180,6 +180,8 @@ export default async function ErpBookings({
                         enteredBy: b.createdBy?.name ?? null,
                         marketer: b.marketerId ? (staffName.get(b.marketerId) ?? null) : null,
                         marketerId: b.marketerId ?? null,
+                        depositAED: b.depositAED,
+                        depositPaidAt: b.depositPaidAt ? b.depositPaidAt.toISOString() : null,
                       }}
                     />
                   );

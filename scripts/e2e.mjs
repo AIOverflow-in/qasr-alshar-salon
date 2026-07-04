@@ -650,6 +650,71 @@ try {
       const notSeen = await (await fetch(`${BASE}/erp/calendar?week=${wkISO}`, { headers: { cookie: `qa_admin=${mTok}` } })).text();
       ok(!notSeen.includes(`${TAG}CalCust`), "another artist does NOT see that booking");
     }
+
+    section("Booking deposit: optional, non-blocking, reception-confirmed, POS pre-credit");
+    {
+      const dsvc = await prisma.service.findFirst({ where: { active: true }, select: { id: true, name: true, priceAED: true, durationMin: true } });
+      const restoreDeposit = (await prisma.salonSettings.findUnique({ where: { id: "singleton" }, select: { depositAED: true } }))?.depositAED ?? 0;
+      const dubaiDay = (off) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + off * 864e5));
+      // Find a real public-bookable slot (mid-day, unlikely to clash) a week+ out.
+      const findSlot = async (dur) => {
+        for (let off = 7; off <= 22; off++) {
+          const j = await (await fetch(`${BASE}/api/availability?date=${dubaiDay(off)}&duration=${dur}`)).json().catch(() => ({}));
+          if (j.slots?.length) return j.slots[Math.floor(j.slots.length / 2)].iso;
+        }
+        return null;
+      };
+
+      // 1) Deposit ON — the public booking asks for it + returns the bank account, but is NEVER blocked.
+      await prisma.salonSettings.upsert({ where: { id: "singleton" }, update: { depositAED: 120 }, create: { id: "singleton", depositAED: 120 } });
+      const u1 = Date.now();
+      const slotOn = dsvc ? await findSlot(dsvc.durationMin) : null;
+      const resOn = slotOn ? await fetch(BASE + "/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceIds: [dsvc.id], startISO: slotOn, customerName: `${TAG}DepON`, email: `${REQ}depon-${u1}@qa.test`, phone: `9710${String(u1).slice(-8)}` }) }) : null;
+      const dataOn = resOn ? await resOn.json().catch(() => ({})) : {};
+      const bidOn = dataOn?.booking?.id ?? null;
+      const expDep = dsvc ? Math.min(120, dsvc.priceAED) : 0;
+      ok(!!resOn && resOn.ok && !!bidOn, `deposit ON: booking still completes (non-blocking) — status ${resOn?.status}`);
+      ok(dataOn?.deposit?.amountAED === expDep, `deposit ON: asks for ${dataOn?.deposit?.amountAED} == min(120, ${dsvc?.priceAED})`);
+      ok(dataOn?.deposit?.iban === "AE090351001327056383001", "deposit ON: response carries the bank IBAN to transfer to");
+      const bkOn = bidOn ? await prisma.booking.findUnique({ where: { id: bidOn }, select: { depositAED: true, depositPaidAt: true, status: true } }) : null;
+      ok(!!bkOn && bkOn.depositAED === expDep && bkOn.depositPaidAt === null && bkOn.status === "CONFIRMED", `deposit ON: stored depositAED=${bkOn?.depositAED}, pending, confirmed`);
+
+      // 2) Deposit OFF — nothing surfaced, booking works exactly as before.
+      await prisma.salonSettings.update({ where: { id: "singleton" }, data: { depositAED: 0 } });
+      const u2 = Date.now() + 1;
+      const slotOff = dsvc ? await findSlot(dsvc.durationMin) : null;
+      const resOff = slotOff ? await fetch(BASE + "/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceIds: [dsvc.id], startISO: slotOff, customerName: `${TAG}DepOFF`, email: `${REQ}depoff-${u2}@qa.test`, phone: `9711${String(u2).slice(-8)}` }) }) : null;
+      const dataOff = resOff ? await resOff.json().catch(() => ({})) : {};
+      const bidOff = dataOff?.booking?.id ?? null;
+      ok(!!resOff && resOff.ok && !!bidOff && dataOff.deposit == null, `deposit OFF: booking completes with no deposit requested (status ${resOff?.status})`);
+
+      // 3) Reception controls the deposit (dedicated endpoint); crown artist is blocked.
+      const depBk = await prisma.booking.create({ data: { serviceId: dsvc?.id ?? null, serviceName: `${TAG}DepEP`, priceAED: 300, durationMin: 60, customerName: `${TAG}DepEP`, email: "", phone: "", startAt: new Date(dayRange(3).start.getTime() + 12 * 3600e3), endAt: new Date(dayRange(3).start.getTime() + 13 * 3600e3), status: "CONFIRMED", source: "WALKIN", depositAED: 100 } });
+      const depUrl = `/api/erp/bookings/${depBk.id}/deposit`;
+      ok((await fetch(BASE + depUrl, { method: "PATCH", headers: await eh("STYLIST"), body: JSON.stringify({ paid: true }) })).status === 403, "deposit endpoint: crown artist blocked (403)");
+      const recPaid = await fetch(BASE + depUrl, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ paid: true }) });
+      const paidState = await poll(async () => (await prisma.booking.findUnique({ where: { id: depBk.id }, select: { depositPaidAt: true } }))?.depositPaidAt ? "set" : null, "set");
+      ok(recPaid.ok && paidState === "set", "deposit endpoint: reception marks it received");
+      await fetch(BASE + depUrl, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ depositAED: 50 }) });
+      ok((await poll(async () => (await prisma.booking.findUnique({ where: { id: depBk.id }, select: { depositAED: true } }))?.depositAED, 50)) === 50, "deposit endpoint: reception adjusts the amount");
+      await fetch(BASE + depUrl, { method: "PATCH", headers: await eh("RECEPTION"), body: JSON.stringify({ depositAED: 0, paid: false }) });
+      const waived = await prisma.booking.findUnique({ where: { id: depBk.id }, select: { depositAED: true, depositPaidAt: true } });
+      ok(waived?.depositAED === 0 && waived?.depositPaidAt === null, "deposit endpoint: reception can waive it");
+
+      // 4) POS pre-credit — a RECEIVED deposit is collected as the transfer leg; only the balance in cash.
+      const posBk = await prisma.booking.create({ data: { serviceId: dsvc?.id ?? null, serviceName: dsvc?.name ?? `${TAG}Svc`, priceAED: 100, durationMin: 60, customerName: `${TAG}DepPOS`, email: "", phone: "", startAt: new Date(dayRange(3).start.getTime() + 15 * 3600e3), endAt: new Date(dayRange(3).start.getTime() + 16 * 3600e3), status: "CONFIRMED", source: "WALKIN", depositAED: 100, depositPaidAt: new Date() } });
+      const posRes = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: await eh("RECEPTION"), body: JSON.stringify({ bookingId: posBk.id, clientRequestId: `${REQ}deppos-${u1}`, staffId: estaff.id, splitPayment: true, transferAED: 100, cashAED: 5, cardAED: 0, lines: [{ kind: "SERVICE", description: dsvc?.name ?? `${TAG}Svc`, qty: 1, unitAED: 100, staffIds: [estaff.id] }] }) });
+      const oid = posRes.ok ? (await posRes.json())?.order?.id ?? null : null;
+      const dbOrder = oid ? await prisma.salesOrder.findUnique({ where: { id: oid }, select: { totalAED: true, transferAED: true, cashAED: true, splitPayment: true } }) : null;
+      ok(!!dbOrder && dbOrder.totalAED === 105 && dbOrder.transferAED === 100 && dbOrder.cashAED === 5 && dbOrder.splitPayment,
+        `POS: deposit reconciled — total ${dbOrder?.totalAED}==105, deposit as transfer ${dbOrder?.transferAED}==100, balance cash ${dbOrder?.cashAED}==5`);
+
+      // cleanup + restore the setting
+      if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }
+      for (const id of [bidOn, bidOff, depBk.id, posBk.id]) { if (id) await prisma.booking.delete({ where: { id } }).catch(() => {}); }
+      await prisma.client.deleteMany({ where: { name: { startsWith: `${TAG}Dep` } } });
+      await prisma.salonSettings.update({ where: { id: "singleton" }, data: { depositAED: restoreDeposit } });
+    }
   }
 
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);

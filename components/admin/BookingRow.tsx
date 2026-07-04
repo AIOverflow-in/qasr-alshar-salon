@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/erp/BookingDetailModal";
 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
-type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number; staffId: string | null }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null; marketerId?: string | null };
+type BookingDetail = { items: { serviceId: string | null; name: string; price: number; duration: number; staffId: string | null }[]; staffPhone: string | null; enteredBy: string | null; marketer?: string | null; marketerId?: string | null; depositAED?: number; depositPaidAt?: string | null };
 
 const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"];
 const color: Record<string, string> = {
@@ -114,6 +114,7 @@ export function BookingRow({
               serviceMode, address, customRequest, notes, staffId: staffId ?? null, staffName: staffName ?? null,
               staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, marketer: detail.marketer ?? null, marketerId: detail.marketerId ?? null, items: detail.items,
               orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, canEditBill, currentServiceIds,
+              depositAED: detail.depositAED ?? 0, depositPaidAt: detail.depositPaidAt ?? null,
             }}
           />
         )}
