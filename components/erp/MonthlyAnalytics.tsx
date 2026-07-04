@@ -12,7 +12,7 @@ const goldAlpha = (frac: number) => `rgba(201,162,76,${(0.10 + 0.9 * frac).toFix
 const GRAD = "linear-gradient(90deg,#8a6a22,#c9a24c 55%,#e6c877)";
 
 export function MonthlyAnalytics({ data }: { data: Data }) {
-  const [tab, setTab] = useState<Tab>("Heat-Calendar");
+  const [tab, setTab] = useState<Tab>("Weekday");
   const pct = data.target > 0 ? Math.min(100, Math.round((data.total / data.target) * 100)) : 0;
 
   return (
