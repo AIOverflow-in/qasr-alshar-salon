@@ -163,6 +163,7 @@ export default async function ErpBookings({
                       status={b.status}
                       source={b.source}
                       staffName={b.staff?.name ?? null}
+                      staffId={b.staffId ?? null}
                       serviceMode={b.serviceMode}
                       address={b.address}
                       customRequest={b.customRequest}

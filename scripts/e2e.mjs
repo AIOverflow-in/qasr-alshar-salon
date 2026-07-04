@@ -575,6 +575,24 @@ try {
       ok(a2 === staff2?.id && c2 === estaff.id, `edit: per-service artists swapped (svc1→${a2 === staff2?.id}, svc2→${c2 === estaff.id})`);
     }
 
+    section("Booking main Crown Artist editable + POS→booking sync");
+    {
+      const hdr = await eh("RECEPTION");
+      const s2 = await prisma.staff.findFirst({ where: { active: true, id: { not: estaff.id } }, orderBy: { order: "asc" }, select: { id: true } });
+      const bid = (await (await fetch(BASE + "/api/erp/bookings", { method: "POST", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], staffId: estaff.id, startISO: new Date(dayRange(1).start.getTime() + 16 * 3600e3).toISOString(), customerName: `${TAG}MainArt`, phone: "", email: "", serviceMode: "SALON", enforceAvailability: false }) })).json().catch(() => ({})))?.booking?.id;
+      const b1 = bid ? await prisma.booking.findUnique({ where: { id: bid }, select: { staffId: true, items: { select: { staffId: true } } } }) : null;
+      ok(b1?.staffId === estaff.id && !!b1?.items.length && b1.items.every((i) => i.staffId === estaff.id), "create: booking + items use the main artist");
+      // Edit the MAIN artist → booking.staffId updates and the service (left as "main") inherits it
+      if (bid && s2) await fetch(`${BASE}/api/erp/bookings/${bid}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ services: [{ serviceId: esvc.id }], staffId: s2.id }) });
+      const b2 = bid ? await prisma.booking.findUnique({ where: { id: bid }, select: { staffId: true, items: { select: { staffId: true } } } }) : null;
+      ok(b2?.staffId === s2?.id && b2?.items.every((i) => i.staffId === s2?.id), "edit: main artist updated + item inherits it");
+      // Bill the booking in POS with a different main artist → syncs back to the booking
+      const ahdr = await eh();
+      await fetch(BASE + "/api/erp/pos", { method: "POST", headers: ahdr, body: JSON.stringify({ bookingId: bid, clientRequestId: `${REQ}mainart-${Date.now()}`, staffId: estaff.id, lines: [{ kind: "SERVICE", description: `${TAG}MASVC`, qty: 1, unitAED: 100, staffId: estaff.id, staffIds: [estaff.id] }] }) });
+      const synced = bid ? await poll(async () => (await prisma.booking.findUnique({ where: { id: bid }, select: { staffId: true } }))?.staffId, estaff.id) : null;
+      ok(synced === estaff.id, "POS bill syncs the main artist back to the booking");
+    }
+
     section("Staff document routes: manager-only");
     {
       const st = await tok("STYLIST");

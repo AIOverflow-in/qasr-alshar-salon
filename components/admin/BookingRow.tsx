@@ -39,6 +39,7 @@ export function BookingRow({
   status,
   source,
   staffName,
+  staffId,
   serviceMode,
   address,
   customRequest,
@@ -63,6 +64,7 @@ export function BookingRow({
   status: BookingStatus;
   source?: string | null;
   staffName?: string | null;
+  staffId?: string | null;
   serviceMode?: string | null;
   address?: string | null;
   customRequest?: string | null;
@@ -109,7 +111,7 @@ export function BookingRow({
             staff={staff}
             b={{
               id, name, phone, email, whenLabel: when, startISO, status: current, source: source ?? "ONLINE",
-              serviceMode, address, customRequest, notes, staffName: staffName ?? null,
+              serviceMode, address, customRequest, notes, staffId: staffId ?? null, staffName: staffName ?? null,
               staffPhone: detail.staffPhone, enteredBy: detail.enteredBy, marketer: detail.marketer ?? null, marketerId: detail.marketerId ?? null, items: detail.items,
               orderId: orderId ?? null, invoiceNo: invoiceNo ?? null, canEditServices, canEditBill, currentServiceIds,
             }}

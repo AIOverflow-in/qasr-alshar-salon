@@ -22,7 +22,7 @@ export function BookingDetailModal({
   b: {
     id: string; name: string; phone: string; email: string; whenLabel: string; startISO: string;
     status: string; source: string; serviceMode?: string | null; address?: string | null;
-    customRequest?: string | null; notes: string | null; staffName: string | null; staffPhone: string | null;
+    customRequest?: string | null; notes: string | null; staffId?: string | null; staffName: string | null; staffPhone: string | null;
     enteredBy: string | null; marketer?: string | null; marketerId?: string | null; items: Item[]; orderId: string | null; invoiceNo: string | null;
     canEditServices: boolean; canEditBill?: boolean; currentServiceIds: string[];
   };
@@ -126,6 +126,14 @@ export function BookingDetailModal({
               initialStaff={Object.fromEntries(b.items.filter((it) => it.serviceId && it.staffId).map((it) => [it.serviceId as string, it.staffId as string]))}
               initialStartISO={b.startISO}
               initialMarketerId={b.marketerId ?? null}
+              initialStaffId={b.staffId ?? null}
+              initialNotes={b.notes}
+              initialMode={b.serviceMode ?? "SALON"}
+              initialAddress={b.address ?? null}
+              initialCustomRequest={b.customRequest ?? null}
+              initialName={b.name}
+              initialPhone={b.phone}
+              initialEmail={b.email}
             />
           )}
           {b.orderId && b.invoiceNo ? (
