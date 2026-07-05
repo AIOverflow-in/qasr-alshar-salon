@@ -12,6 +12,14 @@ export type ShopProduct = {
 
 export type CartLine = { productId: string; qty: number };
 
+/** URL-safe slug from a product name (e.g. "Brazilian Body Wave!" → "brazilian-body-wave"). */
+export function slugify(name: string): string {
+  return String(name).toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "product";
+}
+
 /**
  * A product is buyable on the storefront only if it's published (retail), active, has a positive
  * price and an image, and is in stock. Keeps unpriced/imageless drafts off the shop.

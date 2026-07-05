@@ -2,8 +2,20 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { slugify } from "@/lib/shop-core";
 
 export const dynamic = "force-dynamic";
+
+/** A storefront slug that's unique across products (appends -2, -3… on collision). */
+async function uniqueSlug(name: string, excludeId?: string): Promise<string> {
+  const base = slugify(name);
+  for (let i = 0; i < 50; i++) {
+    const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    const clash = await prisma.product.findFirst({ where: { slug: candidate, ...(excludeId ? { NOT: { id: excludeId } } : {}) }, select: { id: true } });
+    if (!clash) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
 
 // GET /api/erp/inventory?barcode=XXX — lookup a product by barcode
 export async function GET(req: Request) {
@@ -111,6 +123,7 @@ export async function PUT(req: Request) {
       retail: d.retail ?? false,
       description: d.description?.trim() || null,
       imageUrl: d.imageUrl || null,
+      slug: await uniqueSlug(d.name),
     },
   });
   // Record the opening stock as a movement for the audit trail.
@@ -145,6 +158,9 @@ export async function PATCH(req: Request) {
   if (data.name) data.name = data.name.trim();
   if (data.barcode !== undefined) data.barcode = data.barcode?.trim() || null;
   if (data.description !== undefined) data.description = data.description?.trim() || null;
-  const product = await prisma.product.update({ where: { id }, data });
+  // Backfill a stable storefront slug if the product doesn't have one yet (never changes an existing slug).
+  const current = await prisma.product.findUnique({ where: { id }, select: { slug: true, name: true } });
+  const slug = current && !current.slug ? await uniqueSlug(data.name || current.name, id) : undefined;
+  const product = await prisma.product.update({ where: { id }, data: { ...data, ...(slug ? { slug } : {}) } });
   return NextResponse.json({ ok: true, product });
 }
