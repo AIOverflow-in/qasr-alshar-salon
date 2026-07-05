@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isSellable, clampQty, orderTotal, type ShopProduct } from "./shop-core.ts";
+import { isSellable, clampQty, orderTotal, slugify, type ShopProduct } from "./shop-core.ts";
 
 const p = (o: Partial<ShopProduct> & Pick<ShopProduct, "id">): ShopProduct => ({
   name: "Item", saleAED: 100, qty: 5, retail: true, active: true, imageUrl: "https://x/i.jpg", ...o,
@@ -40,6 +40,14 @@ test("orderTotal sums sellable lines, clamps to stock, skips unsellable", () => 
   assert.equal(r.items[1].qty, 2); // b clamped 10 → stock 2
   assert.equal(r.itemCount, 5); // 3 + 2
   assert.equal(r.totalAED, 3 * 100 + 2 * 250); // 800
+});
+
+test("slugify makes clean URL slugs", () => {
+  assert.equal(slugify("Brazilian Body Wave Bundle"), "brazilian-body-wave-bundle");
+  assert.equal(slugify("Silky Straight — Indian Hair!"), "silky-straight-indian-hair");
+  assert.equal(slugify("  Spaces  &  Symbols?? "), "spaces-symbols");
+  assert.equal(slugify(""), "product");
+  assert.equal(slugify("!!!"), "product");
 });
 
 test("empty / all-unsellable cart totals to zero", () => {

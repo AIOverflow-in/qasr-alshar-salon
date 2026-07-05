@@ -701,7 +701,12 @@ try {
     section("Shop: public COD checkout + orders admin");
     {
       const jhdr = async (role) => ({ "Content-Type": "application/json", cookie: `qa_admin=${await tok(role)}` });
-      const prod = await prisma.product.create({ data: { name: `${TAG}ShopHair`, category: "Hair Extensions", saleAED: 100, qty: 5, retail: true, active: true, imageUrl: "https://example.com/h.jpg" } });
+      const pslug = `${REQ}shophair-${Date.now()}`;
+      const prod = await prisma.product.create({ data: { name: `${TAG}ShopHair`, category: "Hair Extensions", saleAED: 100, qty: 5, retail: true, active: true, imageUrl: "https://example.com/h.jpg", slug: pslug } });
+      ok((await fetch(BASE + "/shop", { redirect: "manual" })).status === 200, "public /shop page renders (200)");
+      const detail = await fetch(`${BASE}/shop/${pslug}`);
+      ok(detail.status === 200 && (await detail.text()).includes(`${TAG}ShopHair`), "public /shop/[slug] shows the product");
+      ok((await fetch(`${BASE}/shop/${REQ}nope-xyz`, { redirect: "manual" })).status === 404, "unknown /shop/[slug] → 404");
       const crid = `${REQ}shop-${Date.now()}`;
       const res = await fetch(BASE + "/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ productId: prod.id, qty: 10 }], customerName: `${TAG}Buyer`, phone: "0500000000", address: "Villa 1, Dubai", emirate: "Dubai", clientRequestId: crid }) });
       const data = await res.json().catch(() => ({}));

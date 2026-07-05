@@ -271,6 +271,7 @@ model Product {
   retail    Boolean  @default(false) // published to the customer storefront (e-commerce/aftercare)
   description String? // storefront product description
   imageUrl  String?  // storefront product image (Vercel Blob)
+  slug      String?  @unique // clean storefront URL: /shop/<slug>
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
