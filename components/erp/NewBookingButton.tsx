@@ -27,6 +27,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
   services: Service[]; staff: Staff[]; clients: Client[]; onClose: () => void; onSaved: () => void;
 }) {
   const [lines, setLines] = useState<{ serviceId: string; price: number | ""; staffId: string }[]>([]);
+  const [svcQuery, setSvcQuery] = useState("");
   const [staffId, setStaffId] = useState("");
   const [marketerId, setMarketerId] = useState("");
   const [when, setWhen] = useState("");
@@ -51,6 +52,12 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
 
   // Services not yet added — so each service can only be picked once.
   const available = useMemo(() => services.filter((s) => !lines.some((l) => l.serviceId === s.id)), [services, lines]);
+  // Search ignoring spaces/punctuation ("dread locks" finds "Dreadlocks").
+  const availableFiltered = useMemo(() => {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const q = norm(svcQuery);
+    return q ? available.filter((s) => norm(s.name).includes(q) || norm(s.category).includes(q)) : available;
+  }, [available, svcQuery]);
   const total = useMemo(() => lines.reduce((sum, l) => sum + (l.price === "" ? 0 : l.price), 0), [lines]);
 
   const addLine = (id: string) => {
@@ -200,10 +207,36 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
               </div>
             )}
             {available.length > 0 && (
-              <select className={input} value="" onChange={(e) => { if (e.target.value) addLine(e.target.value); }}>
-                <option value="">{lines.length ? "+ Add another service" : "Select service *"}</option>
-                {available.map((s) => <option key={s.id} value={s.id}>{s.name} — AED {s.priceAED}</option>)}
-              </select>
+              <div className="space-y-1.5">
+                <div className="relative">
+                  <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                  <input
+                    value={svcQuery}
+                    onChange={(e) => setSvcQuery(e.target.value)}
+                    placeholder={lines.length ? "Search to add another service…" : "Search services… *"}
+                    className="w-full rounded-lg border border-ink-line bg-ink-card py-2 pl-9 pr-3 text-sm text-cream outline-none placeholder:text-muted focus:border-gold/60"
+                  />
+                </div>
+                <div className="max-h-56 divide-y divide-ink-line/50 overflow-y-auto rounded-lg border border-ink-line/50">
+                  {availableFiltered.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => { addLine(s.id); setSvcQuery(""); }}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-start hover:bg-gold/5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-cream">{s.name}</span>
+                        <span className="text-xs text-muted">{s.category}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold text-gold">AED {s.priceAED}</span>
+                    </button>
+                  ))}
+                  {availableFiltered.length === 0 && (
+                    <div className="px-3 py-6 text-center text-sm text-muted">No services match “{svcQuery}”.</div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
           <div>
