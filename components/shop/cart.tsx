@@ -49,7 +49,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider value={value}>
       {children}
       {count > 0 && !drawer && (
-        <button onClick={() => setDrawer(true)} className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-3 font-semibold text-espresso shadow-2xl">
+        <button onClick={() => setDrawer(true)} className="fixed bottom-40 right-4 z-40 flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-3 font-semibold text-espresso shadow-2xl lg:bottom-6 lg:right-6">
           <ShoppingBag size={18} /> {count} · {aed(total)}
         </button>
       )}
@@ -116,10 +116,10 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
                     <div className="text-xs text-muted">{aed(i.priceAED)} × {i.qty}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setQty(i.id, i.qty - 1)} className="p-1 text-gold"><Minus size={13} /></button>
+                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold"><Minus size={15} /></button>
                     <span className="w-5 text-center text-sm text-cream">{i.qty}</span>
-                    <button onClick={() => setQty(i.id, i.qty + 1)} disabled={i.qty >= i.stock} className="p-1 text-gold disabled:opacity-30"><Plus size={13} /></button>
-                    <button onClick={() => setQty(i.id, 0)} className="ml-1 p-1 text-muted hover:text-red-400"><Trash2 size={13} /></button>
+                    <button onClick={() => setQty(i.id, i.qty + 1)} disabled={i.qty >= i.stock} aria-label="Increase quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold disabled:opacity-30"><Plus size={15} /></button>
+                    <button onClick={() => setQty(i.id, 0)} aria-label="Remove item" className="ml-1 grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-red-400"><Trash2 size={15} /></button>
                   </div>
                 </div>
               ))}

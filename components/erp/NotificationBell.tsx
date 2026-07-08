@@ -76,7 +76,7 @@ export function NotificationBell() {
         </button>
 
         {open && (
-          <div className="absolute right-0 mt-2 w-80 max-w-[85vw] overflow-hidden rounded-2xl border border-ink-line bg-ink shadow-2xl">
+          <div className="absolute -right-14 mt-2 w-80 max-w-[85vw] overflow-hidden rounded-2xl border border-ink-line bg-ink shadow-2xl lg:right-0">
             <div className="flex items-center justify-between border-b border-ink-line px-4 py-3">
               <span className="font-display text-cream">Recent bookings</span>
               <button onClick={() => setOpen(false)} className="text-muted hover:text-cream"><X size={16} /></button>

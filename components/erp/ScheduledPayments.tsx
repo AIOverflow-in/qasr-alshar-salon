@@ -82,14 +82,14 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
               <Plus size={14} /> Add a payment
             </button>
           ) : (
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-ink-line/60 p-3 sm:grid-cols-3">
-              <input value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} placeholder="Label (e.g. Shop rent — cheque #8)" className={`${input} col-span-2 sm:col-span-3`} />
+            <div className="grid grid-cols-1 gap-2 rounded-xl border border-ink-line/60 p-3 sm:grid-cols-3">
+              <input value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} placeholder="Label (e.g. Shop rent — cheque #8)" className={`${input} sm:col-span-3`} />
               <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className={input}>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
               </select>
               <input type="number" value={form.amountAED} onChange={(e) => setForm((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
               <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} className={`${input} [color-scheme:dark]`} />
-              <input value={form.payee} onChange={(e) => setForm((p) => ({ ...p, payee: e.target.value }))} placeholder="Payee (optional)" className={`${input} col-span-2 sm:col-span-1`} />
+              <input value={form.payee} onChange={(e) => setForm((p) => ({ ...p, payee: e.target.value }))} placeholder="Payee (optional)" className={`${input} sm:col-span-1`} />
               <select value={form.method} onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))} className={input}>
                 {METHODS.map((m) => <option key={m} value={m}>{m[0] + m.slice(1).toLowerCase()}</option>)}
               </select>
@@ -98,7 +98,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
                 Remind
                 <input type="number" value={form.remindDaysBefore} onChange={(e) => setForm((p) => ({ ...p, remindDaysBefore: e.target.value }))} className={`${input} w-16`} /> days before
               </label>
-              <div className="col-span-2 flex gap-2 sm:col-span-3">
+              <div className="flex gap-2 sm:col-span-3">
                 <button onClick={submit} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
                   {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save
                 </button>
@@ -136,7 +136,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
                     ) : (
                       <button onClick={() => start(() => setScheduledPaymentPaid(p.id, false))} title="Mark unpaid" className="rounded-lg border border-ink-line p-1.5 text-muted hover:text-cream"><Undo2 size={14} /></button>
                     )}
-                    <button onClick={() => start(() => deleteScheduledPayment(p.id))} title="Delete" className="text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                    <button onClick={() => start(() => deleteScheduledPayment(p.id))} title="Delete" aria-label="Delete payment" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
                   </div>
                 )}
               </div>

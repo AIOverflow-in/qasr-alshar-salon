@@ -174,7 +174,7 @@ function HeatCalendar({ d }: { d: Data }) {
           <div key={x.day} className="relative aspect-[4/3] rounded-md border border-ink-line/40 p-1 text-left"
             style={{ background: x.amount > 0 ? goldAlpha(x.amount / max) : "rgba(255,255,255,0.02)" }}>
             <span className={`text-[0.6rem] ${x.day === d.todayDom ? "font-bold text-gold" : "text-sand/70"}`}>{x.day}</span>
-            {x.amount > 0 && <span className="absolute bottom-1 right-1 text-[0.6rem] font-semibold text-cream">{x.amount}</span>}
+            {x.amount > 0 && <span className="absolute bottom-1 right-1 hidden text-[0.6rem] font-semibold text-cream sm:inline">{x.amount}</span>}
           </div>
         ))}
       </div>

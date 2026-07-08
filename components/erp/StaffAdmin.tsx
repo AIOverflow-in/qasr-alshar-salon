@@ -90,7 +90,7 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
                     {expiringSoon(d.expiry) && <AlertTriangle size={11} className="mr-1 inline" />}exp {fmtDate(d.expiry)}
                   </span>
                 )}
-                <button onClick={() => removeDoc(d.id)} disabled={pending} className="text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                <button onClick={() => removeDoc(d.id)} disabled={pending} aria-label="Remove document" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
               </div>
             </li>
           ))}
@@ -128,7 +128,7 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
           {leaves.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0 text-cream">{fmtDate(l.startDate)} – {fmtDate(l.endDate)} <span className="text-xs text-muted">· {l.days}d · {l.type.toLowerCase()}{l.note ? ` · ${l.note}` : ""}</span></span>
-              <button onClick={() => removeLeave(l.id)} disabled={pending} className="text-muted hover:text-red-400"><Trash2 size={14} /></button>
+              <button onClick={() => removeLeave(l.id)} disabled={pending} aria-label="Remove leave" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
             </li>
           ))}
           {leaves.length === 0 && <li className="py-3 text-center text-xs text-muted">No leave recorded.</li>}

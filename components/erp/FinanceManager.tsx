@@ -52,12 +52,12 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
         <p className="text-xs text-muted">Rent, utilities, salaries, visas & supplies. Feeds the dividend calc.</p>
 
         {canEdit && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <select value={exp.category} onChange={(e) => setExp((p) => ({ ...p, category: e.target.value }))} className={`${input} col-span-1`}>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <select value={exp.category} onChange={(e) => setExp((p) => ({ ...p, category: e.target.value }))} className={input}>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
             </select>
             <input type="date" value={exp.incurredOn} onChange={(e) => setExp((p) => ({ ...p, incurredOn: e.target.value }))} className={input} />
-            <input value={exp.description} onChange={(e) => setExp((p) => ({ ...p, description: e.target.value }))} placeholder="Description" className={`${input} col-span-2`} />
+            <input value={exp.description} onChange={(e) => setExp((p) => ({ ...p, description: e.target.value }))} placeholder="Description" className={`${input} sm:col-span-2`} />
             <input type="number" value={exp.amountAED} onChange={(e) => setExp((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
             <button onClick={submitExpense} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
               {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add
@@ -76,7 +76,7 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(e.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteExpense(e.id))} className="text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                  <button onClick={() => start(() => deleteExpense(e.id))} aria-label="Delete expense" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>
@@ -90,11 +90,11 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
         <p className="text-xs text-muted">Contributions tracked against dividends.</p>
 
         {canEdit && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <input value={cap.investor} onChange={(e) => setCap((p) => ({ ...p, investor: e.target.value }))} placeholder="Investor name" className={`${input} col-span-2`} />
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <input value={cap.investor} onChange={(e) => setCap((p) => ({ ...p, investor: e.target.value }))} placeholder="Investor name" className={`${input} sm:col-span-2`} />
             <input type="number" value={cap.amountAED} onChange={(e) => setCap((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
             <input type="date" value={cap.contributedOn} onChange={(e) => setCap((p) => ({ ...p, contributedOn: e.target.value }))} className={input} />
-            <button onClick={submitCapital} disabled={pending} className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
+            <button onClick={submitCapital} disabled={pending} className="flex items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-2 text-sm font-semibold text-espresso disabled:opacity-50 sm:col-span-2">
               {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add contribution
             </button>
           </div>
@@ -111,7 +111,7 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(c.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteCapital(c.id))} className="text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                  <button onClick={() => start(() => deleteCapital(c.id))} aria-label="Delete capital entry" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>

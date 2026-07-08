@@ -136,7 +136,7 @@ export function ErpShell({
       <div className="lg:flex">
         <aside className="sticky top-0 hidden h-svh w-60 shrink-0 border-r border-ink-line p-4 lg:block">{sidebar}</aside>
         {open && (
-          <aside className="fixed inset-0 z-50 bg-ink/98 p-4 lg:hidden">
+          <aside className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-ink/98 p-4 lg:hidden">
             <div className="mb-4 flex justify-end"><button onClick={() => setOpen(false)} className="text-cream"><X /></button></div>
             {sidebar}
           </aside>
