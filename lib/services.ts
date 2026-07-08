@@ -86,15 +86,17 @@ export const CATEGORIES: ServiceCategory[] = [
   },
   {
     slug: "locks",
-    name: "Locks",
-    tagline: "Artificial, human-hair, sister & micro loc installations",
+    name: "Locs & Dreadlocks",
+    tagline: "Dreadlocks, artificial, human-hair, sister & micro locs",
     intro:
-      "Start your loc journey with a clean, deliberate installation. We offer artificial and human-hair locs, plus precise sister locks and micro locks for a fine, versatile grid. Every install is sectioned by hand for even, healthy locs that mature beautifully. Retwists and maintenance are available on request.",
+      "Start your dreadlock journey with a clean, deliberate installation. We offer artificial and human-hair locs (dreadlocks), plus precise sister locks and micro locks for a fine, versatile grid. Every install is sectioned by hand for even, healthy locs that mature beautifully. Retwists, crochet reattach and maintenance are available on request.",
     keywords: [
+      "dreadlocks Dubai",
       "locs Dubai",
       "sister locks Dubai",
       "micro locks Dubai",
       "loc installation Dubai",
+      "dreadlock retwist Dubai",
       "natural hair Dubai",
     ],
     image: "/work/hair/braiding-locs-updo-gold-charms.jpg",

@@ -2,13 +2,14 @@
  * Sync the DB `Service` table to the canonical catalogue in lib/services.ts.
  *
  *   Upsert every catalogue item by slug (create or update → active: true).
- *   Deactivate (active: false — NEVER delete) any currently-active service
- *   whose slug is not in the catalogue, so the menu matches the price list
- *   while past bookings/invoices/analytics that reference the old rows stay intact.
+ *   By default it NEVER hides or deletes anything else — services that predate
+ *   the catalogue (e.g. the old menu) stay live and bookable. Pass --prune to
+ *   also deactivate (active: false — never delete) services not in the catalogue.
  *
  * Usage:
  *   tsx scripts/sync-services.ts --dry     # preview only, no writes
- *   tsx scripts/sync-services.ts           # apply
+ *   tsx scripts/sync-services.ts           # apply (upsert-only, hides nothing)
+ *   tsx scripts/sync-services.ts --prune   # also deactivate non-catalogue rows
  *
  * Point it at a DB with the standard env (.env.local for the clone, or an
  * explicit DATABASE_URL). It is idempotent — safe to run repeatedly.
@@ -19,6 +20,7 @@ import { slugify } from "../lib/utils";
 
 const prisma = new PrismaClient();
 const DRY = process.argv.includes("--dry");
+const PRUNE = process.argv.includes("--prune"); // opt-in: deactivate non-catalogue services
 
 type Row = {
   slug: string;
@@ -69,10 +71,11 @@ async function main() {
 
   const toCreate = rows.filter((r) => !bySlug.has(r.slug));
   const toUpdate = rows.filter((r) => bySlug.has(r.slug));
-  const toDeactivate = existing.filter((e) => e.active && !newSlugs.has(e.slug));
+  // Only prune when explicitly asked; by default nothing is hidden.
+  const toDeactivate = PRUNE ? existing.filter((e) => e.active && !newSlugs.has(e.slug)) : [];
   const priceChanges = toUpdate.filter((r) => bySlug.get(r.slug)!.priceAED !== r.priceAED);
 
-  console.log(`\n${DRY ? "DRY RUN — no writes" : "APPLYING"}`);
+  console.log(`\n${DRY ? "DRY RUN — no writes" : "APPLYING"}${PRUNE ? " (--prune)" : " (upsert-only, hides nothing)"}`);
   console.log(`  catalogue items : ${rows.length}`);
   console.log(`  new (create)    : ${toCreate.length}`);
   console.log(`  existing (update): ${toUpdate.length}`);
