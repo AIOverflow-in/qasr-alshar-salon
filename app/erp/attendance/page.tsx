@@ -1,0 +1,34 @@
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth";
+import { AttendanceManager } from "@/components/erp/AttendanceManager";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Attendance — Qasr Alshar ERP" };
+
+export default async function AttendancePage() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
+
+  const [punches, staff] = await Promise.all([
+    prisma.attendancePunch.findMany({
+      orderBy: { punchedAt: "desc" }, take: 200,
+      select: { id: true, pin: true, punchedAt: true, status: true, verifyMode: true, staff: { select: { name: true } } },
+    }),
+    prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, biometricPin: true } }),
+  ]);
+  const unmappedPins = [...new Set(punches.filter((p) => !p.staff).map((p) => p.pin))];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-3xl text-cream">Attendance</h1>
+        <p className="text-sm text-muted">Live punches from the fingerprint terminal. Map each staff member&apos;s device PIN to link their scans.</p>
+      </div>
+      <AttendanceManager
+        punches={punches.map((p) => ({ id: p.id, pin: p.pin, punchedAt: p.punchedAt.toISOString(), status: p.status, verifyMode: p.verifyMode, staffName: p.staff?.name ?? null }))}
+        staff={staff.map((s) => ({ id: s.id, name: s.name, pin: s.biometricPin }))}
+        unmappedPins={unmappedPins}
+      />
+    </div>
+  );
+}

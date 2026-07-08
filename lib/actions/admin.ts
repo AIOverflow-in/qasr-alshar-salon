@@ -369,3 +369,18 @@ export async function setUserPassword(id: string, password: string) {
   revalidatePath("/erp/users");
   return { ok: true };
 }
+
+/** Map a biometric-terminal user ID (PIN) to a staff member; backfills that PIN's existing punches. */
+export async function setStaffBiometricPin(staffId: string, pin: string) {
+  await requireManager();
+  const clean = pin.trim();
+  await prisma.$transaction(async (tx) => {
+    // A PIN belongs to one staff — free it from anyone else first (biometricPin is unique).
+    if (clean) await tx.staff.updateMany({ where: { biometricPin: clean, NOT: { id: staffId } }, data: { biometricPin: null } });
+    await tx.staff.update({ where: { id: staffId }, data: { biometricPin: clean || null } });
+    // Attach already-received punches for this PIN to the staff (or detach if cleared).
+    if (clean) await tx.attendancePunch.updateMany({ where: { pin: clean, staffId: null }, data: { staffId } });
+  });
+  revalidatePath("/erp/attendance");
+  revalidatePath(`/erp/staff/${staffId}`);
+}

@@ -22,6 +22,7 @@ import {
   UserCog,
   Sparkles,
   FolderLock,
+  Fingerprint,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { NotificationBell } from "@/components/erp/NotificationBell";
@@ -38,6 +39,7 @@ const NAV = [
   { href: "/erp/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/staff", label: "Staff", icon: Scissors, roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/erp/attendance", label: "Attendance", icon: Fingerprint, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/services", label: "Services", icon: Sparkles, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/staff/me", label: "My Work", icon: Scissors, roles: ["STYLIST"] },
   { href: "/erp/finance", label: "Finance", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
