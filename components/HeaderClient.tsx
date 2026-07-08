@@ -98,13 +98,13 @@ export function HeaderClient({
       {/* mobile drawer */}
       <div
         className={cn(
-          "fixed inset-0 top-[4.5rem] z-40 origin-top bg-ink/97 backdrop-blur-xl transition-all duration-300 lg:hidden",
+          "fixed inset-0 top-[4.5rem] z-40 origin-top overflow-y-auto overscroll-contain bg-ink/97 backdrop-blur-xl transition-all duration-300 lg:hidden",
           open
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
         )}
       >
-        <nav className="container-x flex flex-col gap-1 py-8">
+        <nav className="container-x flex flex-col gap-1 pt-8 pb-28">
           {[{ href: "/", label: nav.home }, ...links].map((l, i) => (
             <Link
               key={l.href}

@@ -38,7 +38,7 @@ export function LanguageToggle({
           key={l}
           onClick={() => switchTo(l)}
           className={cn(
-            "rounded-full px-3 py-1.5 font-medium uppercase tracking-wider transition-colors",
+            "rounded-full px-3 py-2 font-medium uppercase tracking-wider transition-colors sm:py-1.5",
             locale === l ? "bg-gold-gradient text-espresso" : "text-sand hover:text-gold"
           )}
         >

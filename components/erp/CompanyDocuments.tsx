@@ -64,7 +64,7 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
             <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className={input}>
               {CATEGORIES.map((c) => <option key={c} value={c}>{label(c)}</option>)}
             </select>
-            <input ref={fileRef} type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className={`${input} file:mr-3 file:rounded file:border-0 file:bg-gold/20 file:px-3 file:py-1 file:text-gold`} />
+            <input ref={fileRef} type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className={`${input} w-full min-w-0 file:mr-3 file:rounded file:border-0 file:bg-gold/20 file:px-3 file:py-1 file:text-gold`} />
           </div>
           <button onClick={submit} disabled={busy} className="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload
