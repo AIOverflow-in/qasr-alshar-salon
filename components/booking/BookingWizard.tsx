@@ -153,9 +153,13 @@ export function BookingWizard({
       if (!map.has(s.category)) map.set(s.category, []);
       map.get(s.category)!.push(s);
     }
-    return [...map.entries()].sort(
-      (a, b) => categoryOrder.indexOf(a[0]) - categoryOrder.indexOf(b[0])
-    );
+    // Ordered by the catalogue; categories not in it (e.g. retained legacy
+    // services) sort after the curated menu rather than jumping to the top.
+    const rank = (c: string) => {
+      const i = categoryOrder.indexOf(c);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...map.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
   }, [services, query, categoryOrder]);
 
   async function submit() {
