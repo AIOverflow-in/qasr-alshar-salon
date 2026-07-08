@@ -80,6 +80,7 @@ async function cleanupSweep() {
   const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
   const sp = await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: TAG } } });
   const so = await prisma.shopOrder.deleteMany({ where: { customerName: { startsWith: TAG } } });
+  await prisma.attendancePunch.deleteMany({ where: { OR: [{ pin: { startsWith: REQ } }, { deviceSn: { startsWith: "E2E" } }] } });
   const tagProducts = await prisma.product.findMany({ where: { name: { startsWith: TAG } }, select: { id: true } });
   let prodCount = 0;
   if (tagProducts.length) {
@@ -698,6 +699,28 @@ try {
       if (pid) { await prisma.stockMovement.deleteMany({ where: { productId: pid } }); await prisma.product.delete({ where: { id: pid } }); }
     }
 
+    section("Biometric attendance: ADMS ingest + PIN mapping");
+    {
+      const sn = "E2E-DEVICE-1";
+      const hs = await fetch(`${BASE}/iclock/cdata?SN=${sn}&options=all`);
+      ok(hs.status === 200 && (await hs.text()).includes("GET OPTION FROM"), "ADMS handshake returns device options");
+      ok((await fetch(`${BASE}/iclock/cdata`, { method: "POST", body: "x" })).status === 401, "ADMS push without a device SN is rejected (401)");
+      const st = await prisma.staff.create({ data: { name: `${TAG}Bio`, role: "Crown Artist", biometricPin: `${REQ}pin1` } });
+      const body = `${REQ}pin1\t2026-07-08 10:00:00\t0\t1\n${REQ}pinX\t2026-07-08 10:05:00\t0\t1`;
+      const push = await fetch(`${BASE}/iclock/cdata?SN=${sn}&table=ATTLOG`, { method: "POST", headers: { "Content-Type": "text/plain" }, body });
+      ok(push.status === 200 && (await push.text()).trim() === "OK", "ADMS push accepted (OK)");
+      const mapped = await poll(async () => (await prisma.attendancePunch.findFirst({ where: { pin: `${REQ}pin1` }, select: { staffId: true } }))?.staffId, st.id);
+      ok(mapped === st.id, "punch mapped to staff via biometric PIN");
+      const unmapped = await prisma.attendancePunch.findFirst({ where: { pin: `${REQ}pinX` }, select: { staffId: true } });
+      ok(!!unmapped && unmapped.staffId === null, "unknown PIN stored unmapped (staffId null)");
+      await fetch(`${BASE}/iclock/cdata?SN=${sn}&table=ATTLOG`, { method: "POST", headers: { "Content-Type": "text/plain" }, body });
+      ok((await prisma.attendancePunch.count({ where: { pin: `${REQ}pin1` } })) === 1, "re-pushed punch is idempotent (no duplicate)");
+      ok((await codeTok("/erp/attendance", await tok("ADMIN"))) === "200", "attendance page: admin 200");
+      ok((await codeTok("/erp/attendance", await tok("RECEPTION"))) === "REDIR", "attendance page: reception redirected");
+      await prisma.attendancePunch.deleteMany({ where: { pin: { startsWith: REQ } } });
+      await prisma.staff.delete({ where: { id: st.id } });
+    }
+
     section("Shop: public COD checkout + orders admin");
     {
       const jhdr = async (role) => ({ "Content-Type": "application/json", cookie: `qa_admin=${await tok(role)}` });
@@ -875,7 +898,8 @@ try {
       + await prisma.adminUser.count({ where: { email: { startsWith: TAG } } })
       + await prisma.scheduledPayment.count({ where: { label: { startsWith: TAG } } })
       + await prisma.product.count({ where: { name: { startsWith: TAG } } })
-      + await prisma.shopOrder.count({ where: { customerName: { startsWith: TAG } } });
+      + await prisma.shopOrder.count({ where: { customerName: { startsWith: TAG } } })
+      + await prisma.attendancePunch.count({ where: { pin: { startsWith: REQ } } });
     console.log(residue === 0 ? "✅ Zero test residue in DB." : `❌ RESIDUE REMAINS: ${residue} rows still tagged.`);
     if (residue !== 0) fail++;
   } catch (e) { console.error("cleanup sweep error:", e.message); fail++; }

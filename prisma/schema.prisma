@@ -192,6 +192,7 @@ model Staff {
   commissionPct Int     @default(40) // stylist sales split %
   referralPct   Int     @default(5)
   joinedOn   DateTime?  // hire date — drives annual leave entitlement
+  biometricPin String?  @unique // this staff's user ID on the ZKTeco attendance terminal
   active     Boolean    @default(true)
   order      Int        @default(0)
   createdAt  DateTime   @default(now())
@@ -203,8 +204,30 @@ model Staff {
   payrollPayments PayrollPayment[]
   documents       StaffDocument[]
   leaves          StaffLeave[]
+  punches         AttendancePunch[]
 
   @@index([active])
+}
+
+/// A raw attendance punch pushed by the ZKTeco terminal (ADMS push protocol). Kept even when the
+/// device PIN isn't mapped to a staff yet (staffId null) so nothing is lost; `raw` keeps the original
+/// line for debugging device-specific formats.
+model AttendancePunch {
+  id         String   @id @default(cuid())
+  deviceSn   String
+  pin        String   // device user ID
+  staffId    String?  // resolved from Staff.biometricPin at ingest
+  punchedAt  DateTime
+  status     String?  // device state code (check-in/out etc., raw)
+  verifyMode String?  // 1=fingerprint, 0=password, 2=card… (raw)
+  raw        String?  // original tab-separated record (device-quirk debugging)
+  createdAt  DateTime @default(now())
+
+  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@unique([deviceSn, pin, punchedAt]) // idempotent: re-pushed punches don't duplicate
+  @@index([staffId, punchedAt])
+  @@index([punchedAt])
 }
 
 /// A staff personnel document (passport/visa/etc). File lives in Vercel Blob; we keep URL + expiry.
