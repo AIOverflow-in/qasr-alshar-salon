@@ -142,11 +142,12 @@ export function BookingWizard({
   }, [step, date, totalDuration, selected.length, stylist]);
 
   const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // Match ignoring spaces/punctuation so "dread locks" finds "Dreadlocks",
+    // "blow dry" finds "Blowdry", etc.
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const q = norm(query);
     const filtered = q
-      ? services.filter(
-          (s) => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)
-        )
+      ? services.filter((s) => norm(s.name).includes(q) || norm(s.category).includes(q))
       : services;
     const map = new Map<string, Service[]>();
     for (const s of filtered) {
