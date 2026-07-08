@@ -86,28 +86,36 @@ async function main() {
     return;
   }
 
-  for (const r of rows) {
-    await prisma.service.upsert({
-      where: { slug: r.slug },
-      update: {
-        name: r.name, category: r.category, categorySlug: r.categorySlug,
-        priceAED: r.priceAED, durationMin: r.durationMin, description: r.description,
-        order: r.order, active: true,
-      },
-      create: {
-        slug: r.slug, name: r.name, category: r.category, categorySlug: r.categorySlug,
-        priceAED: r.priceAED, durationMin: r.durationMin, description: r.description,
-        order: r.order,
-      },
-    });
-  }
-
-  if (toDeactivate.length) {
-    await prisma.service.updateMany({
-      where: { slug: { in: toDeactivate.map((e) => e.slug) } },
-      data: { active: false },
-    });
-  }
+  // All-or-nothing: wrap the upserts + deactivation in one interactive
+  // transaction so a mid-run failure never leaves the live menu half-updated
+  // (mixed old/new prices, removed services still bookable). The generous
+  // timeout covers ~150 sequential upserts on a cold Neon connection.
+  await prisma.$transaction(
+    async (tx) => {
+      for (const r of rows) {
+        await tx.service.upsert({
+          where: { slug: r.slug },
+          update: {
+            name: r.name, category: r.category, categorySlug: r.categorySlug,
+            priceAED: r.priceAED, durationMin: r.durationMin, description: r.description,
+            order: r.order, active: true,
+          },
+          create: {
+            slug: r.slug, name: r.name, category: r.category, categorySlug: r.categorySlug,
+            priceAED: r.priceAED, durationMin: r.durationMin, description: r.description,
+            order: r.order,
+          },
+        });
+      }
+      if (toDeactivate.length) {
+        await tx.service.updateMany({
+          where: { slug: { in: toDeactivate.map((e) => e.slug) } },
+          data: { active: false },
+        });
+      }
+    },
+    { timeout: 120_000, maxWait: 15_000 }
+  );
 
   const active = await prisma.service.count({ where: { active: true } });
   const total = await prisma.service.count();

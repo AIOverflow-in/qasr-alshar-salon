@@ -43,9 +43,9 @@ export default async function HomePage() {
     })
     .catch(() => []);
 
-  const featured = ["braiding", "henna", "hair", "nails", "makeup", "weaving"]
-    .map((s) => CATEGORIES.find((c) => c.slug === s)!)
-    .filter(Boolean);
+  const featured = ["braiding-styles", "hair-treatment", "hands", "qasr-glam", "henna", "weaving"]
+    .map((s) => CATEGORIES.find((c) => c.slug === s))
+    .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c));
 
   const shopProducts = await getPublishedProducts().catch(() => []);
 

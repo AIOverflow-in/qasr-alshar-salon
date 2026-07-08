@@ -13,18 +13,33 @@ import { aed } from "@/lib/utils";
 import { pageMeta, breadcrumbSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 
+// Keyed by category slug. Kept in sync with lib/services.ts slugs — a unit test
+// (lib/services.test.ts) asserts every key here is a real category slug so a
+// future rename can't silently blank a category's "Our Work" gallery.
 const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
-  braiding: [
-    { src: "/work/hair/braiding-knotless-boho-curly-ends.jpg",    label: "Knotless Boho Braids" },
+  "cornrow-styles": [
     { src: "/work/hair/braiding-cornrows-geometric-crown.jpg",    label: "Geometric Crown Cornrows" },
-    { src: "/work/hair/braiding-locs-updo-gold-charms.jpg",       label: "Locs Updo with Gold Charms" },
     { src: "/work/hair/braiding-cornrow-updo-bun.jpg",            label: "Cornrow Updo Bun" },
-    { src: "/work/hair/braiding-knotless-box-gold-beads.jpg",     label: "Knotless Box with Gold Beads" },
-    { src: "/work/hair/braiding-starburst-geometric-top.jpg",     label: "Starburst Geometric Braids" },
     { src: "/work/hair/braiding-cornrows-feedin-long-portrait.jpg", label: "Feed-In Cornrows" },
-    { src: "/work/hair/braiding-fulani-cornrow-box-braids-girl.jpg", label: "Fulani + Box Braids" },
+    { src: "/work/hair/braiding-cornrows-updo-closeup.jpg",       label: "Cornrow Updo Close-Up" },
+    { src: "/work/hair/braiding-cornrow-updo-two-tone.jpg",       label: "Two-Tone Cornrow Updo" },
+    { src: "/work/hair/braiding-cornrow-geometric-dome-full-head.jpg", label: "Geometric Dome Cornrows" },
   ],
-  nails: [
+  "braiding-styles": [
+    { src: "/work/hair/braiding-knotless-boho-curly-ends.jpg",    label: "Knotless Boho Braids" },
+    { src: "/work/hair/braiding-knotless-box-gold-beads.jpg",     label: "Knotless Box with Gold Beads" },
+    { src: "/work/hair/braiding-fulani-cornrow-box-braids-girl.jpg", label: "Fulani + Box Braids" },
+    { src: "/work/hair/braiding-knotless-updo-bun.jpg",           label: "Knotless Updo Bun" },
+    { src: "/work/hair/braiding-knotless-boho-curly-bob-medium.jpg", label: "Knotless Boho Curly Bob" },
+    { src: "/work/hair/braiding-knotless-feedin-gold-cuffs.jpg",  label: "Knotless Feed-In Gold Cuffs" },
+  ],
+  locks: [
+    { src: "/work/hair/braiding-locs-updo-gold-charms.jpg",       label: "Locs Updo with Gold Charms" },
+    { src: "/work/hair/braiding-locs-updo-twisted.jpg",           label: "Twisted Locs Updo" },
+    { src: "/work/hair/braiding-locs-updo-bun-gold-star-charms.jpg", label: "Locs Bun with Star Charms" },
+    { src: "/work/hair/braiding-locs-twisted-updo-brown.jpg",     label: "Twisted Locs Updo Brown" },
+  ],
+  hands: [
     { src: "/work/nails/nail-art-gold-chrome-french-tips.jpg",    label: "Gold Chrome French Tips" },
     { src: "/work/nails/nail-art-leopard-print-stiletto.jpg",     label: "Leopard Print Stiletto" },
     { src: "/work/nails/nail-art-red-aurora-stiletto.jpg",        label: "Red Aurora Stiletto" },
@@ -33,6 +48,12 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
     { src: "/work/nails/nail-art-magenta-gold-mani-pedi.jpg",     label: "Magenta & Gold Mani-Pedi" },
     { src: "/work/nails/nail-art-pink-glitter-french-tip.jpg",    label: "Pink Glitter French Tip" },
     { src: "/work/nails/nail-art-red-glossy-coffin.jpg",          label: "Red Glossy Coffin" },
+  ],
+  podology: [
+    { src: "/work/nails/pedicure-french-tip-clean.jpg",           label: "French-Tip Pedicure" },
+    { src: "/work/nails/pedicure-french-tip-white-both-feet.jpg", label: "Classic White French Pedicure" },
+    { src: "/work/nails/pedicure-french-tip-toes.jpg",            label: "Neat French-Tip Toes" },
+    { src: "/work/nails/nail-art-pink-ombre-mani-pedi.jpg",       label: "Pink Ombré Mani & Pedi" },
   ],
   henna: [
     { src: "/work/henna/henna-floral-arabesque-both-hands.jpg",   label: "Arabesque Both Hands" },

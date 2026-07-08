@@ -45,3 +45,20 @@ test("premium pricing is reflected (Soft Glam at new tier, not the old 140)", ()
   const soft = glam.items.find((i) => i.name === "Soft Glam");
   assert.ok(soft && soft.price === 700, "Soft Glam should be AED 700 (net) in the new menu");
 });
+
+// Guards against a future category-slug rename silently blanking a section.
+// Keep in sync with the slugs hardcoded in app/page.tsx (homepage "Our Services"
+// grid) and GALLERY_PHOTOS in app/services/[category]/page.tsx.
+test("slugs referenced by the homepage grid all exist", () => {
+  const slugs = new Set(CATEGORIES.map((c) => c.slug));
+  for (const s of ["braiding-styles", "hair-treatment", "hands", "qasr-glam", "henna", "weaving"]) {
+    assert.ok(slugs.has(s), `homepage features "${s}" but no such category exists`);
+  }
+});
+
+test("slugs keyed by the category 'Our Work' gallery all exist", () => {
+  const slugs = new Set(CATEGORIES.map((c) => c.slug));
+  for (const s of ["cornrow-styles", "braiding-styles", "locks", "hands", "podology", "henna"]) {
+    assert.ok(slugs.has(s), `gallery keyed on "${s}" but no such category exists`);
+  }
+});
