@@ -1,40 +1,46 @@
 import "server-only";
 import OpenAI from "openai";
+import { put } from "@vercel/blob";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
 import { SITE } from "./site";
+import { blogImagePrompt, pickHeroImage } from "./blog-image-core";
 
 const client = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
 const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-4.1";
+const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 
-/** Map a topic to the most relevant existing hero image. */
-function pickHeroImage(text: string): string {
-  const t = text.toLowerCase();
-  const map: [string, string][] = [
-    ["henna", "/gallery/henna-feature.jpg"],
-    ["braid", "/gallery/braiding.jpg"],
-    ["loc", "/gallery/braiding.jpg"],
-    ["sisterlock", "/gallery/braiding.jpg"],
-    ["weav", "/gallery/weaving.jpg"],
-    ["wig", "/gallery/weaving.jpg"],
-    ["nail", "/gallery/nails.jpg"],
-    ["manicure", "/gallery/nails.jpg"],
-    ["facial", "/gallery/facial.jpg"],
-    ["skin", "/gallery/facial.jpg"],
-    ["makeup", "/gallery/makeup.jpg"],
-    ["bridal", "/gallery/makeup.jpg"],
-    ["lash", "/gallery/lashes.jpg"],
-    ["keratin", "/gallery/hair.jpg"],
-    ["botox", "/gallery/hair.jpg"],
-    ["hair", "/gallery/hair.jpg"],
-    ["wax", "/gallery/waxing.jpg"],
-    ["massage", "/gallery/massage.jpg"],
-  ];
-  for (const [k, img] of map) if (t.includes(k)) return img;
-  return "/gallery/hero.jpg";
+/**
+ * Generate one thematic hero image for a post and store it on Vercel Blob.
+ * Best-effort: returns the Blob URL, or null on any failure (missing key/token,
+ * timeout, API error) so the caller can fall back to a static image. The image
+ * is created once at post creation and cached forever — no per-view cost.
+ */
+async function generateHeroImage(topicText: string, slug: string): Promise<string | null> {
+  if (!client) return null;
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null; // nowhere to store it → use fallback
+  try {
+    // Keep under the cron's 60s budget (text-gen runs first); on timeout we fall back.
+    const result = await client.images.generate(
+      { model: IMAGE_MODEL, prompt: blogImagePrompt(topicText), size: "1536x1024", quality: "medium", n: 1 },
+      { timeout: 35_000 }
+    );
+    const b64 = result.data?.[0]?.b64_json;
+    if (!b64) return null;
+    const blob = await put(`blog-images/${slug}.png`, Buffer.from(b64, "base64"), {
+      access: "public",
+      contentType: "image/png",
+      addRandomSuffix: true,
+    });
+    console.log(`[openai] generated hero image for "${slug}" → ${blob.url}`);
+    return blob.url;
+  } catch (e) {
+    console.error("[openai] hero image generation failed, using fallback:", e);
+    return null;
+  }
 }
 
 type Generated = {
@@ -135,6 +141,11 @@ Return ONLY JSON with keys:
   const readingMinutes = Math.max(1, Math.round(words / 200));
   const slug = await uniqueSlug(parsed.title);
 
+  // Thematic hero: a generated on-topic image (stored on Blob), else a
+  // matching static gallery image so a post always has a relevant hero.
+  const heroText = `${parsed.title} ${parsed.tags?.join(" ") ?? ""} ${parsed.category ?? ""}`;
+  const heroImage = (await generateHeroImage(heroText, slug)) ?? pickHeroImage(heroText);
+
   const post = await prisma.blogPost.create({
     data: {
       title: parsed.title.slice(0, 120),
@@ -144,7 +155,7 @@ Return ONLY JSON with keys:
       contentMarkdown: parsed.contentMarkdown,
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : [],
       category: parsed.category || "Beauty Tips",
-      heroImage: pickHeroImage(`${parsed.title} ${parsed.tags?.join(" ") ?? ""}`),
+      heroImage,
       readingMinutes,
       status: "PUBLISHED",
       source: "AI",
