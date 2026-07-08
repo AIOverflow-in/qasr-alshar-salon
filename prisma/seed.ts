@@ -42,6 +42,7 @@ async function main() {
           categorySlug: cat.slug,
           priceAED: item.price,
           durationMin: item.duration,
+          description: item.note ?? null,
           order: order++,
           active: true,
         },
@@ -52,6 +53,7 @@ async function main() {
           categorySlug: cat.slug,
           priceAED: item.price,
           durationMin: item.duration,
+          description: item.note ?? null,
           order: order++,
         },
       });
