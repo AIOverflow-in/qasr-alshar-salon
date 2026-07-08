@@ -168,15 +168,25 @@ export default async function CategoryPage({
                   {cat.items.map((item) => (
                     <li
                       key={item.name}
-                      className="flex items-center justify-between gap-4 py-3"
+                      className="flex items-start justify-between gap-4 py-3"
                     >
-                      <span className="text-sand">{item.name}</span>
-                      <span className="font-semibold text-cream">
+                      <span className="text-sand">
+                        {item.name}
+                        {item.note ? (
+                          <span className="mt-0.5 block text-xs text-muted">
+                            {item.note}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 font-semibold text-cream">
                         {aed(item.price, item.plus)}
                       </span>
                     </li>
                   ))}
                 </ul>
+                <p className="mt-4 text-xs text-muted">
+                  Prices are exclusive of 5% VAT, added at checkout.
+                </p>
                 <div className="mt-6">
                   <ButtonLink href={`/book?category=${cat.slug}`} className="w-full sm:w-auto">
                     Book {cat.name} <ArrowRight size={18} />

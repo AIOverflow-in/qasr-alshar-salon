@@ -175,7 +175,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
 
   const site = SITE.url.replace(/^https?:\/\//, "");
   const terms = [
-    "Terms: Prices include 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
+    "Terms: Prices are exclusive of VAT; 5% VAT is added as shown above. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
     "Cancellations within 24 hours and no-shows may be charged. Home-service bookings require prior confirmation.",
     `Full terms & conditions: ${site}/terms`,
   ];
