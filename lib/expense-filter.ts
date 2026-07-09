@@ -3,6 +3,13 @@ import type { Prisma } from "@prisma/client";
 export const EXPENSE_CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+/**
+ * Categories shown in the reception Expenses tab — kept to the bare minimum for
+ * day-to-day items. The full set (rent, utilities, salaries, …) lives in the
+ * Finance tab, which is owner-only. Both write to the same ExpenseCategory enum.
+ */
+export const EXPENSE_TAB_CATEGORIES = ["MAINTENANCE", "SUPPLIES", "OTHER"] as const;
+
 export function isExpenseCategory(c: string | null | undefined): c is ExpenseCategory {
   return !!c && (EXPENSE_CATEGORIES as readonly string[]).includes(c);
 }

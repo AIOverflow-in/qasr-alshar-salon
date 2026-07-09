@@ -161,6 +161,11 @@ try {
       ok(pg.text.includes("/api/erp/expenses/export"), "expenses: CSV export link shown");
       ok(pg.text.includes("All ·"), "expenses: category breakdown chips shown");
       ok(pg.text.includes(`${TAG}RCPT`) && pg.text.includes("receipt"), "expenses: receipt preview trigger renders");
+      // Expenses tab is limited to Maintenance/Supplies/Other; Finance keeps the full set.
+      ok(pg.text.includes('value="MAINTENANCE"') && !pg.text.includes('value="RENT"'), "expenses tab: category picker limited (Maintenance/Supplies/Other, no Rent)");
+      const fin = await body("/erp/finance", "ADMIN");
+      ok(fin.text.includes('value="RENT"') && fin.text.includes('value="UTILITIES"'), "finance tab: full category set (Rent, Utilities, …)");
+      ok(fin.text.includes("Email daily digest"), "finance: on-demand digest button shown to owner");
       ok((await code("/erp/expenses?month=2020-01", "ADMIN")) === "200", "expenses: past-month view renders");
       ok((await code("/erp/expenses?category=SUPPLIES&q=abc", "RECEPTION")) === "200", "expenses: category+search filter renders");
       await prisma.expense.deleteMany({ where: { id: rc.id } });
