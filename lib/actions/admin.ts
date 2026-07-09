@@ -12,6 +12,7 @@ import {
 import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
 import { inclusiveDays } from "@/lib/leave";
+import { normalizeNewStaff } from "@/lib/staff-core";
 import { del } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import type { BookingStatus, Role } from "@prisma/client";
@@ -131,6 +132,29 @@ export async function createService(data: { name: string; category: string; pric
 }
 
 // ---- staff + commissions ----
+/** Onboard a new staff member (payroll/commission entity, not a login account). Managers only. */
+export async function createStaff(input: {
+  name: string;
+  role?: string;
+  phone?: string | null;
+  salaryAED?: number;
+  commissionPct?: number;
+  referralPct?: number;
+  joinedOn?: string | null;
+}) {
+  await requireManager();
+  let clean;
+  try {
+    clean = normalizeNewStaff(input);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Invalid input." };
+  }
+  const maxOrder = (await prisma.staff.aggregate({ _max: { order: true } }))._max.order ?? 0;
+  await prisma.staff.create({ data: { ...clean, order: maxOrder + 1 } });
+  revalidatePath("/erp/staff");
+  return { ok: true };
+}
+
 export async function updateStaff(
   id: string,
   data: {
