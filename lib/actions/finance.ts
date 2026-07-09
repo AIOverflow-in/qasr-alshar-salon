@@ -14,6 +14,15 @@ async function requireFinanceWriter() {
   return session;
 }
 
+/** Logging an expense is allowed for reception too (add-only) — they never see capital/payroll/P&L. */
+async function requireExpenseWriter() {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) {
+    throw new Error("Forbidden");
+  }
+  return session;
+}
+
 const CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"] as const;
 
 export async function addExpense(data: {
@@ -23,8 +32,13 @@ export async function addExpense(data: {
   incurredOn?: string | null;
   recurring?: boolean;
   notes?: string | null;
+  invoiceNo?: string | null;
+  receiptUrl?: string | null;
+  receiptPath?: string | null;
 }) {
-  await requireFinanceWriter();
+  const session = await requireExpenseWriter();
+  // Only managers may flag an expense as recurring (rent/salaries) — reception logs one-offs.
+  const isManager = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
   const category = (CATEGORIES.includes(data.category as ExpenseCategory) ? data.category : "OTHER") as ExpenseCategory;
   const amountAED = Math.max(0, Math.round(data.amountAED || 0));
   if (!data.description?.trim() || amountAED <= 0) throw new Error("Description and a positive amount are required.");
@@ -34,11 +48,16 @@ export async function addExpense(data: {
       description: data.description.trim(),
       amountAED,
       incurredOn: data.incurredOn ? new Date(data.incurredOn) : new Date(),
-      recurring: !!data.recurring,
+      recurring: isManager ? !!data.recurring : false,
       notes: data.notes?.trim() || null,
+      invoiceNo: data.invoiceNo?.trim() || null,
+      receiptUrl: data.receiptUrl?.trim() || null,
+      receiptPath: data.receiptPath?.trim() || null,
+      createdById: session.sub,
     },
   });
   revalidatePath("/erp/finance");
+  revalidatePath("/erp/expenses");
 }
 
 export async function deleteExpense(id: string) {

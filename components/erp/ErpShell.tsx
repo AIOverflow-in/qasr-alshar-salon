@@ -23,6 +23,7 @@ import {
   Sparkles,
   FolderLock,
   Fingerprint,
+  Banknote,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { NotificationBell } from "@/components/erp/NotificationBell";
@@ -38,6 +39,7 @@ const NAV = [
   { href: "/erp/calendar", label: "Calendar", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"] },
   { href: "/erp/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
+  { href: "/erp/expenses", label: "Expenses", icon: Banknote, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/staff", label: "Staff", icon: Scissors, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/attendance", label: "Attendance", icon: Fingerprint, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/services", label: "Services", icon: Sparkles, roles: ["SUPER_ADMIN", "ADMIN"] },
