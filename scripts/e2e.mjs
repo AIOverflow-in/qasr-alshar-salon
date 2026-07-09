@@ -113,6 +113,21 @@ try {
   ok((await code("/erp/users", "SUPER_ADMIN")) === "200", "users: super-admin 200");
   ok((await code("/erp/users", "ADMIN")) === "REDIR", "users: admin blocked");
 
+  section("Legacy /admin panel: role-gated (no customer-PII leak by typed URL)");
+  {
+    // bookings holds customer PII — front-desk+ only; crown artists/investors blocked.
+    ok((await code("/admin/bookings", "STYLIST")) === "REDIR", "/admin/bookings: stylist blocked (PII)");
+    ok((await code("/admin/bookings", "INVESTOR")) === "REDIR", "/admin/bookings: investor blocked (PII)");
+    ok((await code("/admin/bookings", null)) === "REDIR", "/admin/bookings: unauth blocked");
+    ok((await code("/admin/bookings", "RECEPTION")) === "200", "/admin/bookings: reception 200");
+    ok((await code("/admin/bookings", "ADMIN")) === "200", "/admin/bookings: admin 200");
+    // services/blog/hours are manager-only (mirror /erp) — reception blocked, admin ok.
+    ok((await code("/admin/services", "RECEPTION")) === "REDIR", "/admin/services: reception blocked");
+    ok((await code("/admin/blog", "RECEPTION")) === "REDIR", "/admin/blog: reception blocked");
+    ok((await code("/admin/hours", "RECEPTION")) === "REDIR", "/admin/hours: reception blocked");
+    ok((await code("/admin/services", "ADMIN")) === "200", "/admin/services: admin 200");
+  }
+
   section("Add staff: onboarding affordance + new staff flows into payroll");
   {
     // Managers see the "Add staff" button on the staff page (createStaff is manager-only).

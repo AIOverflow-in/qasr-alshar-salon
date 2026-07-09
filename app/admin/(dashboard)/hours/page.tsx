@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { HoursManager } from "@/components/admin/HoursManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHours() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
   const [hours, settings, blocks] = await Promise.all([
     prisma.workingHours.findMany({ orderBy: { weekday: "asc" } }),
     prisma.salonSettings.findUnique({ where: { id: "singleton" } }),

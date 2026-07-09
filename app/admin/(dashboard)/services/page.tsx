@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { ServiceEditRow } from "@/components/admin/ServiceEditRow";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminServices() {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
   const services = await prisma.service.findMany({ orderBy: { order: "asc" } });
 
   const groups = new Map<string, typeof services>();

@@ -4,6 +4,8 @@ import { GenerateButton, PostActions } from "@/components/admin/BlogManager";
 import { SearchBox } from "@/components/erp/SearchBox";
 import { Pagination } from "@/components/erp/Pagination";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,7 @@ function fmt(d: Date) {
 }
 
 export default async function AdminBlog({ searchParams }: { searchParams: Promise<{ page?: string; q?: string }> }) {
+  if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const where: Prisma.BlogPostWhereInput = q
