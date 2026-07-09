@@ -9,6 +9,10 @@ const resend = process.env.RESEND_API_KEY
 
 const FROM = process.env.FROM_EMAIL || "Qasr Alshar Salon <onboarding@resend.dev>";
 
+// Owner/salon notification recipients (fixed list — never a personal inbox).
+import { NOTIFY_EMAILS } from "./notify-core";
+export { NOTIFY_EMAILS };
+
 // Escape user-supplied values before interpolating into HTML emails — a public booking's name/notes/
 // address/custom-request would otherwise inject links/markup into the salon's own inbox.
 const esc = (s: unknown) =>
@@ -136,7 +140,7 @@ export async function sendBookingEmails(b: BookingEmail): Promise<{ customerEmai
     }),
     resend.emails.send({
       from: FROM,
-      to: process.env.SALON_NOTIFICATION_EMAIL || b.email,
+      to: NOTIFY_EMAILS,
       replyTo: b.email,
       subject: `New booking — ${b.serviceName} · ${b.whenLabel}`,
       html: salonHtml,
@@ -334,7 +338,7 @@ export async function sendShopOrderEmails(o: ShopOrderEmail): Promise<void> {
     }));
   }
   sends.push(resend.emails.send({
-    from: FROM, to: process.env.SALON_NOTIFICATION_EMAIL || o.email || FROM, replyTo: o.email || undefined,
+    from: FROM, to: NOTIFY_EMAILS, replyTo: o.email || undefined,
     subject: `New shop order ${o.ref} · ${aed(o.totalAED)} (COD)`,
     html: shell("New shop order 🛍️", `<p style="line-height:1.7;color:#cabfa6;">A new cash-on-delivery order just came in from ${esc(o.customerName)}.</p>${details}`),
   }));
