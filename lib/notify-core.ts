@@ -4,7 +4,6 @@
 // inbox. Customer-facing emails still go to the customer's own address.
 // Pure (no server-only/resend) so it can be unit-tested.
 export const NOTIFY_EMAILS = [
-  "jacquelineekumba2010@gmail.com",
-  "aioverflow.ml@gmail.com",
   "admin@qasralsharsalon.com",
+  "aioverflow.ml@gmail.com",
 ];
