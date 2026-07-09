@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { TableSearch } from "@/components/erp/TableSearch";
 import { StaffEditRow } from "@/components/erp/StaffEditRow";
+import { AddStaffForm } from "@/components/erp/AddStaffForm";
 import { PayrollTable } from "@/components/erp/PayrollTable";
 import { getPayrollMonth, recentMonths, dubaiMonthRange } from "@/lib/payroll";
 import { getSalesBreakdown } from "@/lib/finance";
@@ -33,6 +34,9 @@ export default async function ErpStaff({
         <h1 className="font-display text-3xl text-cream">Staff &amp; Payroll</h1>
         <p className="text-sm text-muted">{staff.filter((s) => s.active).length} active · {staff.length} total — set pay config below, run monthly payroll underneath.</p>
       </div>
+
+      {/* Onboard a new staff member */}
+      <AddStaffForm />
 
       {/* Pay configuration */}
       <div className="space-y-3">

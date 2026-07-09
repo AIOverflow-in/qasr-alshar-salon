@@ -113,6 +113,22 @@ try {
   ok((await code("/erp/users", "SUPER_ADMIN")) === "200", "users: super-admin 200");
   ok((await code("/erp/users", "ADMIN")) === "REDIR", "users: admin blocked");
 
+  section("Add staff: onboarding affordance + new staff flows into payroll");
+  {
+    // Managers see the "Add staff" button on the staff page (createStaff is manager-only).
+    const adm = await body("/erp/staff", "ADMIN");
+    ok(adm.text.includes("Add staff"), "staff page: 'Add staff' button rendered for managers");
+    // A newly-onboarded staff (what createStaff persists) appears in the pay-config table
+    // and is immediately part of monthly payroll — defaults: Crown Artist / 40% / 5% / salary 0.
+    const maxOrder = (await prisma.staff.aggregate({ _max: { order: true } }))._max.order ?? 0;
+    const hire = await prisma.staff.create({
+      data: { name: `${TAG}NEWHIRE`, role: "Crown Artist", commissionPct: 40, referralPct: 5, salaryAED: 0, order: maxOrder + 1 },
+    });
+    const staffPage = await body("/erp/staff", "ADMIN");
+    ok(staffPage.text.includes(`${TAG}NEWHIRE`), "staff page: newly added staff appears in the pay-config table");
+    await prisma.staff.delete({ where: { id: hire.id } });
+  }
+
   section("Expenses: reception add-only screen + receipt upload RBAC + payslip report");
   {
     // Add-only expenses screen is reachable by reception + admins, blocked for stylists.
