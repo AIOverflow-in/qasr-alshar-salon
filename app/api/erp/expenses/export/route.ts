@@ -3,14 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { dubaiMonthRange, currentDubaiMonth } from "@/lib/payroll";
 import { expenseWhere } from "@/lib/expense-filter";
+import { csvCell as csv } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
 
 const dtFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "2-digit", month: "short", year: "numeric" });
-function csv(v: string | number): string {
-  const s = String(v ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 /** CSV of the filtered expenses for a month (respects the reception privacy scope). */
 export async function GET(req: Request) {

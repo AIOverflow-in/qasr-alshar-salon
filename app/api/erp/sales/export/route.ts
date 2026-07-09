@@ -2,18 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { salesRange } from "@/lib/finance";
+import { csvCell as csv } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
 
 const dtFmt = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Dubai", day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
 });
-
-/** Quote a CSV field (wrap + escape double-quotes). */
-function csv(v: string | number): string {
-  const s = String(v ?? "");
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export async function GET(req: Request) {
   const session = await getSession();

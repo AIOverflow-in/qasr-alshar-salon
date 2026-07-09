@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getPayrollMonth } from "@/lib/payroll";
+import { csvCell as cell } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
-
-function cell(v: string | number) {
-  const s = String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 // Full monthly payroll CSV: salary + commission + bonus − advances/deductions = net, paid status.
 export async function GET(req: Request) {
