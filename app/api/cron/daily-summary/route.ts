@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dubaiDayRange, getSalesBreakdown } from "@/lib/finance";
-import { sendDailySummaryEmail } from "@/lib/email";
+import { sendDailySummaryEmail, NOTIFY_EMAILS } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -61,8 +61,7 @@ async function run(req: Request) {
     }
   }
 
-  const recipients = (process.env.DIGEST_RECIPIENTS || "jacquelineekumba2010@gmail.com,aioverflow.ml@gmail.com")
-    .split(",").map((s) => s.trim()).filter(Boolean);
+  const recipients = NOTIFY_EMAILS;
 
   const sent = await sendDailySummaryEmail(recipients, {
     dateLabel: fmtDate(midday(yesterday)),

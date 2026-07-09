@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendPaymentReminderEmail } from "@/lib/email";
+import { sendPaymentReminderEmail, NOTIFY_EMAILS } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,8 +51,7 @@ async function run(req: Request) {
 
   if (!due.length) return NextResponse.json({ ok: true, sent: false, due: 0 });
 
-  const recipients = (process.env.DIGEST_RECIPIENTS || "jacquelineekumba2010@gmail.com,aioverflow.ml@gmail.com")
-    .split(",").map((s) => s.trim()).filter(Boolean);
+  const recipients = NOTIFY_EMAILS;
 
   const sent = await sendPaymentReminderEmail(recipients, due.map((p) => ({
     label: p.label, amountAED: p.amountAED, dueLabel: fmtDate(p.dueDate), daysUntil: daysUntil(p.dueDate),
