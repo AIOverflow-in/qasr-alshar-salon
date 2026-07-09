@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { dubaiDayRange, getSalesBreakdown } from "./finance";
-import { sendDailySummaryEmail, NOTIFY_EMAILS } from "./email";
+import { sendDailySummaryEmail, DIGEST_EMAILS } from "./email";
 
 const DUBAI = "Asia/Dubai";
 const fmtDate = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: DUBAI, weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(d);
@@ -10,7 +10,7 @@ const midday = (r: { start: Date }) => new Date(r.start.getTime() + 12 * 3600_00
 
 /**
  * Build and send the daily takings digest (yesterday's takings + today's schedule)
- * to NOTIFY_EMAILS. Shared by the daily-summary cron and the ERP "send now" action.
+ * to DIGEST_EMAILS. Shared by the daily-summary cron and the ERP "send now" action.
  * Returns a summary of what was sent.
  */
 export async function sendDailyDigest() {
@@ -40,7 +40,7 @@ export async function sendDailyDigest() {
     }
   }
 
-  const recipients = NOTIFY_EMAILS;
+  const recipients = DIGEST_EMAILS;
   const sent = await sendDailySummaryEmail(recipients, {
     dateLabel: fmtDate(midday(yesterday)),
     count: breakdown.count, total: breakdown.total, net: breakdown.net, vat: breakdown.vat,

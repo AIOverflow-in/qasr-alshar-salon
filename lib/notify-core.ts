@@ -7,3 +7,11 @@ export const NOTIFY_EMAILS = [
   "admin@qasralsharsalon.com",
   "aioverflow.ml@gmail.com",
 ];
+
+// The daily takings digest additionally goes to the owner (Jacqueline) so she
+// always has visibility of the day's takings, while she stays off the
+// operational alerts (bookings, shop orders, payment reminders) above.
+export const DIGEST_EMAILS = [
+  ...NOTIFY_EMAILS,
+  "jacquelineekumba2010@gmail.com",
+];
