@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
-import { Paperclip } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { aed } from "@/lib/utils";
+import { monthStartUTC } from "@/lib/finance";
 import { AddExpenseForm } from "@/components/erp/AddExpenseForm";
 import { Pagination } from "@/components/erp/Pagination";
+import { ReceiptPreview } from "@/components/erp/ReceiptPreview";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +30,30 @@ export default async function ErpExpenses({ searchParams }: { searchParams: Prom
   const where: Prisma.ExpenseWhereInput = isManager ? {} : { createdById: ok.sub, category: { not: "SALARIES" } };
   const total = await prisma.expense.count({ where });
   const win = pageWindow(total, parsePage((await searchParams).page));
-  const expenses = await prisma.expense.findMany({
-    where,
-    orderBy: { incurredOn: "desc" },
-    skip: win.skip,
-    take: win.take,
-  });
+  const [expenses, monthAgg] = await Promise.all([
+    prisma.expense.findMany({ where, orderBy: { incurredOn: "desc" }, skip: win.skip, take: win.take }),
+    // "This month" summary — the same scoped `where`, narrowed to the current month.
+    prisma.expense.aggregate({ _sum: { amountAED: true }, _count: true, where: { ...where, incurredOn: { gte: monthStartUTC() } } }),
+  ]);
+  const monthTotal = monthAgg._sum.amountAED ?? 0;
+  const monthCount = monthAgg._count;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="font-display text-3xl text-cream">Expenses</h1>
         <p className="text-sm text-muted">Log a purchase with its date, amount, invoice number and a photo of the receipt.</p>
+      </div>
+
+      <div className="surface flex items-center justify-between gap-4 rounded-2xl p-5">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted">Logged this month</div>
+          <div className="font-display text-3xl text-gold">{aed(monthTotal)}</div>
+        </div>
+        <div className="text-right text-sm text-muted">
+          {monthCount} expense{monthCount === 1 ? "" : "s"}
+          {!isManager && <div className="text-xs">by you</div>}
+        </div>
       </div>
 
       <div className="surface rounded-2xl p-5">
@@ -59,9 +72,17 @@ export default async function ErpExpenses({ searchParams }: { searchParams: Prom
                   <span>{cap(e.category)} · {fmtDate(e.incurredOn)}</span>
                   {e.invoiceNo && <span>· inv {e.invoiceNo}</span>}
                   {e.receiptUrl && (
-                    <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-gold hover:underline">
-                      <Paperclip size={11} /> receipt
-                    </a>
+                    <ReceiptPreview
+                      url={e.receiptUrl}
+                      title={e.description}
+                      details={[
+                        { label: "Description", value: e.description },
+                        { label: "Category", value: cap(e.category) },
+                        { label: "Date", value: fmtDate(e.incurredOn) },
+                        { label: "Amount", value: aed(e.amountAED), strong: true },
+                        ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
+                      ]}
+                    />
                   )}
                 </div>
               </div>

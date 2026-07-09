@@ -153,6 +153,14 @@ try {
       ok(adm.text.includes(`${TAG}SALARY`) && adm.text.includes(`${TAG}OTHEROWN`), "admin expenses: sees all entries");
       await prisma.expense.deleteMany({ where: { id: { in: [own.id, sal.id, other.id] } } });
     }
+    // Expense dashboard: "logged this month" total + a receipt preview trigger on rows with a receipt.
+    {
+      const rc = await prisma.expense.create({ data: { description: `${TAG}RCPT`, category: "SUPPLIES", amountAED: 42, createdById: "e2e-ADMIN", receiptUrl: "https://x.public.blob.vercel-storage.com/expense-receipts/test-abc.png" } });
+      const pg = await body("/erp/expenses", "ADMIN");
+      ok(pg.text.includes("Logged this month"), "expenses: monthly total is shown");
+      ok(pg.text.includes(`${TAG}RCPT`) && pg.text.includes("receipt"), "expenses: receipt preview trigger renders for a row with a receipt");
+      await prisma.expense.deleteMany({ where: { id: rc.id } });
+    }
   }
 
   section("Server-side pagination + search");
