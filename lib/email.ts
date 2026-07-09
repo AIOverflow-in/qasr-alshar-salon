@@ -10,8 +10,8 @@ const resend = process.env.RESEND_API_KEY
 const FROM = process.env.FROM_EMAIL || "Qasr Alshar Salon <onboarding@resend.dev>";
 
 // Owner/salon notification recipients (fixed list — never a personal inbox).
-import { NOTIFY_EMAILS } from "./notify-core";
-export { NOTIFY_EMAILS };
+import { NOTIFY_EMAILS, DIGEST_EMAILS } from "./notify-core";
+export { NOTIFY_EMAILS, DIGEST_EMAILS };
 
 // Escape user-supplied values before interpolating into HTML emails — a public booking's name/notes/
 // address/custom-request would otherwise inject links/markup into the salon's own inbox.
