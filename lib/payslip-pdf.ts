@@ -15,6 +15,9 @@ export type PayslipData = {
   staffName: string;
   role: string;
   month: string; // "YYYY-MM"
+  clientsServed: number;
+  grossAED: number;   // gross clients paid (incl 5% VAT)
+  netSaleAED: number; // net service sales (ex VAT)
   salary: number;
   salesCommission: number;
   referral: number;
@@ -65,6 +68,22 @@ export async function buildPayslipPdf(d: PayslipData): Promise<Uint8Array> {
   y -= 13;
   page.drawText(d.role, { x: M, y, size: 9, font: reg, color: GREY });
   y -= 26;
+
+  // performance this period (3 stat tiles)
+  page.drawText("PERFORMANCE THIS PERIOD", { x: M, y, size: 8, font: bold, color: GOLD }); y -= 16;
+  const stats: [string, string][] = [
+    ["Clients served", String(d.clientsServed)],
+    ["Gross paid (incl. VAT)", money(d.grossAED)],
+    ["Net sale (ex-VAT)", money(d.netSaleAED)],
+  ];
+  const tileW = (PAGE_W - 2 * M - 16) / 3;
+  stats.forEach(([label, val], i) => {
+    const x = M + i * (tileW + 8);
+    page.drawRectangle({ x, y: y - 26, width: tileW, height: 38, color: ROW });
+    page.drawText(label.toUpperCase(), { x: x + 8, y: y + 2, size: 6.5, font: bold, color: GREY });
+    page.drawText(val, { x: x + 8, y: y - 14, size: 12, font: bold, color: INK });
+  });
+  y -= 46;
 
   // earnings table
   const header = (yy: number) => {

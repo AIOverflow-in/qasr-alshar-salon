@@ -66,7 +66,7 @@ export default async function ErpFinance() {
 
       <FinanceManager
         canEdit={canEdit}
-        expenses={expenses.map((e) => ({ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), recurring: e.recurring }))}
+        expenses={expenses.map((e) => ({ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), recurring: e.recurring, invoiceNo: e.invoiceNo, receiptUrl: e.receiptUrl }))}
         capital={capital.map((c) => ({ id: c.id, investor: c.investor, amountAED: c.amountAED, contributedOn: c.contributedOn.toISOString() }))}
       />
     </div>

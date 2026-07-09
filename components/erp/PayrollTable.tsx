@@ -7,7 +7,7 @@ import { aed, cn } from "@/lib/utils";
 import { addPayAdjustment, payStaffMonth } from "@/lib/actions/admin";
 
 export type PayrollRow = {
-  staffId: string; name: string; role: string; servicesAED: number;
+  staffId: string; name: string; role: string; clientsServed: number; servicesAED: number; grossAED: number;
   salary: number; salesCommission: number; referral: number; commission: number;
   bonus: number; deductions: number; net: number; paid: boolean; paidAt: string | null;
 };
@@ -78,6 +78,7 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
           <thead className="border-b border-ink-line text-left text-muted">
             <tr>
               <th className="p-4 font-medium">Staff</th>
+              <th className="p-4 text-right font-medium">Clients</th>
               <th className="p-4 text-right font-medium">Services</th>
               <th className="p-4 text-right font-medium">Salary</th>
               <th className="p-4 text-right font-medium">Commission</th>
@@ -95,7 +96,8 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
                   <div className="text-cream">{r.name}</div>
                   <div className="text-xs text-muted">{r.role}</div>
                 </td>
-                <td className="p-4 text-right tabular-nums text-sand" title="Service revenue this person generated">{r.servicesAED ? aed(r.servicesAED) : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title="Distinct clients served this month">{r.clientsServed || "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title="Net service revenue this person generated (ex-VAT)">{r.servicesAED ? aed(r.servicesAED) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-sand" title="Base salary (guaranteed floor)">{r.salary ? aed(r.salary) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-sand" title={`Sales split ${aed(r.salesCommission)} · Referral ${aed(r.referral)} · paid only if it beats base`}>{r.commission ? aed(r.commission) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-green-400">{r.bonus ? aed(r.bonus) : "—"}</td>

@@ -79,6 +79,7 @@ async function cleanupSweep() {
   const usr = await prisma.adminUser.deleteMany({ where: { email: { startsWith: TAG } } });
   const stf = await prisma.staff.deleteMany({ where: { name: { startsWith: TAG } } }); // cascades docs/leaves/adjustments
   const sp = await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: TAG } } });
+  const ex = await prisma.expense.deleteMany({ where: { description: { startsWith: TAG } } });
   const so = await prisma.shopOrder.deleteMany({ where: { customerName: { startsWith: TAG } } });
   await prisma.attendancePunch.deleteMany({ where: { OR: [{ pin: { startsWith: REQ } }, { deviceSn: { startsWith: "E2E" } }] } });
   const tagProducts = await prisma.product.findMany({ where: { name: { startsWith: TAG } }, select: { id: true } });
@@ -88,7 +89,7 @@ async function cleanupSweep() {
     await prisma.stockMovement.deleteMany({ where: { productId: { in: pids } } });
     prodCount = (await prisma.product.deleteMany({ where: { id: { in: pids } } })).count;
   }
-  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count, scheduled: sp.count, products: prodCount, shopOrders: so.count };
+  return { orders: oIds.length, bookings: bk.count, clients: cl.count, services: sv.count, staff: stf.count, users: usr.count, scheduled: sp.count, expenses: ex.count, products: prodCount, shopOrders: so.count };
 }
 
 try {
@@ -111,6 +112,48 @@ try {
   ok((await code("/erp/finance", "RECEPTION")) === "REDIR", "finance: reception blocked");
   ok((await code("/erp/users", "SUPER_ADMIN")) === "200", "users: super-admin 200");
   ok((await code("/erp/users", "ADMIN")) === "REDIR", "users: admin blocked");
+
+  section("Expenses: reception add-only screen + receipt upload RBAC + payslip report");
+  {
+    // Add-only expenses screen is reachable by reception + admins, blocked for stylists.
+    ok((await code("/erp/expenses", "RECEPTION")) === "200", "expenses page: reception 200");
+    ok((await code("/erp/expenses", "ADMIN")) === "200", "expenses page: admin 200");
+    ok((await code("/erp/expenses", "STYLIST")) === "REDIR", "expenses page: stylist blocked");
+    ok((await code("/erp/finance", "RECEPTION")) === "REDIR", "finance (capital/P&L) still blocked for reception");
+    // Receipt upload route: reception passes auth (400 w/o file), stylist 403, anon 401.
+    const upload = async (role) => {
+      const t = role ? await tok(role) : null;
+      const r = await fetch(BASE + "/api/erp/expense-receipt", { method: "POST", headers: t ? { cookie: `qa_admin=${t}` } : {} });
+      return r.status;
+    };
+    ok((await upload("STYLIST")) === 403, "receipt upload: stylist 403");
+    ok([400, 500].includes(await upload("RECEPTION")), "receipt upload: reception passes auth (validation without a file)");
+    ok((await upload(null)) === 401, "receipt upload: anon 401");
+    // Per-staff monthly report PDF (payslip) — admin only, renders as a PDF with the perf section.
+    const st = await prisma.staff.findFirst({ where: { active: true }, select: { id: true } });
+    if (!st) { ok(false, "need an active staff for the payslip test"); }
+    else {
+      const t = await tok("ADMIN");
+      const r = await fetch(`${BASE}/api/erp/payroll/payslip/${st.id}?month=${dubaiMonth()}`, { headers: { cookie: `qa_admin=${t}` } });
+      ok(r.status === 200 && (r.headers.get("content-type") || "").includes("pdf"), `payslip PDF: admin 200 + application/pdf (${r.status})`);
+      ok((await code(`/api/erp/payroll/payslip/${st.id}`, "STYLIST")) === "403", "payslip PDF: stylist 403");
+      ok((await code(`/api/erp/payroll/payslip/${st.id}`, "RECEPTION")) === "403", "payslip PDF: reception 403");
+    }
+    // Reception's add-only list must show ONLY their own entries — never a SALARIES row
+    // or another user's expense (privacy of payroll/other figures).
+    {
+      const own = await prisma.expense.create({ data: { description: `${TAG}RECOWN`, category: "SUPPLIES", amountAED: 11, createdById: "e2e-RECEPTION" } });
+      const sal = await prisma.expense.create({ data: { description: `${TAG}SALARY`, category: "SALARIES", amountAED: 99999, createdById: "e2e-ADMIN" } });
+      const other = await prisma.expense.create({ data: { description: `${TAG}OTHEROWN`, category: "SUPPLIES", amountAED: 22, createdById: "e2e-ADMIN" } });
+      const rec = await body("/erp/expenses", "RECEPTION");
+      ok(rec.text.includes(`${TAG}RECOWN`), "reception expenses: sees their own entry");
+      ok(!rec.text.includes(`${TAG}SALARY`), "reception expenses: does NOT see a SALARIES row");
+      ok(!rec.text.includes(`${TAG}OTHEROWN`), "reception expenses: does NOT see another user's entry");
+      const adm = await body("/erp/expenses", "ADMIN");
+      ok(adm.text.includes(`${TAG}SALARY`) && adm.text.includes(`${TAG}OTHEROWN`), "admin expenses: sees all entries");
+      await prisma.expense.deleteMany({ where: { id: { in: [own.id, sal.id, other.id] } } });
+    }
+  }
 
   section("Bookings filters load + count consistency");
   for (const w of ["today", "tomorrow", "next2w", "all"]) ok((await code(`/erp/bookings?when=${w}`, "RECEPTION")) === "200", `bookings when=${w}`);

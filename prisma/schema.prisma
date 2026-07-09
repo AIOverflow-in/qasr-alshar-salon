@@ -490,6 +490,10 @@ model Expense {
   incurredOn  DateTime        @default(now())
   recurring   Boolean         @default(false) // monthly recurring (rent, salaries)
   notes       String?
+  invoiceNo   String?         // supplier invoice / reference number
+  receiptUrl  String?         // uploaded receipt/invoice image (Vercel Blob)
+  receiptPath String?         // Blob pathname, for deletion
+  createdById String?         // AdminUser who logged it (accountability — esp. reception)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
