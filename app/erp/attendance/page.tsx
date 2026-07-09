@@ -13,14 +13,16 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 
   const total = await prisma.attendancePunch.count({ where: {} });
   const win = pageWindow(total, parsePage((await searchParams).page));
-  const [punches, staff] = await Promise.all([
+  const [punches, staff, unmapped] = await Promise.all([
     prisma.attendancePunch.findMany({
       orderBy: { punchedAt: "desc" }, skip: win.skip, take: win.take,
       select: { id: true, pin: true, punchedAt: true, status: true, verifyMode: true, staff: { select: { name: true } } },
     }),
     prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, biometricPin: true } }),
+    // Unmapped device PINs across ALL punches (not just this page) so the "map these" banner is complete.
+    prisma.attendancePunch.findMany({ where: { staffId: null }, distinct: ["pin"], select: { pin: true }, take: 100 }),
   ]);
-  const unmappedPins = [...new Set(punches.filter((p) => !p.staff).map((p) => p.pin))];
+  const unmappedPins = [...new Set(unmapped.map((p) => p.pin))];
 
   return (
     <div className="space-y-6">

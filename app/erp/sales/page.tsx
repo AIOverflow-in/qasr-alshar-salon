@@ -35,8 +35,14 @@ export default async function ErpSales({
   const q = (sp.q ?? "").trim();
   const payment = (["CASH", "CARD", "TRANSFER"].includes(sp.payment ?? "") ? sp.payment : "ALL") as "ALL" | "CASH" | "CARD" | "TRANSFER";
 
+  // When searching, resolve staff whose NAME matches q so bills can still be found
+  // by artist/marketer (stored as ids), matching the old client-side search scope.
+  const staffIdsMatchingQ = q
+    ? (await prisma.staff.findMany({ where: { name: { contains: q, mode: "insensitive" } }, select: { id: true } })).map((s) => s.id)
+    : [];
+
   // The table's where: PAID bills in the period, narrowed by the free-text search
-  // (invoice / client name / client phone) and the payment-method filter.
+  // (invoice / client / phone / artist / cashier / service item) and the payment filter.
   const where: Prisma.SalesOrderWhereInput = {
     status: "PAID",
     createdAt: { gte: window.start, lt: window.end },
@@ -45,6 +51,13 @@ export default async function ErpSales({
         { invoiceNo: { contains: q, mode: "insensitive" as const } },
         { client: { name: { contains: q, mode: "insensitive" as const } } },
         { client: { phone: { contains: q } } },
+        { staff: { name: { contains: q, mode: "insensitive" as const } } },        // main artist
+        { createdBy: { name: { contains: q, mode: "insensitive" as const } } },     // cashier
+        { lines: { some: { description: { contains: q, mode: "insensitive" as const } } } }, // service / item
+        ...(staffIdsMatchingQ.length ? [
+          { marketerId: { in: staffIdsMatchingQ } },                                // marketer by name
+          { lines: { some: { staffIds: { hasSome: staffIdsMatchingQ } } } },        // per-line artists
+        ] : []),
       ] }] : []),
       ...(payment !== "ALL" ? [{ OR: [
         { splitPayment: false, paymentMethod: payment },

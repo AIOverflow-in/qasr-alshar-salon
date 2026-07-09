@@ -201,7 +201,7 @@ export function SalesTable({
 
       {/* controls */}
       <div className="flex flex-wrap items-center gap-3">
-        <SearchBox placeholder="Search invoice, client or phone…" className="max-w-xs flex-1" />
+        <SearchBox placeholder="Search invoice, client, artist, cashier or service…" className="max-w-xs flex-1" />
         <div className="flex gap-1">
           {(["ALL", "CASH", "CARD", "TRANSFER"] as const).map((p) => (
             <button

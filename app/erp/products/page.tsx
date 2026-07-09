@@ -19,7 +19,10 @@ export default async function ErpProducts({ searchParams }: { searchParams: Prom
     take: win.take,
     select: { id: true, name: true, category: true, saleAED: true, qty: true, retail: true, description: true, imageUrl: true, active: true },
   });
-  const published = products.filter((p) => p.retail && (p.saleAED ?? 0) > 0 && p.imageUrl && p.qty > 0).length;
+  // "Live on the shop" is a store-wide figure — count across ALL products, not just this page.
+  const published = await prisma.product.count({
+    where: { active: true, retail: true, saleAED: { gt: 0 }, imageUrl: { not: null }, qty: { gt: 0 } },
+  });
 
   return (
     <div className="space-y-6">
