@@ -4,16 +4,18 @@ import { useState, useTransition } from "react";
 import { Plus, Trash2, Loader2, Paperclip } from "lucide-react";
 import { deleteExpense, addCapital, deleteCapital } from "@/lib/actions/finance";
 import { AddExpenseForm } from "./AddExpenseForm";
+import { Pagination } from "./Pagination";
 import { aed } from "@/lib/utils";
 
 type Expense = { id: string; category: string; description: string; amountAED: number; incurredOn: string; recurring: boolean; invoiceNo?: string | null; receiptUrl?: string | null };
 type Capital = { id: string; investor: string; amountAED: number; contributedOn: string };
+type Win = { total: number; page: number; size: number };
 
 function fmtDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "2-digit", month: "short", year: "numeric" }).format(new Date(iso));
 }
 
-export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expense[]; capital: Capital[]; canEdit: boolean }) {
+export function FinanceManager({ expenses, capital, canEdit, expenseWin, capitalWin }: { expenses: Expense[]; capital: Capital[]; canEdit: boolean; expenseWin: Win; capitalWin: Win }) {
   const [pending, start] = useTransition();
   const [cap, setCap] = useState({ investor: "", amountAED: "", contributedOn: "" });
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
             </div>
           ))}
         </div>
+        <Pagination total={expenseWin.total} page={expenseWin.page} size={expenseWin.size} param="ep" />
       </div>
 
       {/* Capital */}
@@ -96,6 +99,7 @@ export function FinanceManager({ expenses, capital, canEdit }: { expenses: Expen
             </div>
           ))}
         </div>
+        <Pagination total={capitalWin.total} page={capitalWin.page} size={capitalWin.size} param="cp" />
       </div>
 
       {error && <div className="lg:col-span-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, ChevronLeft, ChevronRight, Phone, Mail } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Phone, Mail } from "lucide-react";
 import { aed } from "@/lib/utils";
 import { ClientsManager } from "@/app/erp/clients/ClientsManager";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
 
 type Order = { invoiceNo: string; totalAED: number; createdAt: string };
 export type ClientCard = {
@@ -19,45 +21,23 @@ export type ClientCard = {
   salesOrders: Order[];
 };
 
-const PAGE = 12;
-
 function fmt(iso: string) {
   return new Intl.DateTimeFormat("en-AE", { day: "numeric", month: "short", timeZone: "Asia/Dubai" }).format(new Date(iso));
 }
 
-export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(0);
-
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return clients;
-    return clients.filter(
-      (c) => c.name.toLowerCase().includes(s) || (c.phone ?? "").includes(s) || (c.email ?? "").toLowerCase().includes(s)
-    );
-  }, [clients, q]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const safePage = Math.min(page, pages - 1);
-  const slice = filtered.slice(safePage * PAGE, safePage * PAGE + PAGE);
+export function ClientsGrid({ clients, total, page, size }: { clients: ClientCard[]; total: number; page: number; size: number }) {
+  const sp = useSearchParams();
+  const q = sp?.get("q") ?? "";
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(0); }}
-          placeholder="Search by name, phone or email…"
-          className="w-full rounded-full border border-ink-line bg-ink-card py-2.5 pl-10 pr-4 text-sm text-cream placeholder:text-muted outline-none focus:border-gold/60"
-        />
-      </div>
+      <SearchBox placeholder="Search by name, phone or email…" className="max-w-md" />
 
-      {filtered.length === 0 ? (
-        <div className="surface rounded-2xl p-10 text-center text-muted">No clients match “{q}”.</div>
+      {total === 0 ? (
+        <div className="surface rounded-2xl p-10 text-center text-muted">{q ? `No clients match “${q}”.` : "No clients yet."}</div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {slice.map((c) => (
+          {clients.map((c) => (
             <div key={c.id} className="surface flex flex-col rounded-2xl p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -106,16 +86,7 @@ export function ClientsGrid({ clients }: { clients: ClientCard[] }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-sm text-muted">{filtered.length} client{filtered.length !== 1 ? "s" : ""}</p>
-        {pages > 1 && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0} className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand disabled:opacity-40 hover:border-gold/50" aria-label="Previous page"><ChevronLeft size={16} /></button>
-            <span className="text-xs text-muted">Page {safePage + 1} of {pages}</span>
-            <button onClick={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={safePage >= pages - 1} className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand disabled:opacity-40 hover:border-gold/50" aria-label="Next page"><ChevronRight size={16} /></button>
-          </div>
-        )}
-      </div>
+      <Pagination total={total} page={page} size={size} />
     </div>
   );
 }

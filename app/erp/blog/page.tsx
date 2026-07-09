@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { GenerateButton, PostActions } from "@/components/admin/BlogManager";
-import { TableSearch } from "@/components/erp/TableSearch";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Blog — Qasr Alshar ERP" };
@@ -12,12 +15,20 @@ function fmt(d: Date) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "numeric", month: "short", year: "numeric" }).format(d);
 }
 
-export default async function ErpBlog() {
+export default async function ErpBlog({ searchParams }: { searchParams: Promise<{ page?: string; q?: string }> }) {
   const ok = await requireRole(["SUPER_ADMIN", "ADMIN"]);
   if (!ok) redirect("/erp");
 
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const where: Prisma.BlogPostWhereInput = q
+    ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { category: { contains: q, mode: "insensitive" } }] }
+    : {};
+
+  const total = await prisma.blogPost.count({ where });
+  const win = pageWindow(total, parsePage(sp.page));
   const [posts, topicsLeft] = await Promise.all([
-    prisma.blogPost.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.blogPost.findMany({ where, orderBy: { createdAt: "desc" }, skip: win.skip, take: win.take }),
     prisma.blogTopic.count({ where: { used: false } }),
   ]);
 
@@ -31,12 +42,14 @@ export default async function ErpBlog() {
         <GenerateButton />
       </div>
 
-      {posts.length === 0 ? (
+      <SearchBox placeholder="Search posts by title or category…" className="max-w-sm" />
+
+      {total === 0 ? (
         <div className="surface rounded-2xl p-10 text-center text-muted">
-          No posts yet. Click “Generate now” to create your first AI article.
+          {q ? `No posts match “${q}”.` : "No posts yet. Click “Generate now” to create your first AI article."}
         </div>
       ) : (
-        <TableSearch placeholder="Search posts by title or category…">
+        <>
           <div className="surface overflow-x-auto rounded-2xl">
             <table className="w-full min-w-[680px] text-sm">
               <thead className="border-b border-ink-line text-left text-muted">
@@ -71,7 +84,8 @@ export default async function ErpBlog() {
               </tbody>
             </table>
           </div>
-        </TableSearch>
+          <Pagination total={win.total} page={win.page} size={win.size} />
+        </>
       )}
     </div>
   );

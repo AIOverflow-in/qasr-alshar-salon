@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, Printer, Download, ChevronLeft, ChevronRight, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
+import { Printer, Download, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 import { BillDetailModal } from "@/components/erp/BillDetailModal";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
 
 export type SalesLine = { description: string; qty: number; unitAED: number; lineAED: number; kind: string; artists: string[] };
 export type SalesBooking = { whenLabel: string; source: string; serviceMode: string | null; address: string | null; customRequest: string | null; notes: string | null };
@@ -54,8 +56,6 @@ export function splitBreakdown(r: SalesRow): string {
 
 type Summary = { count: number; total: number; net: number; vat: number; byMethod: { CASH: number; CARD: number; TRANSFER: number } };
 
-const PAGE_SIZE = 20;
-
 const timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", hour: "numeric", minute: "2-digit", hour12: true });
 const dateFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", day: "2-digit", month: "short" });
 const todayDubai = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -81,7 +81,11 @@ export function SalesTable({
   activeDate,
   activeFrom,
   activeTo,
-  capped,
+  q,
+  payment,
+  total,
+  page,
+  size,
   canEdit = false,
 }: {
   rows: SalesRow[];
@@ -90,13 +94,16 @@ export function SalesTable({
   activeDate: string | null;
   activeFrom: string | null;
   activeTo: string | null;
-  capped: boolean;
+  q: string;
+  payment: "ALL" | SalesRow["payment"];
+  total: number;
+  page: number;
+  size: number;
   canEdit?: boolean;
 }) {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [payment, setPayment] = useState<"ALL" | SalesRow["payment"]>("ALL");
-  const [page, setPage] = useState(0);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [from, setFrom] = useState(activeFrom ?? "");
   const [to, setTo] = useState(activeTo ?? "");
   const [detailRow, setDetailRow] = useState<SalesRow | null>(null);
@@ -104,36 +111,18 @@ export function SalesTable({
   const isCustom = activeRange === "custom";
   const showDate = activeRange !== "today" && activeRange !== "yesterday" && activeRange !== "date";
 
-  // Precompute one lowercase haystack per bill (client, invoice, all artists, marketer,
-  // cashier, services and payment) so search stays instant even at the 1000-row cap.
-  const haystacks = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const r of rows) {
-      m.set(r.id, [
-        r.client, r.invoiceNo, r.artist, ...(r.artists ?? []),
-        r.marketer ?? "", r.cashier ?? "", ...(r.items ?? []),
-        r.payment, r.splitPayment ? "split" : "",
-      ].join(" ").toLowerCase());
-    }
-    return m;
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (payment !== "ALL" && !rowMethods(r).includes(payment)) return false;
-      if (!query) return true;
-      return (haystacks.get(r.id) ?? "").includes(query);
-    });
-  }, [rows, q, payment, haystacks]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pages - 1);
-  const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-
   function go(params: string) { router.push(`/erp/sales?${params}`); }
-  function reset(setter: () => void) { setter(); setPage(0); }
   function applyCustom() { if (from && to) go(`from=${from}&to=${to}`); }
+
+  // Payment filter is server-side: set ?payment= (preserving period + search), reset page.
+  function setPayment(p: "ALL" | SalesRow["payment"]) {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (p === "ALL") params.delete("payment");
+    else params.set("payment", p);
+    params.delete("page");
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  }
 
   const exportQs = isCustom && activeFrom && activeTo
     ? `from=${activeFrom}&to=${activeTo}`
@@ -212,20 +201,12 @@ export function SalesTable({
 
       {/* controls */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            value={q}
-            onChange={(e) => reset(() => setQ(e.target.value))}
-            placeholder="Search client, invoice, artist, marketer, service or payment…"
-            className="w-full rounded-full border border-ink-line bg-ink-card py-2 pl-9 pr-4 text-sm text-cream placeholder:text-muted outline-none focus:border-gold/60"
-          />
-        </div>
+        <SearchBox placeholder="Search invoice, client, artist, cashier or service…" className="max-w-xs flex-1" />
         <div className="flex gap-1">
           {(["ALL", "CASH", "CARD", "TRANSFER"] as const).map((p) => (
             <button
               key={p}
-              onClick={() => reset(() => setPayment(p))}
+              onClick={() => setPayment(p)}
               className={cn(
                 "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
                 payment === p ? "border-gold bg-gold/15 text-gold" : "border-ink-line text-muted hover:border-gold/40"
@@ -236,12 +217,6 @@ export function SalesTable({
           ))}
         </div>
       </div>
-
-      {capped && (
-        <p className="rounded-lg border border-gold/25 bg-gold/5 px-4 py-2 text-xs text-gold">
-          Showing the most recent {rows.length} bills in the table — the totals above cover all {summary.count} bills in this period. Narrow the range to see older ones.
-        </p>
-      )}
 
       {/* table */}
       <div className="surface overflow-x-auto rounded-2xl">
@@ -259,7 +234,7 @@ export function SalesTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line/60">
-            {pageRows.map((r) => {
+            {rows.map((r) => {
               const d = new Date(r.createdAt);
               const itemSummary = r.items.length <= 1 ? (r.items[0] ?? "—") : `${r.items[0]} +${r.items.length - 1}`;
               const artistLabel = r.artists.length === 0
@@ -315,7 +290,7 @@ export function SalesTable({
                 </tr>
               );
             })}
-            {filtered.length === 0 && (
+            {rows.length === 0 && (
               <tr>
                 <td colSpan={8} className="p-12 text-center text-muted">
                   <Receipt size={28} className="mx-auto mb-3 text-ink-line" />
@@ -327,35 +302,8 @@ export function SalesTable({
         </table>
       </div>
 
-      {/* pagination */}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted">
-            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
-          </p>
-          {pages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={safePage === 0}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50 disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-xs text-muted">Page {safePage + 1} of {pages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}
-                disabled={safePage >= pages - 1}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50 disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* pagination — server-side via ?page= (preserves period, search and payment filter) */}
+      {total > 0 && <Pagination total={total} page={page} size={size} />}
 
       {detailRow && <BillDetailModal row={detailRow} canEdit={canEdit} onClose={() => setDetailRow(null)} />}
     </div>

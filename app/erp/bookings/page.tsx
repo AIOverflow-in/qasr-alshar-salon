@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { dubaiDayRange } from "@/lib/finance";
-import { TableSearch } from "@/components/erp/TableSearch";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 import { BookingRow } from "@/components/admin/BookingRow";
 import { NewBookingButton } from "@/components/erp/NewBookingButton";
 import { BookingsFilters, type BookingCounts } from "@/components/erp/BookingsFilters";
@@ -31,7 +33,7 @@ const SOURCE_MAP: Record<string, string> = {
 export default async function ErpBookings({
   searchParams,
 }: {
-  searchParams: Promise<{ when?: string; status?: string; source?: string }>;
+  searchParams: Promise<{ when?: string; status?: string; source?: string; page?: string; q?: string }>;
 }) {
   const session = await getSession();
   // Crown artists have no access to the bookings table (view or edit) — they get a
@@ -47,6 +49,7 @@ export default async function ErpBookings({
   const when = ["today", "tomorrow", "next2w", "all"].includes(sp.when ?? "") ? sp.when! : "today";
   const status = sp.status && STATUS_MAP[sp.status] ? sp.status : "all";
   const source = sp.source && SOURCE_MAP[sp.source] ? sp.source : "all";
+  const q = (sp.q ?? "").trim();
 
   // Date window for the chosen "when"
   const today = dubaiDayRange(0);
@@ -63,7 +66,17 @@ export default async function ErpBookings({
     ...(windowFor[when] ? { startAt: windowFor[when]! } : {}),
     ...(STATUS_MAP[status] ? { status: STATUS_MAP[status] } : {}),
     ...(SOURCE_MAP[source] ? { source: SOURCE_MAP[source] } : {}),
+    ...(q ? { OR: [
+      { customerName: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q } },
+      { email: { contains: q, mode: "insensitive" } },
+      { serviceName: { contains: q, mode: "insensitive" } },
+    ] } : {}),
   };
+
+  // One page of the filtered set (server-side) — compute the window before the batch.
+  const filteredTotal = await prisma.booking.count({ where });
+  const win = pageWindow(filteredTotal, parsePage(sp.page));
 
   const [bookings, services, staff, clients, total, statusGroup, sourceGroup, cToday, cTomorrow, cNext2w] =
     await Promise.all([
@@ -72,7 +85,8 @@ export default async function ErpBookings({
         // Newest entry first (most recently added at the top), matching the Sales table.
         // The Calendar page is the chronological, time-ordered view of the day.
         orderBy: { createdAt: "desc" },
-        take: 500,
+        skip: win.skip,
+        take: win.take,
         include: {
           staff: { select: { name: true, phone: true } },
           items: { select: { serviceId: true, serviceName: true, priceAED: true, durationMin: true, staffId: true } },
@@ -129,10 +143,12 @@ export default async function ErpBookings({
 
       <BookingsFilters when={when} status={status} source={source} counts={counts} />
 
-      {bookings.length === 0 ? (
-        <div className="surface rounded-2xl p-10 text-center text-muted">No bookings match this filter.</div>
+      <SearchBox placeholder="Search by client, phone, service or email…" className="max-w-sm" />
+
+      {filteredTotal === 0 ? (
+        <div className="surface rounded-2xl p-10 text-center text-muted">{q ? `No bookings match “${q}”.` : "No bookings match this filter."}</div>
       ) : (
-        <TableSearch placeholder="Search by client, phone, service or stylist…">
+        <>
           <div className="surface overflow-x-auto rounded-2xl">
             <table className="w-full min-w-[860px] text-sm">
               <thead className="border-b border-ink-line text-left text-muted">
@@ -192,7 +208,8 @@ export default async function ErpBookings({
               </tbody>
             </table>
           </div>
-        </TableSearch>
+          <Pagination total={win.total} page={win.page} size={win.size} />
+        </>
       )}
     </div>
   );

@@ -1,42 +1,42 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Plus, Minus, Pencil, PackagePlus, Boxes, Loader2, X, Upload, Download } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Plus, Minus, Pencil, PackagePlus, Boxes, Loader2, X, Upload, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
 
 export type Product = {
   id: string; name: string; category: string; barcode: string | null;
   qty: number; costAED: number | null; saleAED: number | null; reorderAt: number;
 };
 
-const PAGE = 20;
 const empty = { name: "", category: "Retail / Aftercare", barcode: "", qty: "0", costAED: "", saleAED: "", reorderAt: "3" };
 
-export function InventoryTable({ products, categories }: { products: Product[]; categories: string[] }) {
+export function InventoryTable({ products, categories, category, total, page, size }: {
+  products: Product[]; categories: string[]; category: string; total: number; page: number; size: number;
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const sp = useSearchParams();
   const [items, setItems] = useState<Product[]>(products);
-  useEffect(() => { setItems(products); }, [products]); // resync after a server refresh
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("");
-  const [page, setPage] = useState(0);
+  useEffect(() => { setItems(products); }, [products]); // resync after a server refresh / page change
   const [addOpen, setAddOpen] = useState(false);
   const [edit, setEdit] = useState<Product | null>(null);
   const [stockFor, setStockFor] = useState<Product | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return items.filter((p) =>
-      (!cat || p.category === cat) &&
-      (!s || p.name.toLowerCase().includes(s) || (p.barcode ?? "").includes(s))
-    );
-  }, [items, q, cat]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const safePage = Math.min(page, pages - 1);
-  const slice = filtered.slice(safePage * PAGE, safePage * PAGE + PAGE);
+  // Category filter drives the URL (?category=) so the server filters ALL rows, not just this page.
+  function setCategory(v: string) {
+    const params = new URLSearchParams(sp?.toString() ?? "");
+    if (v) params.set("category", v);
+    else params.delete("category");
+    params.delete("page"); // a new filter always starts on page 1
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   async function adjust(p: Product, delta: number) {
     // optimistic: update the cell instantly, persist in the background, revert on failure
@@ -105,12 +105,8 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
     <div className="space-y-4">
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
-          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search name or barcode…"
-            className="w-full rounded-full border border-ink-line bg-ink-card py-2 pl-9 pr-4 text-sm text-cream placeholder:text-muted outline-none focus:border-gold/60" />
-        </div>
-        <select value={cat} onChange={(e) => { setCat(e.target.value); setPage(0); }}
+        <SearchBox placeholder="Search name, category or barcode…" className="min-w-[200px] flex-1" />
+        <select value={category} onChange={(e) => setCategory(e.target.value)}
           className="rounded-full border border-ink-line bg-ink-card px-4 py-2 text-sm text-cream outline-none focus:border-gold/60">
           <option value="">All categories</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -141,7 +137,7 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line/60">
-            {slice.map((p) => (
+            {items.map((p) => (
               <tr key={p.id} className={cn(p.qty === 0 && "bg-red-500/5")}>
                 <td className="p-3 text-cream">{p.name}</td>
                 <td className="p-3 text-xs text-muted">{p.category}</td>
@@ -164,16 +160,7 @@ export function InventoryTable({ products, categories }: { products: Product[]; 
         </table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">{filtered.length} product{filtered.length !== 1 ? "s" : ""}</p>
-        {pages > 1 && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0} className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand disabled:opacity-40 hover:border-gold/50"><ChevronLeft size={16} /></button>
-            <span className="text-xs text-muted">Page {safePage + 1} of {pages}</span>
-            <button onClick={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={safePage >= pages - 1} className="grid h-8 w-8 place-items-center rounded-lg border border-ink-line text-sand disabled:opacity-40 hover:border-gold/50"><ChevronRight size={16} /></button>
-          </div>
-        )}
-      </div>
+      <Pagination total={total} page={page} size={size} />
 
       {addOpen && <ProductModal title="Add product" categories={categories} onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); router.refresh(); }} />}
       {edit && <ProductModal title="Edit product" categories={categories} product={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); router.refresh(); }} />}

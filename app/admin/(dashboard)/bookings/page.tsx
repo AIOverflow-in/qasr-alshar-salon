@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { aed } from "@/lib/utils";
 import { BookingRow } from "@/components/admin/BookingRow";
-import { TableSearch } from "@/components/erp/TableSearch";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +22,32 @@ function whenLabel(d: Date) {
 export default async function AdminBookings({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; q?: string }>;
 }) {
-  const { status } = await searchParams;
-  const where = status && status !== "ALL" ? { status: status as never } : {};
+  const { status, page, q: rawQ } = await searchParams;
+  const q = (rawQ ?? "").trim();
+  const where = {
+    ...(status && status !== "ALL" ? { status: status as never } : {}),
+    ...(q
+      ? {
+          OR: [
+            { customerName: { contains: q, mode: "insensitive" } },
+            { phone: { contains: q } },
+            { email: { contains: q, mode: "insensitive" } },
+            { serviceName: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  } as never;
+
+  const filteredTotal = await prisma.booking.count({ where });
+  const win = pageWindow(filteredTotal, parsePage(page));
 
   const bookings = await prisma.booking.findMany({
     where,
     orderBy: { startAt: "desc" },
-    take: 200,
+    skip: win.skip,
+    take: win.take,
     include: {
       staff: { select: { name: true } },
       salesOrders: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true, invoiceNo: true } },
@@ -57,12 +76,14 @@ export default async function AdminBookings({
         ))}
       </div>
 
-      {bookings.length === 0 ? (
+      <SearchBox placeholder="Search by client, phone, email or service…" className="max-w-sm" />
+
+      {filteredTotal === 0 ? (
         <div className="surface rounded-2xl p-10 text-center text-muted">
-          No bookings found.
+          {q ? `No bookings match “${q}”.` : "No bookings found."}
         </div>
       ) : (
-        <TableSearch placeholder="Search by client, phone, email or service…">
+        <>
           <div className="surface overflow-x-auto rounded-2xl">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="border-b border-ink-line text-left text-muted">
@@ -99,7 +120,8 @@ export default async function AdminBookings({
               </tbody>
             </table>
           </div>
-        </TableSearch>
+          <Pagination total={win.total} page={win.page} size={win.size} />
+        </>
       )}
     </div>
   );

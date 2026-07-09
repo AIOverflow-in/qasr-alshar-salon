@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { salesRange, getSalesBreakdown } from "@/lib/finance";
 import { lineArtistIds } from "@/lib/artists";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 import { SalesTable, type SalesRow } from "@/components/erp/SalesTable";
+import type { Prisma } from "@prisma/client";
 
 function whenLabel(d: Date) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(d);
@@ -12,12 +14,16 @@ function whenLabel(d: Date) {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sales — Qasr Alshar ERP" };
 
-const ROW_CAP = 1000; // table shows the most recent N; the summary covers the whole period
+// A bill "touches" a payment method when it's a single bill of that method, or a
+// split bill with a non-zero amount in that method's column — mirrors rowMethods().
+const AMOUNT_COL: Record<"CASH" | "CARD" | "TRANSFER", "cashAED" | "cardAED" | "transferAED"> = {
+  CASH: "cashAED", CARD: "cardAED", TRANSFER: "transferAED",
+};
 
 export default async function ErpSales({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; date?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ range?: string; date?: string; from?: string; to?: string; page?: string; q?: string; payment?: string }>;
 }) {
   const session = await getSession();
   if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) redirect("/erp");
@@ -26,12 +32,50 @@ export default async function ErpSales({
   const sp = await searchParams;
   const range = sp.from && sp.to ? "custom" : sp.date ? "date" : sp.range ?? "today";
   const window = salesRange(sp);
+  const q = (sp.q ?? "").trim();
+  const payment = (["CASH", "CARD", "TRANSFER"].includes(sp.payment ?? "") ? sp.payment : "ALL") as "ALL" | "CASH" | "CARD" | "TRANSFER";
+
+  // When searching, resolve staff whose NAME matches q so bills can still be found
+  // by artist/marketer (stored as ids), matching the old client-side search scope.
+  const staffIdsMatchingQ = q
+    ? (await prisma.staff.findMany({ where: { name: { contains: q, mode: "insensitive" } }, select: { id: true } })).map((s) => s.id)
+    : [];
+
+  // The table's where: PAID bills in the period, narrowed by the free-text search
+  // (invoice / client / phone / artist / cashier / service item) and the payment filter.
+  const where: Prisma.SalesOrderWhereInput = {
+    status: "PAID",
+    createdAt: { gte: window.start, lt: window.end },
+    AND: [
+      ...(q ? [{ OR: [
+        { invoiceNo: { contains: q, mode: "insensitive" as const } },
+        { client: { name: { contains: q, mode: "insensitive" as const } } },
+        { client: { phone: { contains: q } } },
+        { staff: { name: { contains: q, mode: "insensitive" as const } } },        // main artist
+        { createdBy: { name: { contains: q, mode: "insensitive" as const } } },     // cashier
+        { lines: { some: { description: { contains: q, mode: "insensitive" as const } } } }, // service / item
+        ...(staffIdsMatchingQ.length ? [
+          { marketerId: { in: staffIdsMatchingQ } },                                // marketer by name
+          { lines: { some: { staffIds: { hasSome: staffIdsMatchingQ } } } },        // per-line artists
+        ] : []),
+      ] }] : []),
+      ...(payment !== "ALL" ? [{ OR: [
+        { splitPayment: false, paymentMethod: payment },
+        { splitPayment: true, [AMOUNT_COL[payment]]: { gt: 0 } },
+      ] }] : []),
+    ],
+  };
+
+  // One page of the filtered set (server-side) — compute the window before the batch.
+  const filteredTotal = await prisma.salesOrder.count({ where });
+  const win = pageWindow(filteredTotal, parsePage(sp.page));
 
   const [orders, summary, staffList] = await Promise.all([
     prisma.salesOrder.findMany({
-      where: { status: "PAID", createdAt: { gte: window.start, lt: window.end } },
+      where,
       orderBy: { createdAt: "desc" },
-      take: ROW_CAP,
+      skip: win.skip,
+      take: win.take,
       include: {
         lines: { select: { description: true, qty: true, unitAED: true, lineAED: true, kind: true, staffId: true, staffIds: true } },
         staff: { select: { name: true } },
@@ -40,7 +84,7 @@ export default async function ErpSales({
         booking: { select: { startAt: true, source: true, serviceMode: true, address: true, customRequest: true, notes: true } },
       },
     }),
-    getSalesBreakdown(window), // accurate totals for the whole period
+    getSalesBreakdown(window), // accurate totals for the whole period (never narrowed by search/page)
     prisma.staff.findMany({ select: { id: true, name: true } }),
   ]);
 
@@ -94,7 +138,11 @@ export default async function ErpSales({
         activeDate={sp.date ?? null}
         activeFrom={sp.from ?? null}
         activeTo={sp.to ?? null}
-        capped={rows.length >= ROW_CAP}
+        q={q}
+        payment={payment}
+        total={win.total}
+        page={win.page}
+        size={win.size}
         canEdit={canEdit}
       />
     </div>

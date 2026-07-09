@@ -2,19 +2,27 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { CatalogManager } from "@/components/erp/CatalogManager";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 
-export default async function ErpProducts() {
+export default async function ErpProducts({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
 
+  const total = await prisma.product.count({ where: { active: true } });
+  const win = pageWindow(total, parsePage((await searchParams).page));
   const products = await prisma.product.findMany({
     where: { active: true },
     orderBy: [{ retail: "desc" }, { name: "asc" }],
-    take: 500,
+    skip: win.skip,
+    take: win.take,
     select: { id: true, name: true, category: true, saleAED: true, qty: true, retail: true, description: true, imageUrl: true, active: true },
   });
-  const published = products.filter((p) => p.retail && (p.saleAED ?? 0) > 0 && p.imageUrl && p.qty > 0).length;
+  // "Live on the shop" is a store-wide figure — count across ALL products, not just this page.
+  const published = await prisma.product.count({
+    where: { active: true, retail: true, saleAED: { gt: 0 }, imageUrl: { not: null }, qty: { gt: 0 } },
+  });
 
   return (
     <div className="space-y-6">
@@ -26,6 +34,7 @@ export default async function ErpProducts() {
         </p>
       </div>
       <CatalogManager products={products} />
+      <Pagination total={win.total} page={win.page} size={win.size} />
     </div>
   );
 }

@@ -2,19 +2,24 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { CompanyDocuments } from "@/components/erp/CompanyDocuments";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Documents — Qasr Alshar ERP" };
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/admin/login");
   // Admins only — sensitive business documents (tax, agreements, licences).
   if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") redirect("/erp");
 
+  const total = await prisma.companyDocument.count();
+  const win = pageWindow(total, parsePage((await searchParams).page));
   const docs = await prisma.companyDocument.findMany({
     orderBy: { createdAt: "desc" },
-    take: 500,
+    skip: win.skip,
+    take: win.take,
     select: { id: true, title: true, description: true, category: true, fileName: true, sizeBytes: true, createdAt: true },
   });
 
@@ -28,6 +33,7 @@ export default async function DocumentsPage() {
         canEdit
         docs={docs.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))}
       />
+      <Pagination total={win.total} page={win.page} size={win.size} />
     </div>
   );
 }

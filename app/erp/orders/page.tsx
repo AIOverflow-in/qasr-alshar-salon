@@ -2,19 +2,23 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ShopOrdersManager } from "@/components/erp/ShopOrdersManager";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Shop Orders — Qasr Alshar ERP" };
 
 type Item = { productId: string; name: string; priceAED: number; qty: number; lineAED: number };
 
-export default async function ShopOrdersPage() {
+export default async function ShopOrdersPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/admin/login");
   const canEdit = ["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role);
   if (!canEdit) redirect("/erp");
 
-  const orders = await prisma.shopOrder.findMany({ orderBy: { createdAt: "desc" }, take: 300 });
+  const total = await prisma.shopOrder.count();
+  const win = pageWindow(total, parsePage((await searchParams).page));
+  const orders = await prisma.shopOrder.findMany({ orderBy: { createdAt: "desc" }, skip: win.skip, take: win.take });
 
   return (
     <div className="space-y-6">
@@ -30,6 +34,7 @@ export default async function ShopOrdersPage() {
           itemCount: o.itemCount, totalAED: o.totalAED, status: o.status, createdAt: o.createdAt.toISOString(),
         }))}
       />
+      <Pagination total={win.total} page={win.page} size={win.size} />
     </div>
   );
 }

@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { Paperclip } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { AddExpenseForm } from "@/components/erp/AddExpenseForm";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +19,21 @@ const cap = (c: string) => c[0] + c.slice(1).toLowerCase();
  * logs and lists expenses; capital, payroll and profit figures live on /erp/finance
  * (managers/investor only), so reception never sees sensitive totals here.
  */
-export default async function ErpExpenses() {
+export default async function ErpExpenses({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const ok = await requireRole(["SUPER_ADMIN", "ADMIN", "RECEPTION"]);
   if (!ok) redirect("/erp");
   const isManager = ok.role === "SUPER_ADMIN" || ok.role === "ADMIN";
 
   // Reception is add-only: they see ONLY the expenses they themselves logged, and
   // never SALARIES rows — so manager-logged payroll/rent figures stay private.
+  const where: Prisma.ExpenseWhereInput = isManager ? {} : { createdById: ok.sub, category: { not: "SALARIES" } };
+  const total = await prisma.expense.count({ where });
+  const win = pageWindow(total, parsePage((await searchParams).page));
   const expenses = await prisma.expense.findMany({
-    where: isManager ? {} : { createdById: ok.sub, category: { not: "SALARIES" } },
+    where,
     orderBy: { incurredOn: "desc" },
-    take: 50,
+    skip: win.skip,
+    take: win.take,
   });
 
   return (
@@ -63,6 +70,8 @@ export default async function ErpExpenses() {
           ))}
         </div>
       </div>
+
+      <Pagination total={win.total} page={win.page} size={win.size} />
     </div>
   );
 }
