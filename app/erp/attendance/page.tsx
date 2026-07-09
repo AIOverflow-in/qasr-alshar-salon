@@ -2,16 +2,20 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { AttendanceManager } from "@/components/erp/AttendanceManager";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Attendance — Qasr Alshar ERP" };
 
-export default async function AttendancePage() {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
 
+  const total = await prisma.attendancePunch.count({ where: {} });
+  const win = pageWindow(total, parsePage((await searchParams).page));
   const [punches, staff] = await Promise.all([
     prisma.attendancePunch.findMany({
-      orderBy: { punchedAt: "desc" }, take: 200,
+      orderBy: { punchedAt: "desc" }, skip: win.skip, take: win.take,
       select: { id: true, pin: true, punchedAt: true, status: true, verifyMode: true, staff: { select: { name: true } } },
     }),
     prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true, biometricPin: true } }),
@@ -29,6 +33,7 @@ export default async function AttendancePage() {
         staff={staff.map((s) => ({ id: s.id, name: s.name, pin: s.biometricPin }))}
         unmappedPins={unmappedPins}
       />
+      <Pagination total={win.total} page={win.page} size={win.size} />
     </div>
   );
 }

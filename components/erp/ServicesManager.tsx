@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Check, Loader2, Plus, Search } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Check, Loader2, Plus } from "lucide-react";
 import { createService, updateService } from "@/lib/actions/admin";
+import { SearchBox } from "@/components/erp/SearchBox";
+import { Pagination } from "@/components/erp/Pagination";
 import { cn } from "@/lib/utils";
 
 type Service = { id: string; name: string; category: string; priceAED: number; durationMin: number; active: boolean };
@@ -55,21 +57,27 @@ function Row({ s }: { s: Service }) {
   );
 }
 
-export function ServicesManager({ services }: { services: Service[] }) {
-  const [q, setQ] = useState("");
-  const categories = useMemo(() => [...new Set(services.map((s) => s.category))].sort(), [services]);
-
+export function ServicesManager({
+  services,
+  categories,
+  total,
+  page,
+  size,
+  q,
+}: {
+  services: Service[];
+  categories: string[];
+  total: number;
+  page: number;
+  size: number;
+  q: string;
+}) {
   const [nName, setNName] = useState("");
   const [nCat, setNCat] = useState("");
   const [nPrice, setNPrice] = useState<number | "">("");
   const [nDur, setNDur] = useState<number | "">(60);
   const [adding, startAdd] = useTransition();
   const [addErr, setAddErr] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    return query ? services.filter((s) => s.name.toLowerCase().includes(query) || s.category.toLowerCase().includes(query)) : services;
-  }, [services, q]);
 
   function add() {
     setAddErr(null);
@@ -102,10 +110,7 @@ export function ServicesManager({ services }: { services: Service[] }) {
       </div>
 
       {/* search */}
-      <div className="relative max-w-xs">
-        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search services…" className="w-full rounded-full border border-ink-line bg-ink-card py-2 pl-9 pr-4 text-sm text-cream placeholder:text-muted outline-none focus:border-gold/60" />
-      </div>
+      <SearchBox placeholder="Search services…" className="max-w-xs" />
 
       {/* table */}
       <div className="surface overflow-x-auto rounded-2xl">
@@ -121,11 +126,12 @@ export function ServicesManager({ services }: { services: Service[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line/60">
-            {filtered.map((s) => <Row key={s.id} s={s} />)}
+            {services.map((s) => <Row key={s.id} s={s} />)}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted">{filtered.length} services · edits save per row. “Hidden” services stop appearing in booking & POS but keep their history.</p>
+      <Pagination total={total} page={page} size={size} />
+      <p className="text-xs text-muted">{total} services · edits save per row. “Hidden” services stop appearing in booking & POS but keep their history.</p>
     </div>
   );
 }

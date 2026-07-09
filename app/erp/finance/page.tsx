@@ -5,25 +5,38 @@ import { aed } from "@/lib/utils";
 import { getMonthlyRevenue, monthStartUTC } from "@/lib/finance";
 import { FinanceManager } from "@/components/erp/FinanceManager";
 import { ScheduledPayments } from "@/components/erp/ScheduledPayments";
+import { Pagination } from "@/components/erp/Pagination";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
 
 const TARGET = 100_000;
 
-export default async function ErpFinance() {
+export default async function ErpFinance({ searchParams }: { searchParams: Promise<{ ep?: string; cp?: string; sp?: string }> }) {
   const ok = await requireRole(FINANCE_ROLES);
   if (!ok) redirect("/erp");
   const canEdit = ok.role === "SUPER_ADMIN" || ok.role === "ADMIN";
 
   const monthStart = monthStartUTC();
+  const qp = await searchParams;
+
+  // Each of the three lists paginates independently via its own URL param.
+  const [expTotal, capTotal, schTotal] = await Promise.all([
+    prisma.expense.count(),
+    prisma.capitalEntry.count(),
+    prisma.scheduledPayment.count(),
+  ]);
+  const expWin = pageWindow(expTotal, parsePage(qp.ep));
+  const capWin = pageWindow(capTotal, parsePage(qp.cp));
+  const schWin = pageWindow(schTotal, parsePage(qp.sp));
 
   const [revenue, monthExpenseAgg, expenses, capital, capitalAgg, scheduled] = await Promise.all([
     getMonthlyRevenue(),
     prisma.expense.aggregate({ _sum: { amountAED: true }, where: { incurredOn: { gte: monthStart } } }),
-    prisma.expense.findMany({ orderBy: { incurredOn: "desc" }, take: 100 }),
-    prisma.capitalEntry.findMany({ orderBy: { contributedOn: "desc" }, take: 100 }),
+    prisma.expense.findMany({ orderBy: { incurredOn: "desc" }, skip: expWin.skip, take: expWin.take }),
+    prisma.capitalEntry.findMany({ orderBy: { contributedOn: "desc" }, skip: capWin.skip, take: capWin.take }),
     prisma.capitalEntry.aggregate({ _sum: { amountAED: true } }),
-    prisma.scheduledPayment.findMany({ orderBy: { dueDate: "asc" }, take: 200 }),
+    prisma.scheduledPayment.findMany({ orderBy: { dueDate: "asc" }, skip: schWin.skip, take: schWin.take }),
   ]);
 
   const monthExpenses = monthExpenseAgg._sum.amountAED ?? 0;
@@ -56,18 +69,23 @@ export default async function ErpFinance() {
         ))}
       </div>
 
-      <ScheduledPayments
-        canEdit={canEdit}
-        payments={scheduled.map((p) => ({
-          id: p.id, label: p.label, category: p.category, amountAED: p.amountAED, dueDate: p.dueDate.toISOString(),
-          payee: p.payee, method: p.method, reference: p.reference, status: p.status, paidAt: p.paidAt ? p.paidAt.toISOString() : null, remindDaysBefore: p.remindDaysBefore,
-        }))}
-      />
+      <div>
+        <ScheduledPayments
+          canEdit={canEdit}
+          payments={scheduled.map((p) => ({
+            id: p.id, label: p.label, category: p.category, amountAED: p.amountAED, dueDate: p.dueDate.toISOString(),
+            payee: p.payee, method: p.method, reference: p.reference, status: p.status, paidAt: p.paidAt ? p.paidAt.toISOString() : null, remindDaysBefore: p.remindDaysBefore,
+          }))}
+        />
+        <Pagination total={schWin.total} page={schWin.page} size={schWin.size} param="sp" />
+      </div>
 
       <FinanceManager
         canEdit={canEdit}
         expenses={expenses.map((e) => ({ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), recurring: e.recurring, invoiceNo: e.invoiceNo, receiptUrl: e.receiptUrl }))}
         capital={capital.map((c) => ({ id: c.id, investor: c.investor, amountAED: c.amountAED, contributedOn: c.contributedOn.toISOString() }))}
+        expenseWin={{ total: expWin.total, page: expWin.page, size: expWin.size }}
+        capitalWin={{ total: capWin.total, page: capWin.page, size: capWin.size }}
       />
     </div>
   );

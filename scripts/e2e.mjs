@@ -155,6 +155,29 @@ try {
     }
   }
 
+  section("Server-side pagination + search");
+  {
+    // Over-range ?page clamps to a valid page (never a blank screen / error).
+    ok((await code("/erp/products?page=99999", "ADMIN")) === "200", "products: over-range ?page clamps to 200");
+    ok((await code("/erp/bookings?when=all&page=99999", "ADMIN")) === "200", "bookings: over-range ?page clamps to 200");
+    // A paginated page renders a DIFFERENT slice on page 2 (proves server skip/take) — when there's enough data.
+    const clientCount = await prisma.client.count();
+    if (clientCount > 20) {
+      const c1 = await body("/erp/clients", "ADMIN");
+      const c2 = await body("/erp/clients?page=2", "ADMIN");
+      ok(c1.status === 200 && c2.status === 200 && c1.text !== c2.text, `clients: page 2 is a different slice than page 1 (${clientCount} clients)`);
+    } else {
+      ok(true, `clients page-2 slice test skipped (only ${clientCount} clients on clone)`);
+    }
+    // Server-side booking search: a uniquely-named booking is found by ?q= and excluded by a non-matching query.
+    const bkg = await prisma.booking.create({ data: { serviceName: `${TAG}PGSRCH_SVC`, priceAED: 100, durationMin: 60, customerName: `${TAG}PGSRCH`, email: "pg@e2e.test", phone: "", startAt: new Date(), endAt: new Date(Date.now() + 3600e3), status: "CONFIRMED" } });
+    const hit = await body(`/erp/bookings?when=all&q=${TAG}PGSRCH`, "ADMIN");
+    ok(hit.text.includes(`${TAG}PGSRCH`), "bookings ?q= finds the matching booking (server-side search)");
+    const miss = await body(`/erp/bookings?when=all&q=${TAG}NOMATCHZZZ`, "ADMIN");
+    ok(!miss.text.includes(`${TAG}PGSRCH`), "bookings ?q= excludes non-matches (server-side, not just the loaded page)");
+    await prisma.booking.deleteMany({ where: { id: bkg.id } });
+  }
+
   section("Bookings filters load + count consistency");
   for (const w of ["today", "tomorrow", "next2w", "all"]) ok((await code(`/erp/bookings?when=${w}`, "RECEPTION")) === "200", `bookings when=${w}`);
   {

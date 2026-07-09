@@ -1,16 +1,33 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
+import { parsePage, pageWindow } from "@/lib/pagination-core";
 import { ClientsManager } from "./ClientsManager";
 import { ClientsGrid } from "@/components/erp/ClientsGrid";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function ErpClients() {
+export default async function ErpClients({ searchParams }: { searchParams: Promise<{ page?: string; q?: string }> }) {
   if (!(await requireRole(["SUPER_ADMIN", "ADMIN", "RECEPTION"]))) redirect("/erp");
+
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const where: Prisma.ClientWhereInput = q
+    ? { OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ] }
+    : {};
+
+  const total = await prisma.client.count({ where });
+  const win = pageWindow(total, parsePage(sp.page));
   const clients = await prisma.client.findMany({
+    where,
     orderBy: { updatedAt: "desc" },
-    take: 2000,
+    skip: win.skip,
+    take: win.take,
     include: {
       salesOrders: {
         where: { status: "PAID" },
@@ -26,7 +43,7 @@ export default async function ErpClients() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl text-cream">Clients</h1>
-          <p className="text-sm text-muted">{clients.length} clients in CRM</p>
+          <p className="text-sm text-muted">{total} clients in CRM</p>
         </div>
         <ClientsManager />
       </div>
@@ -44,6 +61,9 @@ export default async function ErpClients() {
           consentMarketing: c.consentMarketing,
           salesOrders: c.salesOrders.map((o) => ({ invoiceNo: o.invoiceNo, totalAED: o.totalAED, createdAt: o.createdAt.toISOString() })),
         }))}
+        total={win.total}
+        page={win.page}
+        size={win.size}
       />
     </div>
   );
