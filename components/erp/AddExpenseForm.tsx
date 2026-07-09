@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, Paperclip, X } from "lucide-react";
 import { addExpense } from "@/lib/actions/finance";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-filter";
 
-const CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"];
 const label = (c: string) => c[0] + c.slice(1).toLowerCase();
 
 const input = "rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
@@ -13,19 +13,29 @@ const input = "rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm t
 /**
  * Shared expense-entry form — used by the admin Finance page and the reception
  * add-only Expenses screen. Uploads an optional receipt/invoice photo to Blob
- * first, then logs the expense. `showRecurring` is admin-only.
+ * first, then logs the expense. `showRecurring` is admin-only. `categories`
+ * limits the category picker (reception's Expenses tab shows a short list).
  */
-export function AddExpenseForm({ showRecurring = false, onAdded }: { showRecurring?: boolean; onAdded?: () => void }) {
+export function AddExpenseForm({
+  showRecurring = false,
+  onAdded,
+  categories = EXPENSE_CATEGORIES as readonly string[],
+}: {
+  showRecurring?: boolean;
+  onAdded?: () => void;
+  categories?: readonly string[];
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [f, setF] = useState({ category: "SUPPLIES", incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
+  const initialCat = categories.includes("SUPPLIES") ? "SUPPLIES" : categories[0];
+  const [f, setF] = useState({ category: initialCat, incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function reset() {
-    setF({ category: "SUPPLIES", incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
+    setF({ category: initialCat, incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
     setFile(null);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -74,7 +84,7 @@ export function AddExpenseForm({ showRecurring = false, onAdded }: { showRecurri
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       <select value={f.category} onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))} className={input} aria-label="Category">
-        {CATEGORIES.map((c) => <option key={c} value={c}>{label(c)}</option>)}
+        {categories.map((c) => <option key={c} value={c}>{label(c)}</option>)}
       </select>
       <input type="date" value={f.incurredOn} onChange={(e) => setF((p) => ({ ...p, incurredOn: e.target.value }))} className={`${input} [color-scheme:dark]`} aria-label="Date" />
       <input value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} placeholder="What was it for?" className={`${input} sm:col-span-2`} />

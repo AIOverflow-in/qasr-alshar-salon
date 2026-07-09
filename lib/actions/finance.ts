@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendDailyDigest } from "@/lib/digest";
 import type { ExpenseCategory } from "@prisma/client";
 
 /** Finance writes are owner/manager only — investors are read-only. */
@@ -24,6 +25,12 @@ async function requireExpenseWriter() {
 }
 
 const CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"] as const;
+
+/** Owner/manager can send the daily takings digest on demand (to NOTIFY_EMAILS). */
+export async function emailDailyDigestNow() {
+  await requireFinanceWriter();
+  return sendDailyDigest();
+}
 
 export async function addExpense(data: {
   category: string;

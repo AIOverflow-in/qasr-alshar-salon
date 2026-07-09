@@ -6,6 +6,7 @@ import { getMonthlyRevenue, monthStartUTC } from "@/lib/finance";
 import { FinanceManager } from "@/components/erp/FinanceManager";
 import { ScheduledPayments } from "@/components/erp/ScheduledPayments";
 import { Pagination } from "@/components/erp/Pagination";
+import { SendDigestButton } from "@/components/erp/SendDigestButton";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
 
 export const dynamic = "force-dynamic";
@@ -54,9 +55,12 @@ export default async function ErpFinance({ searchParams }: { searchParams: Promi
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl text-cream">Finance &amp; Investor</h1>
-        <p className="text-sm text-muted">{ok.role === "INVESTOR" ? "Investor view (read-only)" : "Owner / manager view"}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl text-cream">Finance &amp; Investor</h1>
+          <p className="text-sm text-muted">{ok.role === "INVESTOR" ? "Investor view (read-only)" : "Owner / manager view"}</p>
+        </div>
+        {canEdit && <SendDigestButton />}
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">

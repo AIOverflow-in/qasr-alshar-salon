@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { dubaiMonthRange, currentDubaiMonth, recentMonths } from "@/lib/payroll";
-import { expenseWhere, EXPENSE_CATEGORIES, isExpenseCategory } from "@/lib/expense-filter";
+import { expenseWhere, EXPENSE_TAB_CATEGORIES, isExpenseCategory } from "@/lib/expense-filter";
 import { AddExpenseForm } from "@/components/erp/AddExpenseForm";
 import { Pagination } from "@/components/erp/Pagination";
 import { ReceiptPreview } from "@/components/erp/ReceiptPreview";
@@ -56,7 +56,7 @@ export default async function ErpExpenses({
   const filteredTotal = filteredAgg._sum.amountAED ?? 0;
   const sums = new Map(breakdown.map((b) => [b.category, b._sum.amountAED ?? 0] as const));
   const scopeTotal = breakdown.reduce((s, b) => s + (b._sum.amountAED ?? 0), 0);
-  const chipCats = isManager ? [...EXPENSE_CATEGORIES] : EXPENSE_CATEGORIES.filter((c) => c !== "SALARIES");
+  const chipCats = [...EXPENSE_TAB_CATEGORIES]; // Expenses tab = reception's short list
 
   // Build hrefs preserving the current month + q; the chip sets/clears the category.
   const href = (category: string | null) => {
@@ -114,7 +114,7 @@ export default async function ErpExpenses({
       </div>
 
       <div className="surface rounded-2xl p-5">
-        <AddExpenseForm />
+        <AddExpenseForm categories={[...EXPENSE_TAB_CATEGORIES]} />
       </div>
 
       <div className="surface rounded-2xl p-5">
