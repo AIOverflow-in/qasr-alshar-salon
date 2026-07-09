@@ -153,13 +153,28 @@ try {
       ok(adm.text.includes(`${TAG}SALARY`) && adm.text.includes(`${TAG}OTHEROWN`), "admin expenses: sees all entries");
       await prisma.expense.deleteMany({ where: { id: { in: [own.id, sal.id, other.id] } } });
     }
-    // Expense dashboard: "logged this month" total + a receipt preview trigger on rows with a receipt.
+    // Expense dashboard: month total card, category breakdown chips, receipt preview,
+    // month/category filters, and CSV export (which must honor the reception privacy scope).
     {
       const rc = await prisma.expense.create({ data: { description: `${TAG}RCPT`, category: "SUPPLIES", amountAED: 42, createdById: "e2e-ADMIN", receiptUrl: "https://x.public.blob.vercel-storage.com/expense-receipts/test-abc.png" } });
       const pg = await body("/erp/expenses", "ADMIN");
-      ok(pg.text.includes("Logged this month"), "expenses: monthly total is shown");
-      ok(pg.text.includes(`${TAG}RCPT`) && pg.text.includes("receipt"), "expenses: receipt preview trigger renders for a row with a receipt");
+      ok(pg.text.includes("/api/erp/expenses/export"), "expenses: CSV export link shown");
+      ok(pg.text.includes("All ·"), "expenses: category breakdown chips shown");
+      ok(pg.text.includes(`${TAG}RCPT`) && pg.text.includes("receipt"), "expenses: receipt preview trigger renders");
+      ok((await code("/erp/expenses?month=2020-01", "ADMIN")) === "200", "expenses: past-month view renders");
+      ok((await code("/erp/expenses?category=SUPPLIES&q=abc", "RECEPTION")) === "200", "expenses: category+search filter renders");
       await prisma.expense.deleteMany({ where: { id: rc.id } });
+
+      // CSV export RBAC + reception privacy (own rows only, never SALARIES).
+      ok((await code("/api/erp/expenses/export", "STYLIST")) === "403", "expenses CSV: stylist 403");
+      const cOwn = await prisma.expense.create({ data: { description: `${TAG}CSVOWN`, category: "SUPPLIES", amountAED: 33, createdById: "e2e-RECEPTION" } });
+      const cSal = await prisma.expense.create({ data: { description: `${TAG}CSVSAL`, category: "SALARIES", amountAED: 88888, createdById: "e2e-ADMIN" } });
+      const recCsv = await body("/api/erp/expenses/export", "RECEPTION");
+      ok(recCsv.text.includes(`${TAG}CSVOWN`), "reception CSV: includes own expense");
+      ok(!recCsv.text.includes(`${TAG}CSVSAL`) && !recCsv.text.includes("88888"), "reception CSV: excludes SALARIES/others");
+      const admCsv = await body("/api/erp/expenses/export", "ADMIN");
+      ok(admCsv.status === 200 && admCsv.text.includes("Amount (AED)"), "admin CSV: 200 with header row");
+      await prisma.expense.deleteMany({ where: { id: { in: [cOwn.id, cSal.id] } } });
     }
   }
 
