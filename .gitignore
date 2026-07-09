@@ -37,11 +37,16 @@ yarn-error.log*
 # raw brand source files (large originals; optimized copies live in /public)
 /brand-assets-src
 
-# local working data & scratch — not part of the deployed app (large media, source sheets)
+# local working data & scratch — not part of the deployed app (large media, source sheets).
+# These hold client PII / financial docs / staff info — never commit them.
 /additional-data/
+/OtherDetails*
 /rough/
 /rough.txt
 /Client namesss.xlsx
+/*.xlsx
+/*.docx
+/*.csv
 *.HEIC
 
 # vercel
