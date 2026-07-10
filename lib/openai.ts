@@ -1,44 +1,39 @@
 import "server-only";
-import OpenAI from "openai";
 import { put } from "@vercel/blob";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
 import { SITE } from "./site";
 import { blogImagePrompt, pickHeroImage } from "./blog-image-core";
-
-const client = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
-
-const MODEL = process.env.OPENAI_BLOG_MODEL || "gpt-4.1";
-const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+import { getTextProvider, getImageProvider } from "./ai";
 
 /**
  * Generate one thematic hero image for a post and store it on Vercel Blob.
  * Best-effort: returns the Blob URL, or null on any failure (missing key/token,
  * timeout, API error) so the caller can fall back to a static image. The image
  * is created once at post creation and cached forever — no per-view cost.
+ * Image bytes come from the configured ImageProvider; storage stays here.
  */
 async function generateHeroImage(topicText: string, slug: string): Promise<string | null> {
-  if (!client) return null;
+  const imageProvider = getImageProvider();
+  if (!imageProvider) return null;
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null; // nowhere to store it → use fallback
+  // Keep under the cron's 60s budget (text-gen runs first); on timeout we fall back.
+  const bytes = await imageProvider.generateImage(blogImagePrompt(topicText), {
+    size: "1536x1024",
+    quality: "medium",
+    timeoutMs: 35_000,
+  });
+  if (!bytes) return null;
   try {
-    // Keep under the cron's 60s budget (text-gen runs first); on timeout we fall back.
-    const result = await client.images.generate(
-      { model: IMAGE_MODEL, prompt: blogImagePrompt(topicText), size: "1536x1024", quality: "medium", n: 1 },
-      { timeout: 35_000 }
-    );
-    const b64 = result.data?.[0]?.b64_json;
-    if (!b64) return null;
-    const blob = await put(`blog-images/${slug}.png`, Buffer.from(b64, "base64"), {
+    const blob = await put(`blog-images/${slug}.png`, bytes, {
       access: "public",
       contentType: "image/png",
       addRandomSuffix: true,
     });
-    console.log(`[openai] generated hero image for "${slug}" → ${blob.url}`);
+    console.log(`[blog] generated hero image for "${slug}" → ${blob.url}`);
     return blob.url;
   } catch (e) {
-    console.error("[openai] hero image generation failed, using fallback:", e);
+    console.error("[blog] hero image storage failed, using fallback:", e);
     return null;
   }
 }
@@ -80,8 +75,9 @@ export async function generateBlogPost(opts?: {
   title?: string;
   keywords?: string[];
 }) {
-  if (!client) {
-    console.warn("[openai] OPENAI_API_KEY not set — cannot generate blog post");
+  const textProvider = getTextProvider();
+  if (!textProvider) {
+    console.warn("[blog] no text provider configured (missing API key) — cannot generate blog post");
     return null;
   }
 
@@ -119,19 +115,16 @@ Return ONLY JSON with keys:
 
   let parsed: Generated;
   try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
-      temperature: 0.8,
-      response_format: { type: "json_object" },
-      messages: [
+    const raw = await textProvider.generateJSON(
+      [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-    });
-    const raw = completion.choices[0]?.message?.content ?? "{}";
+      { temperature: 0.8 },
+    );
     parsed = JSON.parse(raw) as Generated;
   } catch (e) {
-    console.error("[openai] generation failed:", e);
+    console.error("[blog] generation failed:", e);
     return null;
   }
 
