@@ -7,6 +7,7 @@ import { aed, cn } from "@/lib/utils";
 import { lineArtistIds } from "@/lib/artists";
 import { currentDubaiMonth, dubaiMonthRange, recentMonths } from "@/lib/payroll";
 import { leaveSummary } from "@/lib/leave";
+import { inlineKind } from "@/lib/file-preview-core";
 import { StaffAdmin } from "@/components/erp/StaffAdmin";
 import { ArrowLeft, Printer, Users } from "lucide-react";
 
@@ -98,18 +99,20 @@ export default async function ArtistPerformance({
     .map((c) => { const o = refOrderMap.get(c.orderId); return { when: o?.createdAt ?? c.createdAt, client: o?.client?.name ?? "Walk-in", invoiceNo: o?.invoiceNo ?? "—", amount: c.amountAED }; })
     .sort((a, b) => b.when.getTime() - a.when.getTime());
 
-  // Documents & leave — managers only (never loaded for a crown artist viewing their own page).
-  let documents: { id: string; type: string; expiry: string | null; uploadedAt: string }[] = [];
+  // Leave — managers (ADMIN+). Documents (passport/ID scans) — owner/SUPER_ADMIN ONLY.
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  let documents: { id: string; type: string; expiry: string | null; uploadedAt: string; kind: "image" | "pdf" | "other" }[] = [];
   let leaves: { id: string; startDate: string; endDate: string; days: number; type: string; note: string | null }[] = [];
   let leaveSum = { eligible: false, entitlement: 0, taken: 0, remaining: 0 };
   if (isAdmin) {
-    const [docs, lv] = await Promise.all([
-      prisma.staffDocument.findMany({ where: { staffId: id }, orderBy: { uploadedAt: "desc" }, select: { id: true, type: true, expiry: true, uploadedAt: true } }),
-      prisma.staffLeave.findMany({ where: { staffId: id }, orderBy: { startDate: "desc" }, select: { id: true, startDate: true, endDate: true, days: true, type: true, note: true } }),
-    ]);
+    const lv = await prisma.staffLeave.findMany({ where: { staffId: id }, orderBy: { startDate: "desc" }, select: { id: true, startDate: true, endDate: true, days: true, type: true, note: true } });
     leaveSum = leaveSummary(staff.joinedOn, lv);
-    documents = docs.map((d) => ({ id: d.id, type: d.type, expiry: d.expiry?.toISOString() ?? null, uploadedAt: d.uploadedAt.toISOString() }));
     leaves = lv.map((l) => ({ id: l.id, startDate: l.startDate.toISOString(), endDate: l.endDate.toISOString(), days: l.days, type: l.type, note: l.note }));
+    if (isSuperAdmin) {
+      // pathname carries the original extension → derive the preview kind without exposing the raw Blob URL.
+      const docs = await prisma.staffDocument.findMany({ where: { staffId: id }, orderBy: { uploadedAt: "desc" }, select: { id: true, type: true, expiry: true, uploadedAt: true, pathname: true } });
+      documents = docs.map((d) => ({ id: d.id, type: d.type, expiry: d.expiry?.toISOString() ?? null, uploadedAt: d.uploadedAt.toISOString(), kind: inlineKind(d.pathname) }));
+    }
   }
 
   return (
@@ -233,11 +236,11 @@ export default async function ArtistPerformance({
         <div className="surface rounded-2xl p-12 text-center text-muted">No activity in {monthLabel(month)}.</div>
       )}
 
-      {/* Personnel — documents & leave (managers only) */}
+      {/* Personnel — leave (managers) + documents (owner only) */}
       {isAdmin && (
         <div className="space-y-3 border-t border-ink-line pt-6">
           <h2 className="font-display text-xl text-cream">Personnel</h2>
-          <StaffAdmin staffId={id} documents={documents} leaves={leaves} summary={leaveSum} />
+          <StaffAdmin staffId={id} documents={documents} leaves={leaves} summary={leaveSum} canViewDocs={isSuperAdmin} />
         </div>
       )}
     </div>

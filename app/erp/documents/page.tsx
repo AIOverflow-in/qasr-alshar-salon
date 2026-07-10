@@ -11,8 +11,8 @@ export const metadata = { title: "Documents — Qasr Alshar ERP" };
 export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const session = await getSession();
   if (!session) redirect("/admin/login");
-  // Admins only — sensitive business documents (tax, agreements, licences).
-  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") redirect("/erp");
+  // Owner only — the most sensitive business documents (tax, agreements, licences).
+  if (session.role !== "SUPER_ADMIN") redirect("/erp");
 
   const total = await prisma.companyDocument.count();
   const win = pageWindow(total, parsePage((await searchParams).page));
@@ -27,7 +27,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl text-cream">Documents</h1>
-        <p className="text-sm text-muted">Secure vault for tax filings, agreements, licences and other company records. Admins only.</p>
+        <p className="text-sm text-muted">Secure vault for tax filings, agreements, licences and other company records. Owner only — click a document to preview it in-app.</p>
       </div>
       <CompanyDocuments
         canEdit

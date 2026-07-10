@@ -45,7 +45,7 @@ const NAV = [
   { href: "/erp/services", label: "Services", icon: Sparkles, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/staff/me", label: "My Work", icon: Scissors, roles: ["STYLIST"] },
   { href: "/erp/finance", label: "Finance", icon: Wallet, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
-  { href: "/erp/documents", label: "Documents", icon: FolderLock, roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/erp/documents", label: "Documents", icon: FolderLock, roles: ["SUPER_ADMIN"] },
   { href: "/erp/blog", label: "Blog", icon: Newspaper, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/products", label: "Storefront", icon: ShoppingBag, roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/erp/orders", label: "Shop Orders", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },

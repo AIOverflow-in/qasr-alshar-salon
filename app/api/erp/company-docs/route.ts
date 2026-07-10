@@ -11,11 +11,11 @@ const MAX_BYTES = 20 * 1024 * 1024; // 20 MB
 // Allow-list document/image types (defence-in-depth; files are also served download-only + nosniff).
 const ALLOWED_EXT = ["pdf", "jpg", "jpeg", "png", "webp", "gif", "heic", "doc", "docx", "xls", "xlsx", "csv", "txt", "ppt", "pptx"];
 
-/** Upload a company document to Vercel Blob (admins only). Served only via the gated serve route. */
+/** Upload a company document to Vercel Blob (owner/SUPER_ADMIN only). Served only via the gated serve route. */
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (session.role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let form: FormData;
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "Invalid form data" }, { status: 400 }); }
