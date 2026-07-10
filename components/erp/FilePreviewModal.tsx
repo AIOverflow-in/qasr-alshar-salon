@@ -2,25 +2,34 @@
 
 import { useEffect } from "react";
 import { X, Download, ExternalLink, FileText } from "lucide-react";
-import { previewKind } from "@/lib/file-preview-core";
+import { previewKind, type PreviewKind } from "@/lib/file-preview-core";
 
 export type PreviewDetail = { label: string; value: string; strong?: boolean };
 
 /**
  * Side-by-side document preview: the file (image / PDF) on one side and its
- * details on the other. Used for expense receipts. Closes on Escape or backdrop
- * click; stacks vertically on phones. Only used for safe public-Blob receipts
- * (images/PDF) — private company/staff docs stay download-only for security.
+ * details on the other. Closes on Escape or backdrop click; stacks vertically on
+ * phones. Used for expense receipts (public Blob) and — via a safe inline serve
+ * route — private company/staff documents.
+ *
+ * `kind` lets the caller pin how to render when `url` has no extension (e.g. a
+ * stream route like /api/erp/staff-doc/[id]?inline=1); otherwise it's inferred
+ * from the URL. `downloadUrl` is the download (attachment) variant of the file —
+ * defaults to `url` when the same link serves both.
  */
 export function FilePreviewModal({
   url,
+  downloadUrl,
   title,
   details,
+  kind,
   onClose,
 }: {
   url: string;
+  downloadUrl?: string;
   title: string;
   details: PreviewDetail[];
+  kind?: PreviewKind;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -29,7 +38,8 @@ export function FilePreviewModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const kind = previewKind(url);
+  const resolvedKind = kind ?? previewKind(url);
+  const dl = downloadUrl ?? url;
 
   return (
     <div
@@ -42,10 +52,10 @@ export function FilePreviewModal({
       >
         {/* File pane */}
         <div className="flex min-h-[45vh] items-center justify-center bg-black/40 p-3 md:min-h-[70vh]">
-          {kind === "image" ? (
+          {resolvedKind === "image" ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={url} alt={title} className="max-h-[80vh] w-full object-contain" />
-          ) : kind === "pdf" ? (
+          ) : resolvedKind === "pdf" ? (
             <iframe src={url} title={title} className="h-[70vh] w-full rounded-lg bg-white md:h-full" />
           ) : (
             <div className="flex flex-col items-center gap-3 text-muted">
@@ -71,7 +81,7 @@ export function FilePreviewModal({
           </div>
           <div className="flex gap-2 border-t border-ink-line p-4">
             <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink-line px-3 py-2 text-sm text-sand hover:border-gold/50 hover:text-gold"><ExternalLink size={14} /> Open</a>
-            <a href={url} download className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-2 text-sm font-semibold text-espresso"><Download size={14} /> Download</a>
+            <a href={dl} download className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gold-gradient px-3 py-2 text-sm font-semibold text-espresso"><Download size={14} /> Download</a>
           </div>
         </div>
       </div>

@@ -2,7 +2,9 @@
 
 import { useState, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Trash2, Loader2, FileText, Download } from "lucide-react";
+import { Upload, Trash2, Loader2, FileText, Download, Eye } from "lucide-react";
+import { FilePreviewModal } from "./FilePreviewModal";
+import { inlineKind } from "@/lib/file-preview-core";
 
 type Doc = { id: string; title: string; description: string | null; category: string; fileName: string | null; sizeBytes: number | null; createdAt: string };
 
@@ -18,6 +20,7 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
   const [form, setForm] = useState({ title: "", description: "", category: "TAX" });
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Doc | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const input = "rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
@@ -90,14 +93,32 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
                   <div className="mt-0.5 text-[0.7rem] text-muted/70">{fmtDate(d.createdAt)}{d.fileName ? ` · ${d.fileName}` : ""}{d.sizeBytes ? ` · ${fmtSize(d.sizeBytes)}` : ""}</div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
-                <a href={`/api/erp/company-doc/${d.id}`} className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"><Download size={13} /> Download</a>
+              <div className="flex shrink-0 items-center gap-2">
+                <button type="button" onClick={() => setPreview(d)} className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"><Eye size={13} /> Open</button>
+                <a href={`/api/erp/company-doc/${d.id}`} className="inline-flex items-center gap-1 rounded-lg border border-ink-line px-2.5 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold"><Download size={13} /> Download</a>
                 {canEdit && <button onClick={() => remove(d.id)} disabled={pending} className="text-muted hover:text-red-400 disabled:opacity-40"><Trash2 size={14} /></button>}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {preview && (
+        <FilePreviewModal
+          url={`/api/erp/company-doc/${preview.id}?inline=1`}
+          downloadUrl={`/api/erp/company-doc/${preview.id}`}
+          kind={inlineKind(preview.fileName ?? "")}
+          title={preview.title}
+          details={[
+            { label: "Category", value: label(preview.category), strong: true },
+            ...(preview.description ? [{ label: "Description", value: preview.description }] : []),
+            ...(preview.fileName ? [{ label: "File", value: preview.fileName }] : []),
+            ...(preview.sizeBytes ? [{ label: "Size", value: fmtSize(preview.sizeBytes) }] : []),
+            { label: "Uploaded", value: fmtDate(preview.createdAt) },
+          ]}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

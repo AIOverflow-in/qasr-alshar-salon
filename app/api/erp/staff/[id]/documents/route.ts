@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic";
 const TYPES = ["PASSPORT", "VISA", "LABOR_CARD", "EMIRATES_ID", "OTHER"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// Upload a staff document to Vercel Blob (managers only). Sensitive PII → stored with an unguessable
-// URL and only ever served back through the auth-gated /api/erp/staff-doc/[id] route.
+// Upload a staff document to Vercel Blob (owner/SUPER_ADMIN only). Sensitive PII → stored with an
+// unguessable URL and only ever served back through the auth-gated /api/erp/staff-doc/[id] route.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (session.role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const staff = await prisma.staff.findUnique({ where: { id }, select: { id: true } });

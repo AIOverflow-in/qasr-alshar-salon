@@ -2,11 +2,13 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Upload, FileText, Plane, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, Upload, FileText, Plane, AlertTriangle, Eye } from "lucide-react";
 import { deleteStaffDocument, addStaffLeave, deleteStaffLeave } from "@/lib/actions/admin";
+import { FilePreviewModal, type PreviewDetail } from "./FilePreviewModal";
 import { cn } from "@/lib/utils";
 
-type Doc = { id: string; type: string; expiry: string | null; uploadedAt: string };
+type PreviewKind = "image" | "pdf" | "other";
+type Doc = { id: string; type: string; expiry: string | null; uploadedAt: string; kind: PreviewKind };
 type Leave = { id: string; startDate: string; endDate: string; days: number; type: string; note: string | null };
 type Summary = { eligible: boolean; entitlement: number; taken: number; remaining: number };
 
@@ -17,7 +19,7 @@ const typeLabel = (t: string) => DOC_TYPES.find(([v]) => v === t)?.[1] ?? t;
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const expiringSoon = (iso: string | null) => !!iso && new Date(iso).getTime() < Date.now() + 30 * 864e5;
 
-export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: string; documents: Doc[]; leaves: Leave[]; summary: Summary }) {
+export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }: { staffId: string; documents: Doc[]; leaves: Leave[]; summary: Summary; canViewDocs: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -27,6 +29,7 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
   const [docExpiry, setDocExpiry] = useState("");
   const [uploading, setUploading] = useState(false);
   const [docErr, setDocErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Doc | null>(null);
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
@@ -61,8 +64,9 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
   const input = "rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60";
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {/* Documents */}
+    <div className={cn("grid gap-4", canViewDocs && "lg:grid-cols-2")}>
+      {/* Documents — owner only */}
+      {canViewDocs && (
       <div className="surface rounded-2xl p-5">
         <div className="mb-3 flex items-center gap-2"><FileText size={16} className="text-gold" /><h3 className="font-display text-lg text-cream">Documents</h3></div>
         <div className="space-y-2 rounded-xl border border-ink-line/60 bg-ink-card/40 p-3">
@@ -81,9 +85,9 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
         <ul className="mt-3 divide-y divide-ink-line/50">
           {documents.map((d) => (
             <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-              <a href={`/api/erp/staff-doc/${d.id}`} target="_blank" rel="noopener noreferrer" className="min-w-0 text-cream hover:text-gold hover:underline">
-                {typeLabel(d.type)}
-              </a>
+              <button type="button" onClick={() => setPreview(d)} className="inline-flex min-w-0 items-center gap-1.5 text-cream hover:text-gold hover:underline" title="Open document">
+                <Eye size={13} className="shrink-0 text-gold/70" /> <span className="truncate">{typeLabel(d.type)}</span>
+              </button>
               <div className="flex items-center gap-3">
                 {d.expiry && (
                   <span className={cn("text-xs", expiringSoon(d.expiry) ? "text-red-400" : "text-muted")}>
@@ -97,6 +101,7 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
           {documents.length === 0 && <li className="py-3 text-center text-xs text-muted">No documents uploaded.</li>}
         </ul>
       </div>
+      )}
 
       {/* Leave */}
       <div className="surface rounded-2xl p-5">
@@ -134,6 +139,21 @@ export function StaffAdmin({ staffId, documents, leaves, summary }: { staffId: s
           {leaves.length === 0 && <li className="py-3 text-center text-xs text-muted">No leave recorded.</li>}
         </ul>
       </div>
+
+      {preview && (
+        <FilePreviewModal
+          url={`/api/erp/staff-doc/${preview.id}?inline=1`}
+          downloadUrl={`/api/erp/staff-doc/${preview.id}`}
+          kind={preview.kind}
+          title={`${typeLabel(preview.type)} — staff document`}
+          details={[
+            { label: "Type", value: typeLabel(preview.type), strong: true },
+            ...(preview.expiry ? [{ label: "Expiry", value: fmtDate(preview.expiry) } as PreviewDetail] : []),
+            { label: "Uploaded", value: fmtDate(preview.uploadedAt) },
+          ]}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }

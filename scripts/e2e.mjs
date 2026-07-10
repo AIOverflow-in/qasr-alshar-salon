@@ -729,14 +729,20 @@ try {
       ok(synced === estaff.id, "POS: the line artist (not the main selector) drives the booking's Crown Artist");
     }
 
-    section("Staff document routes: manager-only");
+    section("Staff document routes: SUPER_ADMIN (owner) only");
     {
-      const st = await tok("STYLIST");
-      const up = await fetch(`${BASE}/api/erp/staff/${estaff.id}/documents`, { method: "POST", headers: { cookie: `qa_admin=${st}` }, body: new FormData() });
-      ok(up.status === 403, `doc upload: stylist 403 (${up.status})`);
-      const rc = await tok("RECEPTION");
-      const dl = await fetch(`${BASE}/api/erp/staff-doc/nonexistent`, { headers: { cookie: `qa_admin=${rc}` } });
-      ok(dl.status === 403, `doc download: reception 403 (${dl.status})`);
+      // Upload blocked for everyone below owner — incl. managers (ADMIN).
+      const upStatus = async (role) => (await fetch(`${BASE}/api/erp/staff/${estaff.id}/documents`, { method: "POST", headers: { cookie: `qa_admin=${await tok(role)}` }, body: new FormData() })).status;
+      ok((await upStatus("STYLIST")) === 403, "staff-doc upload: stylist 403");
+      ok((await upStatus("RECEPTION")) === 403, "staff-doc upload: reception 403");
+      ok((await upStatus("ADMIN")) === 403, "staff-doc upload: manager/ADMIN now blocked (403)");
+      ok((await upStatus("SUPER_ADMIN")) === 400, "staff-doc upload: super-admin passes auth+staff, reaches file validation (400 without a file)");
+      // Serve/download blocked below owner (incl. ADMIN); inline mode is also gated.
+      const dl = async (role, q = "") => (await fetch(`${BASE}/api/erp/staff-doc/nonexistent${q}`, { headers: { cookie: `qa_admin=${await tok(role)}` } })).status;
+      ok((await dl("RECEPTION")) === 403, "staff-doc download: reception 403");
+      ok((await dl("ADMIN")) === 403, "staff-doc download: manager/ADMIN now blocked (403)");
+      ok((await dl("ADMIN", "?inline=1")) === 403, "staff-doc inline preview: manager blocked (403, no ?inline bypass)");
+      ok((await dl("SUPER_ADMIN")) === 404, "staff-doc download: super-admin reaches lookup (404 unknown id)");
     }
 
     section("Client-followups cron secured (no send without secret)");
@@ -888,7 +894,7 @@ try {
       ok(!adm.includes("Heat-Calendar") && adm.includes("This Month"), "admin keeps the plain revenue card (no charts)");
     }
 
-    section("Document vault: admin-only");
+    section("Document vault: SUPER_ADMIN (owner) only");
     {
       let docSchemaOk = true;
       try { await prisma.companyDocument.count(); } catch { docSchemaOk = false; }
@@ -896,14 +902,19 @@ try {
       const up = async (role) => (await fetch(BASE + "/api/erp/company-docs", { method: "POST", headers: { cookie: `qa_admin=${await tok(role)}` }, body: new FormData() })).status;
       ok((await up("RECEPTION")) === 403, "company-docs upload: reception blocked (403)");
       ok((await up("STYLIST")) === 403, "company-docs upload: crown artist blocked (403)");
-      ok((await up("ADMIN")) === 400, "company-docs upload: admin reaches validation (400 without title/file)");
-      const serveRec = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("RECEPTION")}` } });
-      ok(serveRec.status === 403, "company-doc serve: reception blocked (403)");
-      const serve404 = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("ADMIN")}` } });
-      ok(serve404.status === 404, "company-doc serve: 404 for unknown id (admin)");
-      const delRec = await fetch(BASE + "/api/erp/company-doc/nope", { method: "DELETE", headers: { cookie: `qa_admin=${await tok("RECEPTION")}` } });
-      ok(delRec.status === 403, "company-doc delete: reception blocked (403)");
-      ok((await codeTok("/erp/documents", await tok("ADMIN"))) === "200", "documents page: admin 200");
+      ok((await up("ADMIN")) === 403, "company-docs upload: manager/ADMIN now blocked (403)");
+      ok((await up("SUPER_ADMIN")) === 400, "company-docs upload: super-admin reaches validation (400 without title/file)");
+      const serveRec = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("ADMIN")}` } });
+      ok(serveRec.status === 403, "company-doc serve: manager/ADMIN blocked (403)");
+      const serve404 = await fetch(BASE + "/api/erp/company-doc/nope", { headers: { cookie: `qa_admin=${await tok("SUPER_ADMIN")}` } });
+      ok(serve404.status === 404, "company-doc serve: 404 for unknown id (super-admin)");
+      // inline mode is still auth-gated (no bypass via ?inline=1)
+      const inlRec = await fetch(BASE + "/api/erp/company-doc/nope?inline=1", { headers: { cookie: `qa_admin=${await tok("ADMIN")}` } });
+      ok(inlRec.status === 403, "company-doc inline preview: manager blocked (403, no ?inline bypass)");
+      const delAdm = await fetch(BASE + "/api/erp/company-doc/nope", { method: "DELETE", headers: { cookie: `qa_admin=${await tok("ADMIN")}` } });
+      ok(delAdm.status === 403, "company-doc delete: manager/ADMIN blocked (403)");
+      ok((await codeTok("/erp/documents", await tok("SUPER_ADMIN"))) === "200", "documents page: super-admin 200");
+      ok((await codeTok("/erp/documents", await tok("ADMIN"))) === "REDIR", "documents page: manager/ADMIN redirected");
       ok((await codeTok("/erp/documents", await tok("RECEPTION"))) === "REDIR", "documents page: reception redirected");
     }
 

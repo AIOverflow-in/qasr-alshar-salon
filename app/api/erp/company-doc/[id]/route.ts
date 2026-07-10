@@ -3,19 +3,24 @@ import { del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { inlineContentType } from "@/lib/file-preview-core";
 
 export const dynamic = "force-dynamic";
 
-function isAdmin(role: string) {
-  return role === "SUPER_ADMIN" || role === "ADMIN";
+function isOwner(role: string) {
+  return role === "SUPER_ADMIN";
 }
 
-// Auth-gated download of a company document (admins only). Streamed as an attachment with a locked
-// content type + nosniff so an uploaded .html/.svg can never execute as script on the ERP origin.
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+// Auth-gated delivery of a company document (SUPER_ADMIN / owner only — these are the most
+// sensitive business records). Two modes:
+//   • default: streamed as an attachment with a locked content type + nosniff (download-only).
+//   • ?inline=1: for images (non-SVG) and PDFs only, served inline with the real content type +
+//     nosniff so it can be previewed in-app. Any other type falls back to the download path, so an
+//     uploaded .html/.svg can never execute as script on the ERP origin.
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isOwner(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const doc = await prisma.companyDocument.findUnique({ where: { id }, select: { fileUrl: true, fileName: true } });
@@ -25,6 +30,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!upstream.ok) return NextResponse.json({ error: "File unavailable" }, { status: 502 });
   const buf = await upstream.arrayBuffer();
   const name = (doc.fileName || "document").replace(/[^a-zA-Z0-9._ -]/g, "_");
+
+  const wantsInline = new URL(req.url).searchParams.get("inline") === "1";
+  const inlineType = wantsInline ? inlineContentType(doc.fileName || doc.fileUrl) : null;
+  if (inlineType) {
+    return new Response(buf, {
+      headers: {
+        "Content-Type": inlineType,
+        "Content-Disposition": `inline; filename="${name}"`,
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
   return new Response(buf, {
     headers: {
       "Content-Type": "application/octet-stream",
@@ -35,11 +53,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 }
 
-// Delete a company document (admins only) — removes the blob and the record.
+// Delete a company document (owner only) — removes the blob and the record.
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isOwner(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const doc = await prisma.companyDocument.findUnique({ where: { id }, select: { fileUrl: true } });

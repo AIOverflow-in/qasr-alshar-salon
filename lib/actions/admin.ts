@@ -183,9 +183,9 @@ export async function updateStaff(
   revalidatePath("/erp/staff");
 }
 
-// ---- staff documents & leave (managers only) ----
+// ---- staff documents (owner/SUPER_ADMIN only) & leave (managers) ----
 export async function deleteStaffDocument(id: string) {
-  await requireManager();
+  await requireSuperAdmin();
   const doc = await prisma.staffDocument.findUnique({ where: { id }, select: { pathname: true, staffId: true } });
   if (doc?.pathname) { try { await del(doc.pathname); } catch (e) { console.error("[blob] del failed:", e); } }
   await prisma.staffDocument.delete({ where: { id } });
