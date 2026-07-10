@@ -81,6 +81,8 @@ async function cleanupSweep() {
   const sp = await prisma.scheduledPayment.deleteMany({ where: { label: { startsWith: TAG } } });
   const ex = await prisma.expense.deleteMany({ where: { description: { startsWith: TAG } } });
   const so = await prisma.shopOrder.deleteMany({ where: { customerName: { startsWith: TAG } } });
+  await prisma.blogPost.deleteMany({ where: { slug: { startsWith: "e2e-" } } });
+  await prisma.keyword.deleteMany({ where: { phrase: { startsWith: "__e2e" } } });
   await prisma.attendancePunch.deleteMany({ where: { OR: [{ pin: { startsWith: REQ } }, { deviceSn: { startsWith: "E2E" } }] } });
   const tagProducts = await prisma.product.findMany({ where: { name: { startsWith: TAG } }, select: { id: true } });
   let prodCount = 0;
@@ -747,6 +749,37 @@ try {
 
     section("Client-followups cron secured (no send without secret)");
     ok((await fetch(BASE + "/api/cron/client-followups")).status === 401, "followups cron: 401 without secret (no emails sent)");
+
+    section("SEO blog engine: keyword harvest cron + rotation + FAQ rich snippet");
+    {
+      // Harvest cron fails closed without the secret (never triggers paid web-search/model calls).
+      ok((await fetch(BASE + "/api/cron/harvest-keywords")).status === 401, "harvest cron: 401 without secret");
+      // Keyword store is queryable.
+      let kwOk = true; try { await prisma.keyword.count(); } catch { kwOk = false; }
+      ok(kwOk, "Keyword model queryable");
+      // Rotation: seed two keywords with different usage; the least-used one is selected.
+      await prisma.keyword.deleteMany({ where: { phrase: { startsWith: "__e2e" } } });
+      await prisma.keyword.create({ data: { phrase: "__e2e used kw", cluster: "hair", intent: "informational", timesUsed: 5, lastUsedAt: new Date() } });
+      await prisma.keyword.create({ data: { phrase: "__e2e fresh kw", cluster: "hair", intent: "informational", timesUsed: 0 } });
+      const { selectKeyword } = await import("../lib/keyword-core.ts");
+      const rows = await prisma.keyword.findMany({ where: { phrase: { startsWith: "__e2e" } } });
+      ok(selectKeyword(rows)?.phrase === "__e2e fresh kw", "rotation: least-used keyword is picked");
+      await prisma.keyword.deleteMany({ where: { phrase: { startsWith: "__e2e" } } });
+      // A post with an FAQ renders FAQPage JSON-LD + the visible question on its public page.
+      const fslug = "e2e-faq-post";
+      await prisma.blogPost.deleteMany({ where: { slug: fslug } });
+      const fpost = await prisma.blogPost.create({ data: {
+        title: `${TAG}FAQ Post`, slug: fslug, excerpt: "e2e", metaDescription: "e2e",
+        contentMarkdown: "## Body\nHello world.", tags: ["e2e"], category: "Beauty Tips",
+        faq: [{ q: "Does this E2E question appear?", a: "Yes, it renders in the FAQ and JSON-LD." }],
+        targetKeyword: "e2e keyword", status: "PUBLISHED", source: "AI",
+      } });
+      const page = await fetch(`${BASE}/blog/${fslug}`);
+      const html = await page.text();
+      ok(page.status === 200 && html.includes("FAQPage"), "blog post: FAQPage JSON-LD present");
+      ok(html.includes("Does this E2E question appear?"), "blog post: FAQ question rendered on page");
+      await prisma.blogPost.delete({ where: { id: fpost.id } });
+    }
 
     section("Payroll: net = max(commission, base) + referral (not additive)");
     {
