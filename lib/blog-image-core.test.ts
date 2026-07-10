@@ -1,34 +1,47 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blogImagePrompt, pickHeroImage, BLOG_IMAGE_STYLE } from "./blog-image-core.ts";
+import {
+  blogImagePrompt, pickHeroImage, composeImagePrompt, photoTreatment, sceneFor, BLOG_IMAGE_STYLE,
+} from "./blog-image-core.ts";
 
-test("prompt is thematic: wedding-makeup topic yields bridal imagery", () => {
-  const p = blogImagePrompt("Choosing the Right Makeup for Dubai Weddings");
-  assert.match(p, /bridal/i);
-  assert.match(p, /no visible human faces/i); // brand-safe rule always present
+test("category fallback is thematic: wedding-makeup → bridal, waxing → waxing", () => {
+  assert.match(blogImagePrompt("Choosing the Right Makeup for Dubai Weddings"), /bridal/i);
+  const wax = blogImagePrompt("Everything to know before your first waxing appointment");
+  assert.match(wax, /wax/i);
+  assert.doesNotMatch(wax, /blow.?dry|braid/i);
 });
 
-test("prompt is thematic: waxing topic yields waxing imagery, not hair", () => {
-  const p = blogImagePrompt("Everything to know before your first waxing appointment");
-  assert.match(p, /wax/i);
-  assert.doesNotMatch(p, /blow.?dry|braid/i);
-});
-
-test("prompt distinguishes braids, locs, henna, nails", () => {
+test("fallback distinguishes braids, locs, henna, nails", () => {
   assert.match(blogImagePrompt("How to care for knotless braids"), /braid/i);
   assert.match(blogImagePrompt("Sisterlocks 101"), /locs/i);
   assert.match(blogImagePrompt("Bridal henna trends"), /henna/i);
   assert.match(blogImagePrompt("Making your gel manicure last"), /nail|gel/i);
 });
 
-test("prompt always carries the brand style suffix", () => {
-  assert.ok(blogImagePrompt("anything at all").endsWith(BLOG_IMAGE_STYLE));
+test("brand style now allows real people but keeps the hard no-text rule", () => {
+  assert.match(BLOG_IMAGE_STYLE, /no text.*no logos|no logos.*no watermarks/i);
+  assert.doesNotMatch(BLOG_IMAGE_STYLE, /no visible human faces/i); // people are allowed now
+  assert.match(BLOG_IMAGE_STYLE, /diverse people/i);
 });
 
-test("unknown topic still returns a usable, non-empty prompt", () => {
-  const p = blogImagePrompt("A totally unrelated topic xyz");
-  assert.ok(p.length > 20);
-  assert.match(p, /salon/i);
+test("composeImagePrompt prefers the writer's bespoke scene over the category one", () => {
+  const bespoke = "A stylist mid-braid weaving fresh cornrows for a smiling client, gold cuffs catching the light";
+  const p = composeImagePrompt(bespoke, "braids topic", "some-slug");
+  assert.ok(p.startsWith(bespoke));
+  assert.ok(p.endsWith(BLOG_IMAGE_STYLE));
+});
+
+test("composeImagePrompt falls back to the category scene when bespoke is missing/too short", () => {
+  const p = composeImagePrompt("", "henna guide", "slug-1");
+  assert.ok(p.includes(sceneFor("henna guide")));
+  const p2 = composeImagePrompt("tiny", "nails", "slug-2");
+  assert.ok(p2.includes(sceneFor("nails")));
+});
+
+test("photoTreatment is deterministic per seed and varies across seeds", () => {
+  assert.equal(photoTreatment("post-a"), photoTreatment("post-a")); // stable
+  const treatments = ["a", "b", "c", "d", "e", "f", "g", "h"].map(photoTreatment);
+  assert.ok(new Set(treatments).size > 1); // not all identical → variety
 });
 
 test("fallback returns a valid local gallery path per theme", () => {

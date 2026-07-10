@@ -89,9 +89,23 @@ export default async function BlogPostPage({
     keywords: post.tags.join(", "),
   };
 
+  const faq = Array.isArray(post.faq) ? (post.faq as { q: string; a: string }[]) : [];
+  const faqSchema = faq.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faq.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }
+    : null;
+
   return (
     <>
       <JsonLd data={articleSchema} />
+      {faqSchema && <JsonLd data={faqSchema} />}
       <JsonLd
         data={breadcrumbSchema([
           { name: "Home", path: "/" },
@@ -140,6 +154,20 @@ export default async function BlogPostPage({
         <div className="container-x pb-20">
           <div className="mx-auto max-w-3xl">
             <Markdown>{post.contentMarkdown}</Markdown>
+
+            {faq.length > 0 && (
+              <section className="mt-12">
+                <h2 className="font-display text-2xl text-cream">Frequently asked questions</h2>
+                <div className="mt-4 space-y-3">
+                  {faq.map((f, i) => (
+                    <details key={i} className="surface group rounded-2xl p-5">
+                      <summary className="cursor-pointer list-none font-medium text-cream marker:content-none">{f.q}</summary>
+                      <p className="mt-2 text-sm leading-relaxed text-muted">{f.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {post.tags.length > 0 && (
               <div className="mt-10 flex flex-wrap gap-2">

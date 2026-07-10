@@ -3,8 +3,10 @@ import { put } from "@vercel/blob";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
 import { SITE } from "./site";
-import { blogImagePrompt, pickHeroImage } from "./blog-image-core";
+import { composeImagePrompt, pickHeroImage } from "./blog-image-core";
 import { getTextProvider, getImageProvider } from "./ai";
+import { clusterToServicePath } from "./keyword-core";
+import { ensureSeeded, selectNextKeyword, markKeywordUsed } from "./keywords";
 
 /**
  * Generate one thematic hero image for a post and store it on Vercel Blob.
@@ -13,12 +15,14 @@ import { getTextProvider, getImageProvider } from "./ai";
  * is created once at post creation and cached forever — no per-view cost.
  * Image bytes come from the configured ImageProvider; storage stays here.
  */
-async function generateHeroImage(topicText: string, slug: string): Promise<string | null> {
+async function generateHeroImage(bespokePrompt: string | null | undefined, categoryText: string, slug: string): Promise<string | null> {
   const imageProvider = getImageProvider();
   if (!imageProvider) return null;
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null; // nowhere to store it → use fallback
+  // Prefer the writer's bespoke, per-post scene; fall back to the category scene.
+  // A per-slug camera/light treatment is mixed in so same-cluster posts still differ.
   // Keep under the cron's 60s budget (text-gen runs first); on timeout we fall back.
-  const bytes = await imageProvider.generateImage(blogImagePrompt(topicText), {
+  const bytes = await imageProvider.generateImage(composeImagePrompt(bespokePrompt, categoryText, slug), {
     size: "1536x1024",
     quality: "medium",
     timeoutMs: 35_000,
@@ -38,6 +42,7 @@ async function generateHeroImage(topicText: string, slug: string): Promise<strin
   }
 }
 
+type FaqItem = { q: string; a: string };
 type Generated = {
   title: string;
   excerpt: string;
@@ -45,7 +50,22 @@ type Generated = {
   contentMarkdown: string;
   tags: string[];
   category: string;
+  faq?: FaqItem[];
+  imagePrompt?: string;
 };
+
+/** Validate the model's FAQ into a clean [{q,a}] array (or null) for storage + JSON-LD. */
+function sanitizeFaq(faq: unknown): FaqItem[] | null {
+  if (!Array.isArray(faq)) return null;
+  const out: FaqItem[] = [];
+  for (const item of faq) {
+    const q = String((item as FaqItem)?.q ?? "").trim();
+    const a = String((item as FaqItem)?.a ?? "").trim();
+    if (q.length >= 5 && a.length >= 5) out.push({ q: q.slice(0, 200), a: a.slice(0, 600) });
+    if (out.length >= 5) break;
+  }
+  return out.length ? out : null;
+}
 
 async function nextTopic() {
   const topic =
@@ -81,14 +101,35 @@ export async function generateBlogPost(opts?: {
     return null;
   }
 
-  const topic = opts?.title
-    ? { title: opts.title, keywords: opts.keywords ?? [], id: null as string | null }
-    : await nextTopic();
+  // Pick what to write about. Priority: explicit request → a rotated SEO keyword
+  // from the harvest store → a legacy BlogTopic → an evergreen default.
+  let primaryKeyword: string;
+  let secondary: string[] = [];
+  let cluster = "general";
+  let targetKeyword: string | null = null;
+  let legacyTopicId: string | null = null;
 
-  const title = topic?.title ?? "Seasonal Beauty Tips from Qasr Alshar";
-  const keywords = (topic?.keywords ?? []).join(", ");
+  if (opts?.title) {
+    primaryKeyword = opts.title;
+    secondary = opts.keywords ?? [];
+  } else {
+    await ensureSeeded();
+    const kw = await selectNextKeyword();
+    if (kw) {
+      primaryKeyword = kw.phrase;
+      secondary = kw.secondary;
+      cluster = kw.cluster;
+      targetKeyword = kw.phrase;
+    } else {
+      const topic = await nextTopic();
+      if (topic) { primaryKeyword = topic.title; secondary = topic.keywords; legacyTopicId = topic.id; }
+      else { primaryKeyword = "seasonal beauty tips dubai salon"; }
+    }
+  }
 
-  const system = `You are a real beauty writer for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage.
+  const serviceUrl = `${SITE.url}${clusterToServicePath(cluster)}`;
+
+  const system = `You are a real beauty writer for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage. The salon serves all hair types including Afro / textured hair.
 
 Write like a knowledgeable human, not an AI. Hard rules:
 - Sound 100% natural and human. NEVER use AI clichés or filler such as "In today's fast-paced world", "Look no further", "Nestled in", "Whether you're … or …", "Elevate", "Unlock", "delve", "In conclusion", "When it comes to". No em-dash overuse.
@@ -96,22 +137,28 @@ Write like a knowledgeable human, not an AI. Hard rules:
 - Crisp and useful — no padding. Every sentence earns its place.
 - Markdown with ## headings and short bullet lists. Do NOT include the H1 title in the body.`;
 
-  const user = `Write a short, crisp blog post.
-Topic: "${title}"
-Target keywords: ${keywords || "Dubai beauty salon"}
+  const user = `Write an SEO blog post built around real search demand.
+Primary keyword (use it naturally in the title, the first paragraph, and at least one ## heading): "${primaryKeyword}"
+Related terms to weave in where they fit naturally: ${secondary.join(", ") || "(none)"}
+
 Requirements:
-- 300–450 words, Markdown body only (no front matter, no H1).
-- 2–3 focused sections with ## headings.
-- Bullet points for any tips or lists (max 4 bullets per list).
-- One short closing call-to-action sentence linking to ${SITE.url}/book.
-- No generic filler ("In today's fast-paced world…"). Get straight to the point.
+- Title: compelling, <=60 chars, includes the primary keyword or a very close variant. Not clickbait.
+- 350–500 words, Markdown body only (no front matter, no H1).
+- 2–3 focused ## sections; put the keyword/related terms in headings where it reads naturally.
+- Real Dubai specifics (areas, timeframes, product/technique names).
+- Include exactly ONE natural internal link in the body, anchored on relevant words, to our services page: ${serviceUrl}
+- End with one short call-to-action sentence linking to ${SITE.url}/book.
+- Do NOT put the FAQ inside contentMarkdown — return it separately in "faq".
+- No generic AI filler. Get straight to the point.
 Return ONLY JSON with keys:
-{"title": string (compelling, <=65 chars, may refine the topic),
- "metaDescription": string (<=155 chars, SEO),
+{"title": string,
+ "metaDescription": string (<=155 chars, include the primary keyword),
  "excerpt": string (<=160 chars, friendly summary),
  "tags": string[] (3-6 lowercase tags),
  "category": string (e.g. "Hair", "Henna", "Skincare", "Nails", "Bridal", "Beauty Tips"),
- "contentMarkdown": string}`;
+ "contentMarkdown": string (the article body, no FAQ),
+ "faq": [{"q": string, "a": string}] (2-3 real "people also ask" questions + concise answers),
+ "imagePrompt": string (a vivid, specific description of a NATURAL candid photograph for THIS article — real diverse people in the salon, the setting, and a colour/mood that fits the topic; no gold-flat-lay cliché, no text or logos)}`;
 
   let parsed: Generated;
   try {
@@ -134,10 +181,10 @@ Return ONLY JSON with keys:
   const readingMinutes = Math.max(1, Math.round(words / 200));
   const slug = await uniqueSlug(parsed.title);
 
-  // Thematic hero: a generated on-topic image (stored on Blob), else a
+  // Hero: the writer's bespoke natural scene (generated + stored on Blob), else a
   // matching static gallery image so a post always has a relevant hero.
-  const heroText = `${parsed.title} ${parsed.tags?.join(" ") ?? ""} ${parsed.category ?? ""}`;
-  const heroImage = (await generateHeroImage(heroText, slug)) ?? pickHeroImage(heroText);
+  const heroText = `${primaryKeyword} ${parsed.tags?.join(" ") ?? ""} ${parsed.category ?? ""}`;
+  const heroImage = (await generateHeroImage(parsed.imagePrompt, heroText, slug)) ?? pickHeroImage(heroText);
 
   const post = await prisma.blogPost.create({
     data: {
@@ -149,19 +196,20 @@ Return ONLY JSON with keys:
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : [],
       category: parsed.category || "Beauty Tips",
       heroImage,
+      faq: sanitizeFaq(parsed.faq) ?? undefined,
+      targetKeyword,
       readingMinutes,
       status: "PUBLISHED",
       source: "AI",
     },
   });
 
-  if (topic?.id) {
-    await prisma.blogTopic.update({
-      where: { id: topic.id },
-      data: { used: true, lastUsed: new Date() },
-    });
+  // Rotation bookkeeping: mark the keyword used so tomorrow reaches for the next.
+  if (targetKeyword) await markKeywordUsed(targetKeyword);
+  if (legacyTopicId) {
+    await prisma.blogTopic.update({ where: { id: legacyTopicId }, data: { used: true, lastUsed: new Date() } });
   }
 
-  console.log(`[openai] published "${post.title}" (${slug})`);
+  console.log(`[blog] published "${post.title}" (${slug})${targetKeyword ? ` [kw: ${targetKeyword}]` : ""}`);
   return post;
 }

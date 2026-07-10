@@ -137,6 +137,8 @@ model BlogPost {
   heroImage       String?
   category        String     @default("Beauty Tips")
   readingMinutes  Int        @default(4)
+  faq             Json?      // [{ q, a }] — rendered as FAQPage JSON-LD for "People also ask"
+  targetKeyword   String?    // the primary SEO keyword this post was written for
   status          PostStatus @default(PUBLISHED)
   source          PostSource @default(AI)
   publishedAt     DateTime   @default(now())
@@ -144,6 +146,24 @@ model BlogPost {
   updatedAt       DateTime   @updatedAt
 
   @@index([status, publishedAt])
+}
+
+// SEO keyword bank, refreshed daily by the harvest cron (LLM web-search) and
+// consumed by the writer. Rotation: the writer picks the least-used keyword so
+// coverage rotates and posts don't repeat the same target.
+model Keyword {
+  id         String    @id @default(cuid())
+  phrase     String    @unique // normalized (lowercased, single-spaced) search query
+  cluster    String    @default("general") // hair, henna, nails, skincare, bridal, lashes, waxing, locs, braids…
+  intent     String    @default("informational") // informational | commercial | transactional
+  secondary  String[]  @default([]) // related / long-tail terms to weave in
+  timesUsed  Int       @default(0)
+  lastUsedAt DateTime?
+  source     String    @default("web-search") // web-search | model | seed
+  createdAt  DateTime  @default(now())
+
+  @@index([timesUsed, lastUsedAt])
+  @@index([cluster])
 }
 
 /// Rotating pool of topics/keywords for the AI blog generator.

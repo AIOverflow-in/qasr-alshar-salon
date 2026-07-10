@@ -2,8 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/cron/harvest-keywords",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/cron/generate-blog",
-      "schedule": "0 6 */2 * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/daily-summary",

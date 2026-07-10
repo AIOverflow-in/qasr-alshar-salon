@@ -2,9 +2,38 @@
 // blog-image-core.test.ts. No prisma / server-only / network here so it can be
 // imported from both the generator (lib/openai.ts) and the test runner.
 
-/** Shared brand look, appended to every generated image prompt. */
+/**
+ * Shared look appended to every generated image prompt. Rewritten for natural,
+ * varied realism (real diverse people, palette that suits the subject) instead
+ * of the old fixed gold/black faceless flat-lay that made every image feel the
+ * same. Brand-safety + the hard "no text/logos" rules stay.
+ */
 export const BLOG_IMAGE_STYLE =
-  "Photorealistic editorial photography, ultra-luxurious, warm gold and deep black palette, soft cinematic lighting, elegant and aspirational, high-end Dubai beauty salon aesthetic. Tasteful and brand-safe; no visible human faces. Absolutely no text, no words, no letters, no logos, no watermarks.";
+  "Natural, editorial documentary photograph of a real high-end multicultural ladies' salon in Dubai. Authentic candid moment with real, diverse people, genuine textures and expressions, natural light, shallow depth of field. Colours, mood and setting that suit the subject. Tasteful, elegant and brand-safe. Absolutely no text, no words, no letters, no logos, no watermarks, no signage.";
+
+// Camera / light treatments rotated per post (by slug hash) so even two posts in
+// the same cluster look different. These modify lens/angle/light only — they never
+// dictate the subject, so they compose cleanly with any bespoke scene.
+const TREATMENTS = [
+  "35mm lens, eye-level, soft natural window light, warm afternoon tone",
+  "85mm lens, gentle over-the-shoulder angle, bright diffused daylight",
+  "close-up with shallow depth of field, soft directional light",
+  "wider environmental framing, cinematic side light, airy and clean",
+  "candid three-quarter angle, golden-hour warmth, subtle film grain",
+  "low-angle detail, crisp even light, editorial magazine feel",
+];
+
+/** Deterministic string hash (no Math.random — keeps builds/tests reproducible). */
+export function hashSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** Pick a camera/light treatment for a post, rotated by its slug. */
+export function photoTreatment(seed: string): string {
+  return TREATMENTS[hashSeed(seed) % TREATMENTS.length];
+}
 
 // Topic → concrete scene. Ordered most-specific first, with the specific
 // service themes (henna, lashes, nails, braids…) ahead of the generic
@@ -48,12 +77,26 @@ const FALLBACKS: [RegExp, string][] = [
   [/keratin|botox|olaplex|k18|treatment|color|colour|balayage|blow ?dry|hollywood|style|hair/, "/gallery/hair.jpg"],
 ];
 
-/** Build a thematic image-generation prompt for a blog topic. */
-export function blogImagePrompt(text: string): string {
+/** Map a topic to a concrete fallback scene (used when the writer gives no bespoke prompt). */
+export function sceneFor(text: string): string {
   const t = (text || "").toLowerCase();
-  const scene = SCENES.find(([re]) => re.test(t))?.[1]
-    ?? "An elegant, aspirational Dubai beauty-salon still life with gold accents and soft lighting";
-  return `${scene}. ${BLOG_IMAGE_STYLE}`;
+  return SCENES.find(([re]) => re.test(t))?.[1]
+    ?? "A natural, candid moment inside an elegant Dubai multicultural salon";
+}
+
+/** Build a thematic image-generation prompt for a blog topic (category fallback). */
+export function blogImagePrompt(text: string): string {
+  return `${sceneFor(text)}. ${BLOG_IMAGE_STYLE}`;
+}
+
+/**
+ * Compose the final image prompt. Prefers the writer's bespoke, per-post scene
+ * (real people + palette that fits the topic); falls back to the category scene
+ * when absent. A per-slug camera/light treatment is always mixed in for variety.
+ */
+export function composeImagePrompt(bespoke: string | null | undefined, categoryText: string, seed: string): string {
+  const scene = bespoke && bespoke.trim().length > 12 ? bespoke.trim() : sceneFor(categoryText);
+  return `${scene}. ${photoTreatment(seed)}. ${BLOG_IMAGE_STYLE}`;
 }
 
 /** Map a topic to the most relevant existing local hero image (zero-cost fallback). */

@@ -1,7 +1,7 @@
 import "server-only";
-import type { TextProvider, ImageProvider } from "./types";
+import type { TextProvider, ImageProvider, ResearchProvider } from "./types";
 import { pickProvider, SUPPORTED_TEXT_PROVIDERS, SUPPORTED_IMAGE_PROVIDERS } from "./select";
-import { openaiTextProvider, openaiImageProvider } from "./openai";
+import { openaiTextProvider, openaiImageProvider, openaiResearchProvider } from "./openai";
 
 // Factory for the blog AI seam. Reads TEXT_PROVIDER / IMAGE_PROVIDER (default
 // "openai") and returns the matching adapter, or null when the provider's key
@@ -23,5 +23,15 @@ export function getImageProvider(): ImageProvider | null {
     case "openai":
     default:
       return openaiImageProvider();
+  }
+}
+
+export function getResearchProvider(): ResearchProvider | null {
+  // Research rides on the text provider's search tool; default openai.
+  const which = pickProvider(process.env.TEXT_PROVIDER, SUPPORTED_TEXT_PROVIDERS);
+  switch (which) {
+    case "openai":
+    default:
+      return openaiResearchProvider();
   }
 }
