@@ -13,6 +13,7 @@ import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
 import { inclusiveDays } from "@/lib/leave";
 import { normalizeNewStaff } from "@/lib/staff-core";
+import { stylistNeedsStaff, UNLINKED_STYLIST_ERROR } from "@/lib/user-core";
 import { del } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import type { BookingStatus, Role } from "@prisma/client";
@@ -358,25 +359,56 @@ async function requireSuperAdmin() {
 
 const VALID_ROLES = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
 
-export async function createUser(data: { name: string; email: string; role: Role; password: string }) {
+export async function createUser(data: { name: string; email: string; role: Role; password: string; staffId?: string | null }) {
   await requireSuperAdmin();
   const email = data.email.trim().toLowerCase();
   if (!email.includes("@")) return { ok: false, error: "Enter a valid email." };
   if (!data.password || data.password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
   if (!VALID_ROLES.includes(data.role)) return { ok: false, error: "Invalid role." };
+  // A crown artist login MUST be linked to a staff record, or their calendar is empty.
+  const staffId = data.role === "STYLIST" ? (data.staffId || null) : null;
+  if (stylistNeedsStaff(data.role, staffId)) return { ok: false, error: UNLINKED_STYLIST_ERROR };
+  if (staffId && !(await prisma.staff.findUnique({ where: { id: staffId }, select: { id: true } }))) {
+    return { ok: false, error: "Selected staff record not found." };
+  }
   const existing = await prisma.adminUser.findUnique({ where: { email } });
   if (existing) return { ok: false, error: "A user with that email already exists." };
   const passwordHash = await bcrypt.hash(data.password, 10);
-  await prisma.adminUser.create({ data: { name: data.name.trim() || "Staff", email, role: data.role, passwordHash } });
+  await prisma.adminUser.create({ data: { name: data.name.trim() || "Staff", email, role: data.role, passwordHash, staffId } });
   revalidatePath("/erp/users");
   return { ok: true };
 }
 
 export async function updateUserRole(id: string, role: Role) {
   await requireSuperAdmin();
-  if (!VALID_ROLES.includes(role)) throw new Error("Invalid role");
+  if (!VALID_ROLES.includes(role)) return { ok: false, error: "Invalid role." };
+  // Block switching to crown artist unless the login is already linked to a staff record.
+  if (role === "STYLIST") {
+    const u = await prisma.adminUser.findUnique({ where: { id }, select: { staffId: true } });
+    if (stylistNeedsStaff(role, u?.staffId)) {
+      return { ok: false, error: "Link this login to a staff record first (set “Staff”), then switch to Crown Artist." };
+    }
+  }
   await prisma.adminUser.update({ where: { id }, data: { role } });
   revalidatePath("/erp/users");
+  return { ok: true };
+}
+
+/** Link (or, for non-stylists, unlink) a login to a Staff record. A STYLIST can't be unlinked. */
+export async function setUserStaff(id: string, staffId: string | null) {
+  await requireSuperAdmin();
+  const user = await prisma.adminUser.findUnique({ where: { id }, select: { role: true } });
+  if (!user) return { ok: false, error: "User not found." };
+  if (staffId) {
+    if (!(await prisma.staff.findUnique({ where: { id: staffId }, select: { id: true } }))) {
+      return { ok: false, error: "That staff record no longer exists." };
+    }
+  } else if (user.role === "STYLIST") {
+    return { ok: false, error: "A crown-artist login must stay linked to a staff record." };
+  }
+  await prisma.adminUser.update({ where: { id }, data: { staffId } });
+  revalidatePath("/erp/users");
+  return { ok: true };
 }
 
 export async function setUserActive(id: string, active: boolean) {

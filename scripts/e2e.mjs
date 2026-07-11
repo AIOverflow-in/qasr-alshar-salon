@@ -115,6 +115,22 @@ try {
   ok((await code("/erp/users", "SUPER_ADMIN")) === "200", "users: super-admin 200");
   ok((await code("/erp/users", "ADMIN")) === "REDIR", "users: admin blocked");
 
+  section("Crown-artist logins must be linked to a staff record (calendar RCA guardrail)");
+  {
+    // An unlinked STYLIST login surfaces the warning on the Users page (so it never silently breaks).
+    const u = await prisma.adminUser.create({ data: { email: `${TAG}stylist@qa.test`, name: `${TAG}Unlinked Artist`, role: "STYLIST", passwordHash: "x", staffId: null } });
+    const pg = await body("/erp/users", "SUPER_ADMIN");
+    ok(pg.text.includes("not linked to a staff record"), "users: unlinked crown-artist warning shown");
+    // Linking it clears the warning for that user (calendar would now populate).
+    const st = await prisma.staff.findFirst({ where: { active: true }, select: { id: true } });
+    if (st) {
+      await prisma.adminUser.update({ where: { id: u.id }, data: { staffId: st.id } });
+      const still = await prisma.adminUser.count({ where: { role: "STYLIST", staffId: null, email: { startsWith: TAG } } });
+      ok(still === 0, "users: linking a crown artist removes it from the unlinked set");
+    }
+    await prisma.adminUser.delete({ where: { id: u.id } });
+  }
+
   section("Legacy /admin panel: role-gated (no customer-PII leak by typed URL)");
   {
     // bookings holds customer PII — front-desk+ only; crown artists/investors blocked.
