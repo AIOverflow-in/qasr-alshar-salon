@@ -9,6 +9,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
+import { vatFromInclusive, netFromInclusive } from "../lib/vat-core.ts";
 
 const BASE = process.env.E2E_BASE || "http://localhost:3000";
 const prisma = new PrismaClient();
@@ -431,8 +432,10 @@ try {
         ok(countFor(B.id) === 1 && shareFor(B.id) === 30, `B: 1 service, share ${shareFor(B.id)} == 30`);
         const commA = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId, staffId: A.id } }))._sum.amountAED ?? 0;
         const commB = (await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId, staffId: B.id } }))._sum.amountAED ?? 0;
-        ok(commA === Math.round(170 * A.commissionPct / 100), `A commission ${commA} == round(170×${A.commissionPct}%)`);
-        ok(commB === Math.round(30 * B.commissionPct / 100), `B commission ${commB} == round(30×${B.commissionPct}%)`);
+        // Prices are VAT-inclusive → commission base is the per-line NET (ex-VAT) share.
+        const baseFor = (id) => order.lines.reduce((s, l) => { if (l.kind !== "SERVICE") return s; const a = artistsOf(l, order.staffId); return a.includes(id) ? s + netFromInclusive(l.lineAED) / a.length : s; }, 0);
+        ok(commA === Math.round(baseFor(A.id) * A.commissionPct / 100), `A commission ${commA} == round(net ${baseFor(A.id)}×${A.commissionPct}%)`);
+        ok(commB === Math.round(baseFor(B.id) * B.commissionPct / 100), `B commission ${commB} == round(net ${baseFor(B.id)}×${B.commissionPct}%)`);
         await prisma.commission.deleteMany({ where: { orderId } });
         await prisma.salesOrder.delete({ where: { id: orderId } });
       }
@@ -452,21 +455,36 @@ try {
       const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" })
         .setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
       const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
-      const lines = [{ kind: "SERVICE", description: "__E2E_SPLIT_1", qty: 1, unitAED: 100 }, { kind: "SERVICE", description: "__E2E_SPLIT_2", qty: 1, unitAED: 100 }]; // total 210 (200 + 5% VAT)
+      const lines = [{ kind: "SERVICE", description: "__E2E_SPLIT_1", qty: 1, unitAED: 100 }, { kind: "SERVICE", description: "__E2E_SPLIT_2", qty: 1, unitAED: 100 }]; // VAT-inclusive → total 200
       // Split that doesn't add up to the total is rejected.
       const bad = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ splitPayment: true, cashAED: 100, cardAED: 50, transferAED: 0, clientRequestId: `e2e-spbad-${Date.now()}`, lines }) });
       ok(bad.status === 400, `split not summing to total rejected (${bad.status})`);
-      // Valid split: cash 110 + card 100 = 210.
-      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ splitPayment: true, cashAED: 110, cardAED: 100, transferAED: 0, clientRequestId: `e2e-sp-${Date.now()}`, lines }) });
+      // Valid split: cash 120 + card 80 = 200 (the inclusive total).
+      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ splitPayment: true, cashAED: 120, cardAED: 80, transferAED: 0, clientRequestId: `e2e-sp-${Date.now()}`, lines }) });
       const orderId = (await res.json().catch(() => ({})))?.order?.id;
       const o = orderId ? await prisma.salesOrder.findUnique({ where: { id: orderId }, select: { splitPayment: true, cashAED: true, cardAED: true, transferAED: true, paymentMethod: true, totalAED: true } }) : null;
-      ok(!!o && o.splitPayment && o.cashAED === 110 && o.cardAED === 100 && o.transferAED === 0 && o.totalAED === 210, `split stored: cash 110 + card 100 = total ${o?.totalAED}`);
+      ok(!!o && o.splitPayment && o.cashAED === 120 && o.cardAED === 80 && o.transferAED === 0 && o.totalAED === 200, `split stored: cash 120 + card 80 = total ${o?.totalAED}`);
       ok(!!o && o.paymentMethod === "CASH", `dominant method = CASH (${o?.paymentMethod})`);
       // Breakdown building blocks: the split aggregate reads the columns; the single-method bucket excludes it (no double count).
       const splitAgg = await prisma.salesOrder.aggregate({ where: { id: orderId, splitPayment: true }, _sum: { cashAED: true, cardAED: true } });
-      ok(splitAgg._sum.cashAED === 110 && splitAgg._sum.cardAED === 100, "breakdown reads split columns");
+      ok(splitAgg._sum.cashAED === 120 && splitAgg._sum.cardAED === 80, "breakdown reads split columns");
       ok((await prisma.salesOrder.count({ where: { id: orderId, splitPayment: false } })) === 0, "split bill excluded from single-method bucket");
       if (orderId) { await prisma.commission.deleteMany({ where: { orderId } }); await prisma.salesOrder.delete({ where: { id: orderId } }); }
+    }
+  }
+
+  section("VAT-inclusive pricing: total = entered price; VAT + net computed out of it");
+  {
+    const u = await prisma.adminUser.findFirst({ where: { active: true }, select: { id: true } });
+    if (!u) { ok(false, "need an active user for the VAT test"); }
+    else {
+      const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${await mintTok(u.id, "ADMIN")}` };
+      const res = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}vat-${Date.now()}`, lines: [{ kind: "SERVICE", description: "__E2E_VAT", qty: 1, unitAED: 315 }] }) });
+      const oid = (await res.json().catch(() => ({})))?.order?.id;
+      const o = oid ? await prisma.salesOrder.findUnique({ where: { id: oid }, select: { subtotalAED: true, vatAED: true, totalAED: true } }) : null;
+      ok(!!o && o.totalAED === 315 && o.vatAED === vatFromInclusive(315) && o.subtotalAED === 315 - vatFromInclusive(315),
+        `inclusive: total ${o?.totalAED}==315, VAT ${o?.vatAED}==${vatFromInclusive(315)}, net ${o?.subtotalAED}==${315 - vatFromInclusive(315)}`);
+      if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }
     }
   }
 
@@ -484,7 +502,7 @@ try {
       const r1 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-cs-${Date.now()}`, staffId: A.id, lines: [{ kind: "SERVICE", description: "__E2E_CS_SVC", qty: 1, unitAED: 200, staffIds: [A.id] }, { kind: "PRODUCT", description: "__E2E_CS_PROD", qty: 1, unitAED: 100, staffIds: [A.id] }] }) });
       const o1 = (await r1.json().catch(() => ({})))?.order?.id;
       const c1 = o1 ? ((await prisma.commission.aggregate({ _sum: { amountAED: true }, where: { orderId: o1, staffId: A.id, type: "SALES_SPLIT" } }))._sum.amountAED ?? 0) : -1;
-      ok(c1 === Math.round(200 * A.commissionPct / 100), `commission on service only: ${c1} == round(200×${A.commissionPct}%), product excluded`);
+      ok(c1 === Math.round(netFromInclusive(200) * A.commissionPct / 100), `commission on service NET only: ${c1} == round(net ${netFromInclusive(200)}×${A.commissionPct}%), product excluded`);
       if (o1) { await prisma.commission.deleteMany({ where: { orderId: o1 } }); await prisma.salesOrder.delete({ where: { id: o1 } }); }
       // Per-artist override: service 200 by A, agreed commission = 55 (not the auto).
       const r2 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-co-${Date.now()}`, staffId: A.id, commissions: [{ staffId: A.id, amountAED: 55 }], lines: [{ kind: "SERVICE", description: "__E2E_CO_SVC", qty: 1, unitAED: 200, staffIds: [A.id] }] }) });
@@ -530,7 +548,7 @@ try {
       const t = await new SignJWT({ email: "e2e-erp@qa.test", role: "ADMIN" }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("1h").sign(secret);
       const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${t}` };
       const lines = [{ kind: "SERVICE", description: "__E2E_EDIT_SVC", qty: 1, unitAED: 100, staffIds: [A.id] }, { kind: "PRODUCT", description: "__E2E_EDIT_PROD", qty: 1, unitAED: 50 }];
-      const want = Math.round(100 * A.commissionPct / 100); // services-only: 100 × pct, product excluded
+      const want = Math.round(netFromInclusive(100) * A.commissionPct / 100); // services-only, VAT-inclusive: net(100) × pct, product excluded
       const r1 = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `e2e-ed-${Date.now()}`, staffId: A.id, lines }) });
       const oid = (await r1.json().catch(() => ({})))?.order?.id;
       // Poll the just-committed value to avoid a read racing the write on the pooled connection.
@@ -637,9 +655,9 @@ try {
       const oid = (await cr.json().catch(() => ({})))?.order?.id;
       const cid = oid ? (await prisma.salesOrder.findUnique({ where: { id: oid }, select: { clientId: true } }))?.clientId : null;
       if (oid && cid) await fetch(BASE + "/api/erp/pos", { method: "PATCH", headers: hdr, body: JSON.stringify({ orderId: oid, clientId: cid, lines: [{ kind: "SERVICE", description: `${TAG}REV`, qty: 1, unitAED: 200 }] }) });
-      const spend = cid ? await poll(async () => (await prisma.client.findUnique({ where: { id: cid }, select: { totalSpentAED: true } }))?.totalSpentAED, 210) : -1;
+      const spend = cid ? await poll(async () => (await prisma.client.findUnique({ where: { id: cid }, select: { totalSpentAED: true } }))?.totalSpentAED, 200) : -1;
       const visits = cid ? (await prisma.client.findUnique({ where: { id: cid }, select: { visits: true } }))?.visits : -1;
-      ok(spend === 210 && visits === 1, `client after edit: spend ${spend}==210, ${visits}==1 visit (old reversed, new applied)`);
+      ok(spend === 200 && visits === 1, `client after edit: spend ${spend}==200 (VAT-inclusive), ${visits}==1 visit (old reversed, new applied)`);
     }
 
     section("Client dedup by phone");
@@ -811,7 +829,7 @@ try {
       const hdr = await eh();
       const ts = await prisma.staff.create({ data: { name: `${TAG}Payroll`, role: "Crown Artist", salaryAED: 1000, commissionPct: 40, referralPct: 5 } });
       await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}pay-${Date.now()}`, staffId: ts.id, lines: [{ kind: "SERVICE", description: `${TAG}PAYSVC`, qty: 1, unitAED: 500, staffId: ts.id, staffIds: [ts.id] }] }) });
-      // commission = 40% of 500 = 200; base 1000 is higher → net 1000 (additive would be 1200)
+      // VAT-inclusive: net service = net(500) = 476; commission = 40% of 476 ≈ 190; base 1000 is higher → net pay 1000
       const month = dubaiMonth();
       const net = await poll(async () => {
         const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
@@ -823,8 +841,8 @@ try {
         const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
         const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
         return line ? line.split(",")[2] : null;
-      }, "500");
-      ok(services === "500", `per-person Services column = 500 (got ${services})`);
+      }, String(netFromInclusive(500)));
+      ok(services === String(netFromInclusive(500)), `per-person Services column (net, ex-VAT) = ${netFromInclusive(500)} (got ${services})`);
     }
 
     section("Marketer keeps earnings page; linked artist sees own calendar; others don't");
@@ -1061,11 +1079,12 @@ try {
 
       // 4) POS pre-credit — a RECEIVED deposit is collected as the transfer leg; only the balance in cash.
       const posBk = await prisma.booking.create({ data: { serviceId: dsvc?.id ?? null, serviceName: dsvc?.name ?? `${TAG}Svc`, priceAED: 100, durationMin: 60, customerName: `${TAG}DepPOS`, email: "", phone: "", startAt: new Date(dayRange(3).start.getTime() + 15 * 3600e3), endAt: new Date(dayRange(3).start.getTime() + 16 * 3600e3), status: "CONFIRMED", source: "WALKIN", depositAED: 100, depositPaidAt: new Date() } });
-      const posRes = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: await eh("RECEPTION"), body: JSON.stringify({ bookingId: posBk.id, clientRequestId: `${REQ}deppos-${u1}`, staffId: estaff.id, splitPayment: true, transferAED: 100, cashAED: 5, cardAED: 0, lines: [{ kind: "SERVICE", description: dsvc?.name ?? `${TAG}Svc`, qty: 1, unitAED: 100, staffIds: [estaff.id] }] }) });
+      // VAT-inclusive: service 150 = total 150; deposit 100 (transfer) + balance 50 (cash).
+      const posRes = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: await eh("RECEPTION"), body: JSON.stringify({ bookingId: posBk.id, clientRequestId: `${REQ}deppos-${u1}`, staffId: estaff.id, splitPayment: true, transferAED: 100, cashAED: 50, cardAED: 0, lines: [{ kind: "SERVICE", description: dsvc?.name ?? `${TAG}Svc`, qty: 1, unitAED: 150, staffIds: [estaff.id] }] }) });
       const oid = posRes.ok ? (await posRes.json())?.order?.id ?? null : null;
       const dbOrder = oid ? await prisma.salesOrder.findUnique({ where: { id: oid }, select: { totalAED: true, transferAED: true, cashAED: true, splitPayment: true } }) : null;
-      ok(!!dbOrder && dbOrder.totalAED === 105 && dbOrder.transferAED === 100 && dbOrder.cashAED === 5 && dbOrder.splitPayment,
-        `POS: deposit reconciled — total ${dbOrder?.totalAED}==105, deposit as transfer ${dbOrder?.transferAED}==100, balance cash ${dbOrder?.cashAED}==5`);
+      ok(!!dbOrder && dbOrder.totalAED === 150 && dbOrder.transferAED === 100 && dbOrder.cashAED === 50 && dbOrder.splitPayment,
+        `POS: deposit reconciled — total ${dbOrder?.totalAED}==150, deposit as transfer ${dbOrder?.transferAED}==100, balance cash ${dbOrder?.cashAED}==50`);
 
       // cleanup + restore the setting
       if (oid) { await prisma.commission.deleteMany({ where: { orderId: oid } }); await prisma.salesOrder.delete({ where: { id: oid } }); }

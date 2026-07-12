@@ -206,7 +206,7 @@ export default async function CategoryPage({
                   ))}
                 </ul>
                 <p className="mt-4 text-xs text-muted">
-                  Prices are exclusive of 5% VAT, added at checkout.
+                  Prices are inclusive of 5% VAT.
                 </p>
                 <div className="mt-6">
                   <ButtonLink href={`/book?category=${cat.slug}`} className="w-full sm:w-auto">

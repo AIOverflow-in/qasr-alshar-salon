@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { lineArtistIds } from "./artists";
+import { netFromInclusive } from "./vat-core";
 
 /** "YYYY-MM" of the current Dubai month. */
 export function currentDubaiMonth(): string {
@@ -72,15 +73,18 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
     }),
   ]);
 
-  const services = new Map<string, number>();
+  const services = new Map<string, number>();     // net (ex-VAT) service revenue per artist
+  const grossServices = new Map<string, number>(); // gross (VAT-inclusive) — exact amount the client paid
   const servedClients = new Map<string, Set<string>>(); // staffId → distinct client keys
   for (const l of serviceLines) {
     const ids = lineArtistIds(l, l.order.staffId);
     if (!ids.length) continue;
-    const share = l.lineAED / ids.length; // shared lines split equally
+    const share = netFromInclusive(l.lineAED) / ids.length; // ex-VAT; shared lines split equally
+    const grossShare = l.lineAED / ids.length;
     const clientKey = l.order.clientId ?? `order:${l.order.id}`; // walk-ins (no client) count once per bill
     for (const id of ids) {
       services.set(id, (services.get(id) ?? 0) + share);
+      grossServices.set(id, (grossServices.get(id) ?? 0) + grossShare);
       const set = servedClients.get(id) ?? new Set<string>();
       set.add(clientKey);
       servedClients.set(id, set);
@@ -115,7 +119,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       staffId: s.id, name: s.name, role: s.role, active: s.active,
       clientsServed: servedClients.get(s.id)?.size ?? 0,
       servicesAED,
-      grossAED: Math.round(servicesAED * 1.05), // net + 5% VAT
+      grossAED: Math.round(grossServices.get(s.id) ?? 0), // exact VAT-inclusive amount the client paid
       salary: s.salaryAED, salesCommission: c.sales, referral: c.referral, commission,
       bonus: a.bonus, deductions: a.deductions, net,
       paid: !!pay, paidAt: pay?.paidAt.toISOString() ?? null,

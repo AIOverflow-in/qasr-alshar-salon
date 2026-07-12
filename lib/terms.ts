@@ -26,7 +26,7 @@ export const TERMS: TermsSection[] = [
     heading: "Payment",
     body: [
       "Payment is due at the time of service, by cash or card. We do not take online payment at booking.",
-      "All prices are in UAE Dirhams (AED) and are exclusive of VAT; 5% VAT is added at checkout. A deposit may be requested during peak periods or for larger bookings; any deposit is applied to your final bill.",
+      "All prices are in UAE Dirhams (AED) and are inclusive of 5% VAT. A deposit may be requested during peak periods or for larger bookings; any deposit is applied to your final bill.",
     ],
   },
   {

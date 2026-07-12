@@ -40,10 +40,11 @@ test("ranged items ('from' price) carry a clarifying note", () => {
   }
 });
 
-test("premium pricing is reflected (Soft Glam at new tier, not the old 140)", () => {
+test("premium pricing is reflected + VAT-inclusive (Soft Glam)", () => {
   const glam = getCategory("qasr-glam")!;
   const soft = glam.items.find((i) => i.name === "Soft Glam");
-  assert.ok(soft && soft.price === 700, "Soft Glam should be AED 700 (net) in the new menu");
+  // 700 net → 735 gross (700 × 1.05, rounded) now that menu prices are VAT-inclusive.
+  assert.ok(soft && soft.price === 735, `Soft Glam should be AED 735 (700 +5% VAT, inclusive); got ${soft?.price}`);
 });
 
 // Guards against a future category-slug rename silently blanking a section.

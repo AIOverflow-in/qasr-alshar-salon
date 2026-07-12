@@ -156,7 +156,7 @@ function BuildUp({ d }: { d: Data }) {
           <div className="mt-2 h-8 text-center text-[0.65rem] font-semibold leading-tight text-cream">Total</div>
         </div>
       </div>
-      <Footer items={[[d.topCategory.name, "Top driver"], [String(cats.length), "Categories"], [aed(sum), "Total (ex-VAT)"]]} />
+      <Footer items={[[d.topCategory.name, "Top driver"], [String(cats.length), "Categories"], [aed(sum), "Total (incl. VAT)"]]} />
     </div>
   );
 }

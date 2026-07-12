@@ -7,10 +7,9 @@ import { invoiceToken } from "@/lib/invoice-token";
 import { sendInvoiceEmail } from "@/lib/email";
 import { resolveClientId } from "@/lib/clients";
 import { SITE } from "@/lib/site";
+import { vatFromInclusive, netFromInclusive, VAT_PCT } from "@/lib/vat-core";
 
 export const dynamic = "force-dynamic";
-
-const VAT_PCT = 5;
 
 const lineSchema = z.object({
   kind: z.enum(["SERVICE", "PRODUCT"]),
@@ -84,11 +83,13 @@ async function writeCommissions(
   let servicesSubtotal = 0;
   for (const l of lines) {
     if (l.kind !== "SERVICE") continue; // commission is on services only
-    servicesSubtotal += l.lineAED;
+    // Prices are VAT-inclusive; commission is on the NET (ex-VAT) service value.
+    const lineNet = netFromInclusive(l.lineAED, VAT_PCT);
+    servicesSubtotal += lineNet;
     // Artists for this line: the multi-list, else the single, else the order's main artist.
     const artists = (l.staffIds && l.staffIds.length) ? l.staffIds : (l.staffId ? [l.staffId] : (orderStaffId ? [orderStaffId] : []));
     if (!artists.length) continue;
-    const share = l.lineAED / artists.length; // split a shared line equally
+    const share = lineNet / artists.length; // split a shared line equally
     for (const sid of artists) baseByStaff.set(sid, (baseByStaff.get(sid) ?? 0) + share);
   }
   for (const [sid, base] of baseByStaff) {
@@ -238,9 +239,11 @@ export async function POST(req: Request) {
     lineAED: l.qty * l.unitAED,
     productId: l.productId ?? null,
   }));
-  const subtotal = lines.reduce((s, l) => s + l.lineAED, 0);
-  const vatAED = Math.round(subtotal * VAT_PCT / 100);
-  const total = subtotal + vatAED;
+  // Prices are VAT-INCLUSIVE: the entered line amounts ARE the gross total; VAT is
+  // computed out of it, subtotal is the net (ex-VAT) remainder.
+  const total = lines.reduce((s, l) => s + l.lineAED, 0);
+  const vatAED = vatFromInclusive(total, VAT_PCT);
+  const subtotal = total - vatAED;
 
   const pay = resolvePayment(data, total);
   if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });
@@ -389,9 +392,11 @@ export async function PATCH(req: Request) {
   if (soldAt && soldAt.getTime() > Date.now() + 5 * 60_000) return NextResponse.json({ error: "Sale date can't be in the future." }, { status: 400 });
 
   const lines = data.lines.map((l) => ({ ...l, lineAED: l.qty * l.unitAED, productId: l.productId ?? null }));
-  const subtotal = lines.reduce((s, l) => s + l.lineAED, 0);
-  const vatAED = Math.round(subtotal * VAT_PCT / 100);
-  const total = subtotal + vatAED;
+  // Prices are VAT-INCLUSIVE: the entered line amounts ARE the gross total; VAT is
+  // computed out of it, subtotal is the net (ex-VAT) remainder.
+  const total = lines.reduce((s, l) => s + l.lineAED, 0);
+  const vatAED = vatFromInclusive(total, VAT_PCT);
+  const subtotal = total - vatAED;
 
   const pay = resolvePayment(data, total);
   if ("error" in pay) return NextResponse.json({ error: pay.error }, { status: 400 });

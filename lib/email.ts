@@ -61,7 +61,7 @@ function detailsTable(b: BookingEmail) {
     ${row("Location", isHome ? "Home service" : "At the salon")}
     ${isHome && b.address ? row("Address", b.address) : ""}
     ${row("Date &amp; Time", b.whenLabel)}
-    ${row("Price", `AED ${b.priceAED} + 5% VAT`)}
+    ${row("Price", `AED ${b.priceAED} (incl. 5% VAT)`)}
     ${row("Name", b.customerName)}
     ${row("Phone", b.phone)}
     ${row("Email", b.email)}

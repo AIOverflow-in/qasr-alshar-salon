@@ -48,6 +48,8 @@ export default function PackagesPage() {
             ))}
           </div>
 
+          <p className="mt-6 text-center text-sm text-muted">All prices are inclusive of 5% VAT.</p>
+
           <Reveal className="mt-14">
             <div className="surface rounded-3xl p-8 text-center">
               <h2 className="font-display text-3xl text-cream">Need a custom package?</h2>
