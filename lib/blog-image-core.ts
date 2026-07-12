@@ -9,7 +9,7 @@
  * same. Brand-safety + the hard "no text/logos" rules stay.
  */
 export const BLOG_IMAGE_STYLE =
-  "Natural, editorial documentary photograph of a real high-end multicultural ladies' salon in Dubai. Authentic candid moment with real, diverse people, genuine textures and expressions, natural light, shallow depth of field. Colours, mood and setting that suit the subject. Tasteful, elegant and brand-safe. Absolutely no text, no words, no letters, no logos, no watermarks, no signage.";
+  "Natural, editorial documentary photograph of a real high-end multicultural ladies' salon in Dubai. Authentic candid moment with real women that reflect the salon's multicultural clientele — a natural mix of Black and white women — with genuine textures and expressions, natural light and shallow depth of field. The image must clearly show the actual service being discussed (the technique in progress or its finished result), not a generic flat-lay. Colours, mood and setting that suit the subject. Tasteful, elegant and brand-safe. Absolutely no text, no words, no letters, no logos, no watermarks, no signage.";
 
 // Camera / light treatments rotated per post (by slug hash) so even two posts in
 // the same cluster look different. These modify lens/angle/light only — they never
