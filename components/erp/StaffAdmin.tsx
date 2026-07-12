@@ -3,8 +3,9 @@
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2, Upload, FileText, Plane, AlertTriangle, Eye } from "lucide-react";
-import { deleteStaffDocument, addStaffLeave, deleteStaffLeave } from "@/lib/actions/admin";
+import { deleteStaffDocument, addStaffDocument, addStaffLeave, deleteStaffLeave } from "@/lib/actions/admin";
 import { FilePreviewModal, type PreviewDetail } from "./FilePreviewModal";
+import { uploadToBlob } from "@/lib/blob-upload-client";
 import { cn } from "@/lib/utils";
 
 type PreviewKind = "image" | "pdf" | "other";
@@ -28,23 +29,23 @@ export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }:
   const [docType, setDocType] = useState("PASSPORT");
   const [docExpiry, setDocExpiry] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [docErr, setDocErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<Doc | null>(null);
 
   async function upload() {
     const file = fileRef.current?.files?.[0];
     if (!file) { setDocErr("Choose a file to upload."); return; }
-    setDocErr(null); setUploading(true);
+    setDocErr(null); setUploading(true); setProgress(0);
     try {
-      const fd = new FormData();
-      fd.append("file", file); fd.append("type", docType); if (docExpiry) fd.append("expiry", docExpiry);
-      const res = await fetch(`/api/erp/staff/${staffId}/documents`, { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setDocErr(data.error ?? "Upload failed."); return; }
+      // Direct-to-Blob (any file up to 20 MB), then persist the record.
+      const up = await uploadToBlob(file, "staff-doc", { onProgress: setProgress });
+      const res = await addStaffDocument(staffId, { type: docType, expiry: docExpiry || null, fileUrl: up.url, pathname: up.pathname });
+      if (!res?.ok) { setDocErr(res?.error ?? "Could not save the document."); return; }
       if (fileRef.current) fileRef.current.value = "";
       setDocExpiry("");
       router.refresh();
-    } catch { setDocErr("Network error."); } finally { setUploading(false); }
+    } catch { setDocErr("Upload failed. Please try again."); } finally { setUploading(false); }
   }
   const removeDoc = (id: string) => start(async () => { await deleteStaffDocument(id); router.refresh(); });
 
@@ -77,9 +78,10 @@ export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }:
             <input ref={fileRef} type="file" className="max-w-[9rem] text-xs text-sand file:mr-2 file:rounded file:border-0 file:bg-gold/15 file:px-2 file:py-1 file:text-gold" />
             <label className="text-xs text-muted">Expiry <input type="date" value={docExpiry} onChange={(e) => setDocExpiry(e.target.value)} className={cn(input, "ml-1 text-xs")} /></label>
             <button onClick={upload} disabled={uploading} className="inline-flex items-center gap-1 rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-espresso disabled:opacity-50">
-              {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} Upload
+              {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />} {uploading ? (progress > 0 ? `${progress}%` : "…") : "Upload"}
             </button>
           </div>
+          {uploading && progress > 0 && <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-line"><div className="h-full rounded-full bg-gold-gradient transition-all" style={{ width: `${Math.max(6, progress)}%` }} /></div>}
           {docErr && <p className="text-xs text-red-400">{docErr}</p>}
         </div>
         <ul className="mt-3 divide-y divide-ink-line/50">

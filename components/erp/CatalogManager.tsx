@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, Upload, Check, X, Pencil } from "lucide-react";
 import { aed } from "@/lib/utils";
+import { uploadToBlob } from "@/lib/blob-upload-client";
 
 type Product = {
   id: string; name: string; category: string; saleAED: number | null; qty: number;
@@ -13,12 +14,9 @@ type Product = {
 const input = "rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60";
 
 async function uploadImage(file: File): Promise<string> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch("/api/erp/products/image", { method: "POST", body: fd });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Image upload failed");
-  return data.url as string;
+  // Direct-to-Blob upload (any image up to 20 MB, no serverless size limit).
+  const up = await uploadToBlob(file, "product-image");
+  return up.url;
 }
 
 export function CatalogManager({ products }: { products: Product[] }) {
