@@ -69,7 +69,7 @@ export function ExpenseActions({ expense, categories }: { expense: EditableExpen
               <select value={f.category} onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))} className={input} aria-label="Category">
                 {categories.map((c) => <option key={c} value={c}>{label(c)}</option>)}
               </select>
-              <input type="datetime-local" value={f.incurredOn} onChange={(e) => setF((p) => ({ ...p, incurredOn: e.target.value }))} className={`${input} [color-scheme:dark]`} aria-label="Date & time" />
+              <input type="datetime-local" value={f.incurredOn} onChange={(e) => setF((p) => ({ ...p, incurredOn: e.target.value }))} onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported → native icon still works */ } }} className={input} aria-label="Date & time" title="Tap to pick the date & time" />
               <input value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} placeholder="Description" className={`${input} sm:col-span-2`} />
               <input type="number" min={0} value={f.amountAED} onChange={(e) => setF((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
               <input value={f.invoiceNo} onChange={(e) => setF((p) => ({ ...p, invoiceNo: e.target.value }))} placeholder="Invoice # (optional)" className={input} />

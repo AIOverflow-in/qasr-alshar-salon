@@ -88,7 +88,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
               </select>
               <input type="number" value={form.amountAED} onChange={(e) => setForm((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
-              <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} className={`${input} [color-scheme:dark]`} />
+              <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* native icon still works */ } }} className={input} />
               <input value={form.payee} onChange={(e) => setForm((p) => ({ ...p, payee: e.target.value }))} placeholder="Payee (optional)" className={`${input} sm:col-span-1`} />
               <select value={form.method} onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))} className={input}>
                 {METHODS.map((m) => <option key={m} value={m}>{m[0] + m.slice(1).toLowerCase()}</option>)}

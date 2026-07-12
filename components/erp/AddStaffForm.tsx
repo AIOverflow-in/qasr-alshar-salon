@@ -68,7 +68,7 @@ export function AddStaffForm() {
             </label>
             <label className="flex items-center gap-2 text-xs text-muted sm:col-span-2 lg:col-span-1">
               <span className="w-24 shrink-0">Joined on</span>
-              <input className={`${input} w-full [color-scheme:dark]`} type="date" value={f.joinedOn} onChange={(e) => setF({ ...f, joinedOn: e.target.value })} title="Hire date — drives annual-leave entitlement" />
+              <input className={`${input} w-full`} type="date" value={f.joinedOn} onChange={(e) => setF({ ...f, joinedOn: e.target.value })} onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* native icon still works */ } }} title="Hire date — drives annual-leave entitlement" />
             </label>
           </div>
           {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
