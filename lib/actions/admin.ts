@@ -185,12 +185,43 @@ export async function updateStaff(
 }
 
 // ---- staff documents (owner/SUPER_ADMIN only) & leave (managers) ----
+// Persist a staff document AFTER the file was uploaded directly to Blob (client
+// upload → /api/erp/blob-upload). Owner-only.
+export async function addStaffDocument(staffId: string, data: { type: string; expiry?: string | null; fileUrl: string; pathname: string }) {
+  await requireSuperAdmin();
+  if (!data.fileUrl) return { ok: false, error: "Upload a file first." };
+  const type = ["PASSPORT", "VISA", "LABOR_CARD", "EMIRATES_ID", "OTHER"].includes(data.type) ? data.type : "OTHER";
+  if (!(await prisma.staff.findUnique({ where: { id: staffId }, select: { id: true } }))) return { ok: false, error: "Staff not found." };
+  const expiry = data.expiry && /^\d{4}-\d{2}-\d{2}$/.test(data.expiry) ? new Date(data.expiry) : null;
+  await prisma.staffDocument.create({ data: { staffId, type, fileUrl: data.fileUrl, pathname: data.pathname, expiry } });
+  revalidatePath(`/erp/staff/${staffId}`);
+  return { ok: true };
+}
+
 export async function deleteStaffDocument(id: string) {
   await requireSuperAdmin();
   const doc = await prisma.staffDocument.findUnique({ where: { id }, select: { pathname: true, staffId: true } });
   if (doc?.pathname) { try { await del(doc.pathname); } catch (e) { console.error("[blob] del failed:", e); } }
   await prisma.staffDocument.delete({ where: { id } });
   if (doc) revalidatePath(`/erp/staff/${doc.staffId}`);
+}
+
+// Persist a company-vault document AFTER the file was uploaded directly to Blob. Owner-only.
+export async function createCompanyDocument(data: { title: string; description?: string | null; category: string; fileUrl: string; pathname: string; fileName?: string | null; sizeBytes?: number | null }) {
+  const session = await requireSuperAdmin();
+  const title = data.title.trim();
+  if (!title) return { ok: false, error: "Add a title." };
+  if (!data.fileUrl) return { ok: false, error: "Upload a file first." };
+  const category = ["TAX", "LICENSE", "LEASE", "INSURANCE", "FINANCE", "HR", "OTHER"].includes(data.category) ? data.category : "OTHER";
+  await prisma.companyDocument.create({
+    data: {
+      title, description: data.description?.trim() || null, category: category as never,
+      fileUrl: data.fileUrl, pathname: data.pathname, fileName: (data.fileName || "").slice(0, 200) || null,
+      sizeBytes: data.sizeBytes ?? null, uploadedById: session.sub,
+    },
+  });
+  revalidatePath("/erp/documents");
+  return { ok: true };
 }
 
 export async function addStaffLeave(

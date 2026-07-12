@@ -5,10 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { dubaiMonthRange, currentDubaiMonth, recentMonths } from "@/lib/payroll";
-import { expenseWhere, EXPENSE_TAB_CATEGORIES, isExpenseCategory } from "@/lib/expense-filter";
+import { expenseWhere, EXPENSE_TAB_CATEGORIES, EXPENSE_CATEGORIES, isExpenseCategory } from "@/lib/expense-filter";
 import { AddExpenseForm } from "@/components/erp/AddExpenseForm";
 import { Pagination } from "@/components/erp/Pagination";
 import { ReceiptPreview } from "@/components/erp/ReceiptPreview";
+import { ExpenseActions } from "@/components/erp/ExpenseActions";
 import { MonthPicker } from "@/components/erp/MonthPicker";
 import { SearchBox } from "@/components/erp/SearchBox";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
@@ -146,7 +147,13 @@ export default async function ErpExpenses({
                   )}
                 </div>
               </div>
-              <span className="shrink-0 font-semibold text-sand">{aed(e.amountAED)}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="font-semibold text-sand">{aed(e.amountAED)}</span>
+                <ExpenseActions
+                  expense={{ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), invoiceNo: e.invoiceNo }}
+                  categories={isManager ? EXPENSE_CATEGORIES : EXPENSE_TAB_CATEGORIES}
+                />
+              </div>
             </div>
           ))}
         </div>

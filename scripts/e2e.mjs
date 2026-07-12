@@ -178,6 +178,15 @@ try {
     ok((await upload("STYLIST")) === 403, "receipt upload: stylist 403");
     ok([400, 500].includes(await upload("RECEPTION")), "receipt upload: reception passes auth (validation without a file)");
     ok((await upload(null)) === 401, "receipt upload: anon 401");
+    // Direct-to-Blob upload authorizer (any file up to 20 MB) — must fail SAFE (4xx, never 500/200) on garbage.
+    const blobUp = async (role, bodyObj) => {
+      const t = role ? await tok(role) : null;
+      const r = await fetch(BASE + "/api/erp/blob-upload", { method: "POST", headers: { "content-type": "application/json", ...(t ? { cookie: `qa_admin=${t}` } : {}) }, body: JSON.stringify(bodyObj) });
+      return r.status;
+    };
+    ok([400, 401].includes(await blobUp(null, {})), "blob-upload: unauth garbage → 4xx (no crash)");
+    ok([400, 401].includes(await blobUp("STYLIST", { type: "blob.generate-client-token" })), "blob-upload: bad/forbidden request → 4xx");
+    ok([400, 401].includes(await blobUp("RECEPTION", {})), "blob-upload: reception garbage → 4xx (fails safe)");
     // Per-staff monthly report PDF (payslip) — admin only, renders as a PDF with the perf section.
     const st = await prisma.staff.findFirst({ where: { active: true }, select: { id: true } });
     if (!st) { ok(false, "need an active staff for the payslip test"); }

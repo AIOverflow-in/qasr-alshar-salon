@@ -32,6 +32,15 @@ export async function emailDailyDigestNow() {
   return sendDailyDigest();
 }
 
+// Dubai is UTC+4 (no DST). Treat a bare date or a datetime-local input as Dubai
+// local time so the stored instant matches what reception picked.
+function toDubaiDate(s?: string | null): Date {
+  if (!s) return new Date();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T00:00:00+04:00`);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return new Date(`${s}:00+04:00`);
+  return new Date(s);
+}
+
 export async function addExpense(data: {
   category: string;
   description: string;
@@ -54,7 +63,7 @@ export async function addExpense(data: {
       category,
       description: data.description.trim(),
       amountAED,
-      incurredOn: data.incurredOn ? new Date(data.incurredOn) : new Date(),
+      incurredOn: toDubaiDate(data.incurredOn),
       recurring: isManager ? !!data.recurring : false,
       notes: data.notes?.trim() || null,
       invoiceNo: data.invoiceNo?.trim() || null,
@@ -67,10 +76,54 @@ export async function addExpense(data: {
   revalidatePath("/erp/expenses");
 }
 
+/** Managers may edit any expense; reception may edit only its OWN non-SALARIES entries. */
+async function assertCanMutateExpense(id: string) {
+  const session = await requireExpenseWriter();
+  const isManager = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const existing = await prisma.expense.findUnique({ where: { id }, select: { createdById: true, category: true } });
+  if (!existing) throw new Error("Expense not found.");
+  if (!isManager && (existing.createdById !== session.sub || existing.category === "SALARIES")) throw new Error("Forbidden");
+  return { session, isManager };
+}
+
+export async function updateExpense(id: string, data: {
+  category?: string;
+  description?: string;
+  amountAED?: number;
+  incurredOn?: string | null;
+  invoiceNo?: string | null;
+  recurring?: boolean;
+  receiptUrl?: string | null;
+  receiptPath?: string | null;
+}) {
+  const { isManager } = await assertCanMutateExpense(id);
+  const patch: Record<string, unknown> = {};
+  if (data.category !== undefined) patch.category = (CATEGORIES.includes(data.category as ExpenseCategory) ? data.category : "OTHER");
+  if (data.description !== undefined) {
+    const d = data.description.trim();
+    if (!d) throw new Error("Description is required.");
+    patch.description = d;
+  }
+  if (data.amountAED !== undefined) {
+    const amt = Math.max(0, Math.round(data.amountAED || 0));
+    if (amt <= 0) throw new Error("A positive amount is required.");
+    patch.amountAED = amt;
+  }
+  if (data.incurredOn !== undefined) patch.incurredOn = toDubaiDate(data.incurredOn);
+  if (data.invoiceNo !== undefined) patch.invoiceNo = data.invoiceNo?.trim() || null;
+  if (data.recurring !== undefined && isManager) patch.recurring = !!data.recurring;
+  if (data.receiptUrl !== undefined) patch.receiptUrl = data.receiptUrl?.trim() || null;
+  if (data.receiptPath !== undefined) patch.receiptPath = data.receiptPath?.trim() || null;
+  await prisma.expense.update({ where: { id }, data: patch });
+  revalidatePath("/erp/finance");
+  revalidatePath("/erp/expenses");
+}
+
 export async function deleteExpense(id: string) {
-  await requireFinanceWriter();
+  await assertCanMutateExpense(id);
   await prisma.expense.delete({ where: { id } });
   revalidatePath("/erp/finance");
+  revalidatePath("/erp/expenses");
 }
 
 export async function addCapital(data: { investor: string; amountAED: number; contributedOn?: string | null; notes?: string | null }) {

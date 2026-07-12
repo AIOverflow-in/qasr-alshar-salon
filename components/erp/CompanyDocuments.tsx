@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Upload, Trash2, Loader2, FileText, Download, Eye } from "lucide-react";
 import { FilePreviewModal } from "./FilePreviewModal";
 import { inlineKind } from "@/lib/file-preview-core";
+import { uploadToBlob } from "@/lib/blob-upload-client";
+import { createCompanyDocument } from "@/lib/actions/admin";
 
 type Doc = { id: string; title: string; description: string | null; category: string; fileName: string | null; sizeBytes: number | null; createdAt: string };
 
@@ -20,6 +22,7 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
   const [form, setForm] = useState({ title: "", description: "", category: "TAX" });
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<Doc | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -30,20 +33,17 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
     if (!form.title.trim()) { setError("Add a title."); return; }
     if (!file) { setError("Choose a file to upload."); return; }
     setBusy(true);
+    setProgress(0);
     try {
-      const fd = new FormData();
-      fd.append("title", form.title);
-      fd.append("description", form.description);
-      fd.append("category", form.category);
-      fd.append("file", file);
-      const res = await fetch("/api/erp/company-docs", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data.error || "Upload failed."); return; }
+      // Direct-to-Blob upload (any file up to 20 MB), then persist the metadata.
+      const up = await uploadToBlob(file, "company-doc", { onProgress: setProgress });
+      const res = await createCompanyDocument({ title: form.title, description: form.description, category: form.category, fileUrl: up.url, pathname: up.pathname, fileName: up.name, sizeBytes: up.size });
+      if (!res?.ok) { setError(res?.error || "Could not save the document."); return; }
       setForm({ title: "", description: "", category: "TAX" });
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
-    } catch { setError("Network error. Please try again."); }
+    } catch { setError("Upload failed. Please try again."); }
     finally { setBusy(false); }
   }
 
@@ -69,8 +69,14 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
             </select>
             <input ref={fileRef} type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className={`${input} w-full min-w-0 file:mr-3 file:rounded file:border-0 file:bg-gold/20 file:px-3 file:py-1 file:text-gold`} />
           </div>
+          {busy && progress > 0 && (
+            <div className="mt-3">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-line"><div className="h-full rounded-full bg-gold-gradient transition-all" style={{ width: `${Math.max(6, progress)}%` }} /></div>
+              <p className="mt-1 text-xs text-gold">Uploading… {progress}%</p>
+            </div>
+          )}
           <button onClick={submit} disabled={busy} className="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {busy ? (progress > 0 ? `Uploading… ${progress}%` : "Saving…") : "Upload"}
           </button>
           {error && <div className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}
         </div>
