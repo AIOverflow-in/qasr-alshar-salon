@@ -87,7 +87,7 @@ export default function ServicesPage() {
           <div className="mt-12 text-center">
             <ButtonLink href="/book" size="lg">Book an Appointment</ButtonLink>
             <p className="mt-3 text-sm text-muted">
-              Prices may vary by hair length & complexity. Ask us for a quick quote on WhatsApp.
+              All prices are inclusive of 5% VAT. Prices may vary by hair length & complexity — ask us for a quick quote on WhatsApp.
             </p>
           </div>
         </div>

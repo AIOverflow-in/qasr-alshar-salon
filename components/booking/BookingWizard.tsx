@@ -243,7 +243,7 @@ export function BookingWizard({
             <Row k={dict.step1} v={done.serviceName} />
             {stylist && <Row k="Crown Artist" v={stylist.name} />}
             <Row k={dict.date} v={done.whenLabel} />
-            <Row k="Price" v={`${aed(done.priceAED)} · + 5% VAT`} />
+            <Row k="Price" v={`${aed(done.priceAED)} · incl. VAT`} />
             <Row k="Name" v={form.name} />
             {form.phone && <Row k="Phone" v={form.phone} />}
             <Row k="Location" v={done.serviceMode === "HOME" ? "Home service (we come to you)" : `${SITE.address.line1}, ${SITE.address.city}`} />
@@ -425,7 +425,7 @@ export function BookingWizard({
                 <div className="text-cream">
                   {selected.length} service{selected.length > 1 ? "s" : ""} · {totalDuration} min
                 </div>
-                <div className="text-xs text-muted">Total {aed(totalPrice)} · + 5% VAT</div>
+                <div className="text-xs text-muted">Total {aed(totalPrice)} · incl. VAT</div>
               </div>
               <Button onClick={() => setStep(2)}>
                 {dict.next} <ChevronRight size={16} />
@@ -618,7 +618,7 @@ export function BookingWizard({
                 <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-gold underline underline-offset-2 hover:text-gold-deep">
                   Terms &amp; Conditions
                 </Link>
-                : a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices are exclusive of VAT; 5% VAT is added at checkout. Home/clinic visits are confirmed by the salon before they are final.
+                : a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices are inclusive of 5% VAT. Home/clinic visits are confirmed by the salon before they are final.
               </span>
             </label>
           </div>

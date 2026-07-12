@@ -6,6 +6,7 @@ import { sessionIsMarketer } from "@/lib/staff-access";
 import { aed, cn } from "@/lib/utils";
 import { lineArtistIds } from "@/lib/artists";
 import { currentDubaiMonth, dubaiMonthRange, recentMonths } from "@/lib/payroll";
+import { netFromInclusive } from "@/lib/vat-core";
 import { leaveSummary } from "@/lib/leave";
 import { inlineKind } from "@/lib/file-preview-core";
 import { StaffAdmin } from "@/components/erp/StaffAdmin";
@@ -72,7 +73,7 @@ export default async function ArtistPerformance({
       qty: l.qty,
       unitAED: l.unitAED,
       lineAED: l.lineAED,
-      share: Math.round(l.lineAED / artistIds.length), // equal split when shared
+      share: Math.round(netFromInclusive(l.lineAED) / artistIds.length), // ex-VAT; equal split when shared
       shared: artistIds.length > 1,
       when: l.order.createdAt,
       invoiceNo: l.order.invoiceNo,

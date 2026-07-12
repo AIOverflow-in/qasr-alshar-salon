@@ -4,8 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2, Wallet } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
-
-const VAT_PCT = 5;
+import { vatFromInclusive, netFromInclusive, VAT_PCT } from "@/lib/vat-core";
 
 type Service = { id: string; name: string; category: string; priceAED: number; durationMin: number };
 type ProductItem = { id: string; name: string; category: string; saleAED: number | null; qty: number };
@@ -136,9 +135,10 @@ export function PosTerminal({ services, staff, clients: initialClients, products
 
   const selectedClientObj = clients.find((c) => c.id === selectedClient) ?? null;
 
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.unitAED, 0);
-  const vatAED = Math.round(subtotal * VAT_PCT / 100);
-  const total = subtotal + vatAED;
+  // Prices are VAT-inclusive: entered amounts ARE the gross total; VAT + net are computed out of it.
+  const total = lines.reduce((s, l) => s + l.qty * l.unitAED, 0);
+  const vatAED = vatFromInclusive(total, VAT_PCT);
+  const subtotal = total - vatAED;
 
   const n = (v: number | "") => (v === "" ? 0 : v);
   const splitSum = n(cashAED) + n(cardAED) + n(transferAED);
@@ -164,10 +164,10 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     const baseByStaff = new Map<string, number>();
     for (const l of lines) {
       if (l.kind !== "SERVICE") continue;
-      const lineAED = l.qty * l.unitAED;
+      const lineNet = netFromInclusive(l.qty * l.unitAED, VAT_PCT); // commission is on the ex-VAT value
       const artists = l.staffIds.length ? l.staffIds : (selectedStaff ? [selectedStaff] : []);
       if (!artists.length) continue;
-      const share = lineAED / artists.length;
+      const share = lineNet / artists.length;
       for (const sid of artists) baseByStaff.set(sid, (baseByStaff.get(sid) ?? 0) + share);
     }
     return [...baseByStaff.entries()].map(([staffId, base]) => {
@@ -184,7 +184,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     });
 
   // Marketer/referral commission: default 5% of the service value, editable to any amount.
-  const servicesSubtotal = useMemo(() => lines.reduce((s, l) => (l.kind === "SERVICE" ? s + l.qty * l.unitAED : s), 0), [lines]);
+  const servicesSubtotal = useMemo(() => lines.reduce((s, l) => (l.kind === "SERVICE" ? s + netFromInclusive(l.qty * l.unitAED, VAT_PCT) : s), 0), [lines]);
   const marketerName = staff.find((s) => s.id === selectedMarketer)?.name ?? "Marketer";
   const marketerAuto = selectedMarketer && servicesSubtotal > 0 ? Math.round(servicesSubtotal * 5 / 100) : 0;
 

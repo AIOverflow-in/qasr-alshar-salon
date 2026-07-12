@@ -149,13 +149,15 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
     rt(page, val, RIGHT - 8, y, strong ? 10 : 9, strong ? bold : reg, INK);
     y -= strong ? 18 : 15;
   };
-  drawTotal("Subtotal", money(order.subtotalAED));
-  drawTotal(`VAT (${order.vatPct}%)`, money(order.vatAED));
+  // Prices are VAT-INCLUSIVE — a single all-in TOTAL, no separate Subtotal/VAT lines shown to the
+  // customer (the net/VAT split is still stored internally for FTA filing).
   y -= 14;
   page.drawRectangle({ x: tLabelX - 10, y: y - 4, width: RIGHT - (tLabelX - 10), height: 24, color: INK });
   page.drawText("TOTAL", { x: tLabelX, y: y + 4, size: 11, font: bold, color: GOLD });
   rt(page, money(order.totalAED), RIGHT - 8, y + 4, 11, bold, GOLD);
-  y -= 34;
+  y -= 18;
+  rt(page, `Includes all taxes (VAT ${order.vatPct}%)`, RIGHT - 8, y, 7.5, reg, GREY);
+  y -= 20;
 
   // Split payment: show how the total was settled across methods.
   if (order.splitPayment) {
@@ -175,7 +177,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
 
   const site = SITE.url.replace(/^https?:\/\//, "");
   const terms = [
-    "Terms: Prices are exclusive of VAT; 5% VAT is added as shown above. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
+    "Terms: All prices are inclusive of 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
     "Cancellations within 24 hours and no-shows may be charged. Home-service bookings require prior confirmation.",
     `Full terms & conditions: ${site}/terms`,
   ];
