@@ -6,6 +6,7 @@ import { SITE } from "./site";
 import { composeImagePrompt, pickHeroImage } from "./blog-image-core";
 import { getTextProvider, getImageProvider } from "./ai";
 import { clusterToServicePath } from "./keyword-core";
+import { clusterPriceContext } from "./service-pricing";
 import { ensureSeeded, selectNextKeyword, markKeywordUsed } from "./keywords";
 
 /**
@@ -129,11 +130,21 @@ export async function generateBlogPost(opts?: {
 
   const serviceUrl = `${SITE.url}${clusterToServicePath(cluster)}`;
 
-  const system = `You are a real beauty writer for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage. The salon serves all hair types including Afro / textured hair.
+  // Ground the writer in REAL, VAT-inclusive prices for this service area so it
+  // quotes accurate ranges (never invented figures). Empty for general topics.
+  const priceContext = clusterPriceContext(cluster);
+  const priceGuidance = priceContext
+    ? `- Money: use ONLY these real salon prices for this area — quote the ones that match what you're writing about, as a range where it fits: ${priceContext} Never invent a figure. If a reader might want a variant that isn't in this list, do NOT guess a number — say the price depends on the design/length and is confirmed at the salon. Prices are inclusive of 5% VAT; say so once if you mention price.`
+    : `- If you mention price at all, keep it general and honest (prices vary with length and design and are confirmed at the salon). Do NOT invent specific figures.`;
+
+  const system = `You are the in-house beauty editor for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro — part senior stylist, part luxury copywriter, part SEO strategist. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage. The salon serves all hair types including Afro / textured hair, and its senior "crown artists" are experienced specialists in protective styling and textured-hair care.
+
+Voice: warm, feminine and quietly confident, luxurious without being flashy, educational and honest — like a trusted stylist talking to a client she respects. Conversational and unmistakably human.
 
 Write like a knowledgeable human, not an AI. Hard rules:
 - Sound 100% natural and human. NEVER use AI clichés or filler such as "In today's fast-paced world", "Look no further", "Nestled in", "Whether you're … or …", "Elevate", "Unlock", "delve", "In conclusion", "When it comes to". No em-dash overuse.
 - Be specific and concrete (real Dubai context, real product/technique names, real timeframes). Vary sentence length so it reads like a person wrote it.
+- Honest and balanced: give the real upsides AND the real trade-offs (upkeep, timing, comfort, aftercare) so a reader can decide with confidence. Educational, never fear-mongering or pushy.
 - Crisp and useful — no padding. Every sentence earns its place.
 - Markdown with ## headings and short bullet lists. Do NOT include the H1 title in the body.`;
 
@@ -143,22 +154,26 @@ Related terms to weave in where they fit naturally: ${secondary.join(", ") || "(
 
 Requirements:
 - Title: compelling, <=60 chars, includes the primary keyword or a very close variant. Not clickbait.
-- 350–500 words, Markdown body only (no front matter, no H1).
+- 400–600 words, Markdown body only (no front matter, no H1).
 - 2–3 focused ## sections; put the keyword/related terms in headings where it reads naturally.
 - Real Dubai specifics (areas, timeframes, product/technique names).
+${priceGuidance}
+- Show real expertise: reference how our senior crown artists approach this service (their experience with textured / Afro hair, technique, tension, timing, aftercare). Do NOT invent named individuals or fake credentials.
+- Be honest and balanced: include a short "what to know" beat with the genuine upsides AND the trade-offs (upkeep, longevity, comfort) and how we keep it healthy and safe. Educational, not fear-mongering.
 - Include exactly ONE natural internal link in the body, anchored on relevant words, to our services page: ${serviceUrl}
 - End with one short call-to-action sentence linking to ${SITE.url}/book.
 - Do NOT put the FAQ inside contentMarkdown — return it separately in "faq".
 - No generic AI filler. Get straight to the point.
+- Series: if it genuinely fits the topic, frame the piece as an entry in one of our recurring series and set "category" to that series name — "Hair Diaries" (a first-person client/stylist story), "Ask the Stylist" (one real question answered in depth), or "Beauty Myth Busters" (debunk a common beauty myth). Otherwise use a normal category. Don't force it.
 Return ONLY JSON with keys:
 {"title": string,
  "metaDescription": string (<=155 chars, include the primary keyword),
  "excerpt": string (<=160 chars, friendly summary),
  "tags": string[] (3-6 lowercase tags),
- "category": string (e.g. "Hair", "Henna", "Skincare", "Nails", "Bridal", "Beauty Tips"),
+ "category": string (a normal category e.g. "Hair", "Henna", "Skincare", "Nails", "Bridal", "Beauty Tips", OR a recurring series: "Hair Diaries", "Ask the Stylist", "Beauty Myth Busters"),
  "contentMarkdown": string (the article body, no FAQ),
  "faq": [{"q": string, "a": string}] (2-3 real "people also ask" questions + concise answers),
- "imagePrompt": string (a vivid, specific description of a NATURAL candid photograph for THIS article — real diverse people in the salon, the setting, and a colour/mood that fits the topic; no gold-flat-lay cliché, no text or logos)}`;
+ "imagePrompt": string (a vivid, specific description of a NATURAL candid photograph for THIS exact article. It MUST depict the actual service the post is about — the technique in progress or its finished result (a braids post shows the finished braids, a makeup post shows the finished look, a facial post shows the treatment) — never a generic gold flat-lay. Feature real women reflecting the salon's multicultural clientele, a natural mix of Black and white women, in the salon setting with a colour/mood that fits the topic. No text or logos.)}`;
 
   let parsed: Generated;
   try {

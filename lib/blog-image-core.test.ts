@@ -18,10 +18,11 @@ test("fallback distinguishes braids, locs, henna, nails", () => {
   assert.match(blogImagePrompt("Making your gel manicure last"), /nail|gel/i);
 });
 
-test("brand style now allows real people but keeps the hard no-text rule", () => {
+test("brand style allows real people, asks for a diverse mix + the actual service, keeps the hard no-text rule", () => {
   assert.match(BLOG_IMAGE_STYLE, /no text.*no logos|no logos.*no watermarks/i);
   assert.doesNotMatch(BLOG_IMAGE_STYLE, /no visible human faces/i); // people are allowed now
-  assert.match(BLOG_IMAGE_STYLE, /diverse people/i);
+  assert.match(BLOG_IMAGE_STYLE, /mix of Black and white women/i); // multicultural diversity is explicit
+  assert.match(BLOG_IMAGE_STYLE, /actual service/i); // service-accurate, not a generic flat-lay
 });
 
 test("composeImagePrompt prefers the writer's bespoke scene over the category one", () => {
