@@ -1094,6 +1094,42 @@ try {
     }
   }
 
+  // ── ERP AI assistant (conversational data queries) ─────────────────────────
+  // Uses the STRUCTURED form ({intent,params}) so it's deterministic and needs no
+  // OpenAI key. Verifies the auth gate + that only catalogued intents ever run
+  // (an off-catalogue "intent" must collapse to a clarify, never touch the DB).
+  section("ERP assistant — auth guard + safe structured queries (no LLM, read-only)");
+  {
+    const aurl = BASE + "/api/erp/assistant";
+    const apost = (t, payload) => fetch(aurl, { method: "POST", headers: { "Content-Type": "application/json", ...(t ? { cookie: `qa_admin=${t}` } : {}) }, body: JSON.stringify(payload) });
+
+    const aUn = await apost(null, { intent: "takings" });
+    ok(aUn.status === 401, `assistant: no cookie → 401 (got ${aUn.status})`);
+
+    const aReception = await apost(await tok("RECEPTION"), { intent: "takings" });
+    ok(aReception.status === 403, `assistant: RECEPTION → 403 (got ${aReception.status})`);
+
+    const aAdmin = await tok("ADMIN");
+    const aTake = await apost(aAdmin, { intent: "takings", params: { range: "today" } });
+    const aTakeJ = await aTake.json().catch(() => ({}));
+    ok(aTake.status === 200 && aTakeJ.intent === "takings" && typeof aTakeJ.answer === "string" && aTakeJ.answer.length > 0,
+      `assistant: ADMIN takings(today) → 200 with answer (intent=${aTakeJ.intent})`);
+
+    const aStock = await apost(aAdmin, { intent: "low_stock" });
+    const aStockJ = await aStock.json().catch(() => ({}));
+    ok(aStock.status === 200 && aStockJ.intent === "low_stock" && typeof aStockJ.answer === "string",
+      "assistant: ADMIN low_stock → 200 with answer");
+
+    const aTop = await apost(aAdmin, { intent: "top_services", params: { range: "month", limit: 3 } });
+    const aTopJ = await aTop.json().catch(() => ({}));
+    ok(aTop.status === 200 && aTopJ.intent === "top_services", `assistant: ADMIN top_services → 200 (intent=${aTopJ.intent})`);
+
+    const aJunk = await apost(aAdmin, { intent: "raw_sql; DROP TABLE users" });
+    const aJunkJ = await aJunk.json().catch(() => ({}));
+    ok(aJunk.status === 200 && aJunkJ.intent === null && typeof aJunkJ.answer === "string" && aJunkJ.answer.length > 0,
+      `assistant: off-catalogue intent is refused, never runs → clarify (intent=${aJunkJ.intent})`);
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);

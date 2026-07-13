@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { NotificationBell } from "@/components/erp/NotificationBell";
+import { AssistantPanel } from "@/components/erp/AssistantPanel";
 import { logoutAction } from "@/lib/actions/admin";
 import { cn } from "@/lib/utils";
 import type { Role } from "@prisma/client";
@@ -128,6 +129,8 @@ export function ErpShell({
     <div className="min-h-svh bg-ink">
       {/* Crown artists are calendar-only; the booking-feed notifications aren't for them. */}
       {role !== "STYLIST" && <NotificationBell />}
+      {/* AI assistant surfaces financial/business data — managers only. */}
+      {(role === "SUPER_ADMIN" || role === "ADMIN") && <AssistantPanel />}
       <div className="flex items-center justify-between border-b border-ink-line p-4 lg:hidden">
         <Link href="/erp" className="flex items-center gap-2">
           <Emblem className="h-8 w-auto" />
