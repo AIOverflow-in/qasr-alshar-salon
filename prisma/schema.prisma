@@ -622,3 +622,19 @@ model CompanyDocument {
   @@index([category])
   @@index([createdAt])
 }
+
+/// First-party web-analytics rollup: one row per public path per Dubai day.
+/// A page beacon (POST /api/track/pageview) upserts here — bounded rows (paths ×
+/// days), no per-request storage growth. engagedSec is the summed engaged time
+/// (each visit capped) so avg time-on-page = engagedSec / views.
+model PageStat {
+  id         String   @id @default(cuid())
+  day        String   // Dubai calendar day "YYYY-MM-DD"
+  path       String   // normalized public pathname, e.g. "/services/braiding-styles"
+  views      Int      @default(0)
+  engagedSec Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([day, path])
+  @@index([day])
+}

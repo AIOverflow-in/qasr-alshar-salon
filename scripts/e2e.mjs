@@ -1094,6 +1094,28 @@ try {
     }
   }
 
+  // ── Web analytics (time-on-site beacon + manager dashboard) ────────────────
+  section("Web analytics — page beacon (validate/clamp) + manager-only dashboard");
+  {
+    const turl = BASE + "/api/track/pageview";
+    const tpath = `/__e2e-track-${Date.now()}`;
+    // Valid beacon → 204, and engaged seconds clamped to the 600s cap.
+    const good = await fetch(turl, { method: "POST", body: JSON.stringify({ path: tpath, sec: 99999 }) });
+    ok(good.status === 204, `track: valid beacon → 204 (got ${good.status})`);
+    const views = await poll(async () => (await prisma.pageStat.findFirst({ where: { path: tpath } }))?.views ?? 0, 1);
+    ok(views === 1, `track: beacon recorded exactly one view (views=${views})`);
+    const rec = await prisma.pageStat.findFirst({ where: { path: tpath } });
+    ok(rec?.engagedSec === 600, `track: engaged seconds clamped to 600 (got ${rec?.engagedSec})`);
+    // Junk path (no leading slash) is ignored — never written.
+    await fetch(turl, { method: "POST", body: JSON.stringify({ path: "no-slash-junk", sec: 5 }) });
+    const junk = await prisma.pageStat.findFirst({ where: { path: { startsWith: "no-slash" } } });
+    ok(!junk, "track: junk path (no leading slash) is ignored");
+    // Dashboard is managers-only.
+    ok((await code("/erp/analytics", "ADMIN")) === "200", "analytics: admin 200");
+    ok((await code("/erp/analytics", "RECEPTION")) === "REDIR", "analytics: reception redirected");
+    await prisma.pageStat.deleteMany({ where: { OR: [{ path: { startsWith: "/__e2e-track" } }, { path: { startsWith: "no-slash" } }] } });
+  }
+
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
 } catch (e) {
   console.error("RUNNER ERROR:", e.message);
