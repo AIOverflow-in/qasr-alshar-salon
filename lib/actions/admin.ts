@@ -14,6 +14,7 @@ import { sendAftercareEmail } from "@/lib/email";
 import { inclusiveDays } from "@/lib/leave";
 import { normalizeNewStaff } from "@/lib/staff-core";
 import { stylistNeedsStaff, UNLINKED_STYLIST_ERROR } from "@/lib/user-core";
+import { userDeletionGuard } from "@/lib/erp-users-core";
 import { del } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import type { BookingStatus, Role } from "@prisma/client";
@@ -453,6 +454,35 @@ export async function setUserPassword(id: string, password: string) {
   await requireSuperAdmin();
   if (!password || password.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
   await prisma.adminUser.update({ where: { id }, data: { passwordHash: await bcrypt.hash(password, 10) } });
+  revalidatePath("/erp/users");
+  return { ok: true };
+}
+
+/**
+ * Permanently delete a login account. Safeguarded (see userDeletionGuard): can't
+ * delete yourself, the last Super Admin, or a login tied to bills (deactivate
+ * those instead). The linked Staff record — and all its history — is untouched.
+ */
+export async function deleteUser(id: string) {
+  const me = await requireSuperAdmin();
+  const user = await prisma.adminUser.findUnique({ where: { id }, select: { id: true, role: true } });
+  if (!user) return { ok: false, error: "User not found." };
+  const [supers, createdOrders] = await Promise.all([
+    user.role === "SUPER_ADMIN" ? prisma.adminUser.count({ where: { role: "SUPER_ADMIN" } }) : Promise.resolve(2),
+    prisma.salesOrder.count({ where: { createdById: id } }),
+  ]);
+  const guard = userDeletionGuard({
+    isSelf: id === me.sub,
+    isLastSuperAdmin: user.role === "SUPER_ADMIN" && supers <= 1,
+    createdOrders,
+  });
+  if (!guard.ok) return guard;
+  try {
+    await prisma.adminUser.delete({ where: { id } });
+  } catch {
+    // Any other DB link (e.g. uploaded documents) — keep the login, guide to deactivate.
+    return { ok: false, error: "This login is linked to other records — deactivate it instead." };
+  }
   revalidatePath("/erp/users");
   return { ok: true };
 }

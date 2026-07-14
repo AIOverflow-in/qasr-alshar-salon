@@ -95,7 +95,7 @@ export function ErpShell({
       <div className="mt-1 px-2 text-[0.65rem] uppercase tracking-widest text-muted">
         {ROLE_LABEL[role]}
       </div>
-      <nav className="mt-6 flex-1 space-y-1">
+      <nav className="mt-6 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1">
         {items.map((n) => {
           const active = n.href === "/erp" ? pathname === "/erp" : pathname.startsWith(n.href);
           return (
