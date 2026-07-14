@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, KeyRound, AlertTriangle } from "lucide-react";
+import { UserPlus, KeyRound, AlertTriangle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createUser, updateUserRole, setUserActive, setUserPassword, setUserStaff } from "@/lib/actions/admin";
+import { createUser, updateUserRole, setUserActive, setUserPassword, setUserStaff, deleteUser } from "@/lib/actions/admin";
 import type { Role } from "@prisma/client";
 
 type User = { id: string; name: string; email: string; role: Role; active: boolean; staffId: string | null; staffName: string | null };
@@ -52,6 +52,10 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
     const pw = window.prompt(`New password for ${name} (min 6 chars):`);
     if (!pw) return;
     act(id, async () => { const r = await setUserPassword(id, pw); if (r && !r.ok) alert(r.error); });
+  }
+  function removeUser(id: string, name: string) {
+    if (!window.confirm(`Delete ${name}'s login permanently? This can't be undone. (Their staff record and history stay.)`)) return;
+    act(id, async () => { const r = await deleteUser(id); if (r && !r.ok) alert(r.error); else router.refresh(); });
   }
 
   return (
@@ -148,10 +152,17 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
                     {u.active ? "Active" : "Inactive"}
                   </button>
                 </td>
-                <td className="p-4 text-right">
-                  <button onClick={() => resetPw(u.id, u.name)} className="inline-flex items-center gap-1 rounded-lg border border-ink-line px-2.5 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold">
-                    <KeyRound size={12} /> Reset password
-                  </button>
+                <td className="p-4">
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => resetPw(u.id, u.name)} className="inline-flex items-center gap-1 rounded-lg border border-ink-line px-2.5 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold">
+                      <KeyRound size={12} /> Reset password
+                    </button>
+                    {u.id !== currentUserId && (
+                      <button onClick={() => removeUser(u.id, u.name)} title="Delete this login permanently" className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 px-2.5 py-1.5 text-xs text-red-400 hover:border-red-500 hover:bg-red-500/10">
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
