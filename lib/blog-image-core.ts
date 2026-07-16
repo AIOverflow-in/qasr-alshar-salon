@@ -104,3 +104,56 @@ export function pickHeroImage(text: string): string {
   const t = (text || "").toLowerCase();
   return FALLBACKS.find(([re]) => re.test(t))?.[1] ?? "/gallery/hero.jpg";
 }
+
+// ── Original salon photography ──────────────────────────────────────────────
+// A curated gallery of the salon's OWN work photos (public/work/*). Blogs pick a
+// real, on-topic image from here so posts show genuine salon work — what Google
+// (and clients) value — instead of AI-generated or stock imagery. Add more files
+// to a bucket and they're used automatically; the per-slug hash keeps same-topic
+// posts on different photos.
+const w = (dir: string, ...names: string[]) => names.map((n) => `/work/${dir}/${n}.jpg`);
+
+const CORNROWS = w("hair",
+  "braiding-cornrow-bun-black-honey-side", "braiding-cornrow-feedin-salon", "braiding-cornrow-geometric-dome-full-head",
+  "braiding-cornrow-updo-bun", "braiding-cornrow-updo-sleek-pink-bg", "braiding-cornrows-feedin-long-portrait",
+  "braiding-cornrows-geometric-crown", "braiding-cornrows-sleek-side", "braiding-cornrows-swirl-pattern",
+  "braiding-cornrows-updo-closeup", "braiding-feedin-cornrows-salon-client-front", "braiding-swirl-cornrows-closeup");
+const KNOTLESS = w("hair",
+  "braiding-knotless-boho-curly-bob-medium", "braiding-knotless-boho-curly-ends", "braiding-knotless-box-bun-shop",
+  "braiding-knotless-box-gold-beads", "braiding-knotless-box-kid-long-curly", "braiding-knotless-bun-shop-back",
+  "braiding-knotless-feedin-gold-cuffs", "braiding-knotless-updo-bun");
+const FULANI = w("hair", "braiding-fulani-cornrow-box-braids-girl");
+const LOCS = w("hair", "braiding-locs-twisted-updo-brown", "braiding-locs-updo-bun-gold-star-charms", "braiding-locs-updo-gold-charms", "braiding-locs-updo-twisted");
+const BRAIDS = [...KNOTLESS, ...CORNROWS, ...FULANI];
+const HENNA_WORK = w("henna", "henna-floral-arabesque-both-hands", "henna-floral-back-of-hand", "henna-floral-back-of-hands-duo", "henna-floral-both-hands", "henna-floral-hand-back", "henna-floral-swirl-both-hands");
+const NAILS_WORK = w("nails",
+  "nail-art-black-glossy-square", "nail-art-french-tip-gold-heart-mani-pedi", "nail-art-gold-chrome-french-tips",
+  "nail-art-hot-pink-leopard-coffin", "nail-art-magenta-gold-mani-pedi", "nail-art-nude-leopard-tips-stiletto",
+  "nail-art-ombre-blush-square", "nail-art-pink-french-tip-almond", "nail-art-red-glossy-coffin");
+const PEDICURE = w("nails", "pedicure-french-tip-clean", "pedicure-french-tip-toes", "pedicure-french-tip-white-both-feet");
+
+// Most-specific first (knotless/fulani/locs before the generic "braid").
+const WORK: [RegExp, string[]][] = [
+  [/knotless/, KNOTLESS],
+  [/fulani/, FULANI],
+  [/sisterlock|micro ?loc|\bloc\b|locs|dreadlock/, LOCS],
+  [/cornrow|feed.?in|stitch braid/, CORNROWS],
+  [/box braid|\bbraid|protective style/, BRAIDS],
+  [/henna|mehndi/, HENNA_WORK],
+  [/pedicure|toe ?nail|\btoes\b/, PEDICURE],
+  [/nail|manicure|gelish|polygel|acrylic|gel/, NAILS_WORK],
+];
+
+/**
+ * Pick a REAL salon photo for a blog post: an on-topic shot from the salon's own
+ * work gallery when we have one, else the closest static gallery image. Always
+ * returns a valid local path; the slug seed rotates which photo is used so
+ * same-topic posts don't repeat.
+ */
+export function pickBlogPhoto(text: string, seed: string): string {
+  const t = (text || "").toLowerCase();
+  for (const [re, photos] of WORK) {
+    if (re.test(t) && photos.length) return photos[hashSeed(seed) % photos.length];
+  }
+  return pickHeroImage(text);
+}
