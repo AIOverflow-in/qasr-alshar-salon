@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  blogImagePrompt, pickHeroImage, composeImagePrompt, photoTreatment, sceneFor, BLOG_IMAGE_STYLE, pickBlogPhoto,
+  blogImagePrompt, pickHeroImage, composeImagePrompt, photoTreatment, sceneFor, BLOG_IMAGE_STYLE, pickBlogPhoto, pickWorkPhoto,
 } from "./blog-image-core.ts";
 
 test("category fallback is thematic: wedding-makeup → bridal, waxing → waxing", () => {
@@ -53,6 +53,15 @@ test("pickBlogPhoto returns a REAL, on-topic salon work photo", () => {
   assert.match(pickBlogPhoto("Bridal henna designs", "s5"), /^\/work\/henna\/henna-.+\.jpg$/);
   assert.match(pickBlogPhoto("Gel manicure aftercare", "s6"), /^\/work\/nails\/nail-art-.+\.jpg$/);
   assert.match(pickBlogPhoto("Medical pedicure", "s7"), /^\/work\/nails\/pedicure-.+\.jpg$/);
+});
+
+test("pickWorkPhoto returns null when we have no original photo for the topic (→ caller AI-generates)", () => {
+  assert.equal(pickWorkPhoto("hydra facial glow", "x"), null);
+  assert.equal(pickWorkPhoto("russian lash extensions", "x"), null);
+  assert.equal(pickWorkPhoto("keratin treatment", "x"), null);
+  assert.equal(pickWorkPhoto("relaxing massage", "x"), null);
+  // but a topic we DO have originals for returns a real work photo, not null
+  assert.match(pickWorkPhoto("knotless braids", "x")!, /^\/work\/hair\/braiding-knotless-/);
 });
 
 test("pickBlogPhoto falls back to a valid gallery image for non-work topics, and is deterministic", () => {
