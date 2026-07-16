@@ -145,15 +145,23 @@ const WORK: [RegExp, string[]][] = [
 ];
 
 /**
- * Pick a REAL salon photo for a blog post: an on-topic shot from the salon's own
- * work gallery when we have one, else the closest static gallery image. Always
- * returns a valid local path; the slug seed rotates which photo is used so
- * same-topic posts don't repeat.
+ * A REAL, on-topic photo from the salon's own work gallery for this topic, or
+ * null when we have none for it (so the caller can generate a unique AI image
+ * instead of reusing a static one). The slug seed rotates which photo is used so
+ * same-topic posts never repeat.
  */
-export function pickBlogPhoto(text: string, seed: string): string {
+export function pickWorkPhoto(text: string, seed: string): string | null {
   const t = (text || "").toLowerCase();
   for (const [re, photos] of WORK) {
     if (re.test(t) && photos.length) return photos[hashSeed(seed) % photos.length];
   }
-  return pickHeroImage(text);
+  return null;
+}
+
+/**
+ * Best real image for a topic: an original work photo if we have one, else the
+ * closest static gallery image. Always returns a valid local path.
+ */
+export function pickBlogPhoto(text: string, seed: string): string {
+  return pickWorkPhoto(text, seed) ?? pickHeroImage(text);
 }

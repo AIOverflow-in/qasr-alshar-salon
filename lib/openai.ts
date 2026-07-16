@@ -1,13 +1,41 @@
 import "server-only";
+import { put } from "@vercel/blob";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
 import { SITE } from "./site";
-import { pickBlogPhoto } from "./blog-image-core";
+import { pickWorkPhoto, pickHeroImage, composeImagePrompt } from "./blog-image-core";
 import { stripEmDashes } from "./blog-content-core";
-import { getTextProvider } from "./ai";
+import { getTextProvider, getImageProvider } from "./ai";
 import { clusterToServicePath } from "./keyword-core";
 import { clusterPriceContext } from "./service-pricing";
 import { ensureSeeded, selectNextKeyword, markKeywordUsed } from "./keywords";
+
+/**
+ * FALLBACK ONLY: when we have no real salon photo for a topic, generate a UNIQUE
+ * AI hero image so same-topic posts never reuse one static photo, and store it on
+ * Vercel Blob. Returns the Blob URL, or null on any failure (no key/token,
+ * timeout, error) so the caller drops to a static gallery image. Created once at
+ * post creation and cached forever — no per-view cost.
+ */
+async function generateHeroImage(topic: string, slug: string): Promise<string | null> {
+  const imageProvider = getImageProvider();
+  if (!imageProvider) return null;
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null; // nowhere to store it → gallery fallback
+  const bytes = await imageProvider.generateImage(composeImagePrompt(undefined, topic, slug), {
+    size: "1536x1024",
+    quality: "medium",
+    timeoutMs: 35_000,
+  });
+  if (!bytes) return null;
+  try {
+    const blob = await put(`blog-images/${slug}.png`, bytes, { access: "public", contentType: "image/png", addRandomSuffix: true });
+    console.log(`[blog] AI fallback hero for "${slug}" → ${blob.url}`);
+    return blob.url;
+  } catch (e) {
+    console.error("[blog] hero image storage failed, using gallery fallback:", e);
+    return null;
+  }
+}
 
 type FaqItem = { q: string; a: string };
 type Generated = {
@@ -183,10 +211,12 @@ Return ONLY JSON with keys:
   const readingMinutes = Math.max(1, Math.round(words / 200));
   const slug = await uniqueSlug(parsed.title);
 
-  // Hero: a REAL, on-topic photo from the salon's own work gallery (original
-  // photography that Google + clients value), matched to the topic. No AI images.
+  // Hero: prefer a REAL, on-topic salon photo (original photography Google + clients
+  // value). If we have none for this topic, generate a UNIQUE AI image so same-topic
+  // posts never reuse one static photo. Fall back to a matching gallery image only
+  // if AI generation is unavailable.
   const heroText = `${primaryKeyword} ${parsed.tags?.join(" ") ?? ""} ${parsed.category ?? ""}`;
-  const heroImage = pickBlogPhoto(heroText, slug);
+  const heroImage = pickWorkPhoto(heroText, slug) ?? (await generateHeroImage(heroText, slug)) ?? pickHeroImage(heroText);
 
   const post = await prisma.blogPost.create({
     data: {
