@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  blogImagePrompt, pickHeroImage, composeImagePrompt, photoTreatment, sceneFor, BLOG_IMAGE_STYLE,
+  blogImagePrompt, pickHeroImage, composeImagePrompt, photoTreatment, sceneFor, BLOG_IMAGE_STYLE, pickBlogPhoto,
 } from "./blog-image-core.ts";
 
 test("category fallback is thematic: wedding-makeup → bridal, waxing → waxing", () => {
@@ -43,6 +43,24 @@ test("photoTreatment is deterministic per seed and varies across seeds", () => {
   assert.equal(photoTreatment("post-a"), photoTreatment("post-a")); // stable
   const treatments = ["a", "b", "c", "d", "e", "f", "g", "h"].map(photoTreatment);
   assert.ok(new Set(treatments).size > 1); // not all identical → variety
+});
+
+test("pickBlogPhoto returns a REAL, on-topic salon work photo", () => {
+  assert.match(pickBlogPhoto("Best knotless braids in Dubai", "s1"), /^\/work\/hair\/braiding-knotless-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Fulani braids guide", "s2"), /^\/work\/hair\/braiding-fulani-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Cornrow updo styles", "s3"), /^\/work\/hair\/braiding-.*cornrow.*\.jpg$/);
+  assert.match(pickBlogPhoto("Loc retwist Dubai", "s4"), /^\/work\/hair\/braiding-locs-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Bridal henna designs", "s5"), /^\/work\/henna\/henna-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Gel manicure aftercare", "s6"), /^\/work\/nails\/nail-art-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Medical pedicure", "s7"), /^\/work\/nails\/pedicure-.+\.jpg$/);
+});
+
+test("pickBlogPhoto falls back to a valid gallery image for non-work topics, and is deterministic", () => {
+  assert.equal(pickBlogPhoto("Hydra facial glow", "x"), "/gallery/facial.jpg");
+  assert.match(pickBlogPhoto("waxing tips", "x"), /^\/gallery\/.+\.jpg$/);
+  assert.equal(pickBlogPhoto("knotless braids", "same"), pickBlogPhoto("knotless braids", "same")); // stable per seed
+  const varied = ["a", "b", "c", "d", "e"].map((s) => pickBlogPhoto("knotless braids", s));
+  assert.ok(new Set(varied).size > 1); // rotates across posts
 });
 
 test("fallback returns a valid local gallery path per theme", () => {

@@ -1,47 +1,13 @@
 import "server-only";
-import { put } from "@vercel/blob";
 import { prisma } from "./prisma";
 import { slugify } from "./utils";
 import { SITE } from "./site";
-import { composeImagePrompt, pickHeroImage } from "./blog-image-core";
-import { getTextProvider, getImageProvider } from "./ai";
+import { pickBlogPhoto } from "./blog-image-core";
+import { stripEmDashes } from "./blog-content-core";
+import { getTextProvider } from "./ai";
 import { clusterToServicePath } from "./keyword-core";
 import { clusterPriceContext } from "./service-pricing";
 import { ensureSeeded, selectNextKeyword, markKeywordUsed } from "./keywords";
-
-/**
- * Generate one thematic hero image for a post and store it on Vercel Blob.
- * Best-effort: returns the Blob URL, or null on any failure (missing key/token,
- * timeout, API error) so the caller can fall back to a static image. The image
- * is created once at post creation and cached forever — no per-view cost.
- * Image bytes come from the configured ImageProvider; storage stays here.
- */
-async function generateHeroImage(bespokePrompt: string | null | undefined, categoryText: string, slug: string): Promise<string | null> {
-  const imageProvider = getImageProvider();
-  if (!imageProvider) return null;
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null; // nowhere to store it → use fallback
-  // Prefer the writer's bespoke, per-post scene; fall back to the category scene.
-  // A per-slug camera/light treatment is mixed in so same-cluster posts still differ.
-  // Keep under the cron's 60s budget (text-gen runs first); on timeout we fall back.
-  const bytes = await imageProvider.generateImage(composeImagePrompt(bespokePrompt, categoryText, slug), {
-    size: "1536x1024",
-    quality: "medium",
-    timeoutMs: 35_000,
-  });
-  if (!bytes) return null;
-  try {
-    const blob = await put(`blog-images/${slug}.png`, bytes, {
-      access: "public",
-      contentType: "image/png",
-      addRandomSuffix: true,
-    });
-    console.log(`[blog] generated hero image for "${slug}" → ${blob.url}`);
-    return blob.url;
-  } catch (e) {
-    console.error("[blog] hero image storage failed, using fallback:", e);
-    return null;
-  }
-}
 
 type FaqItem = { q: string; a: string };
 type Generated = {
@@ -52,7 +18,6 @@ type Generated = {
   tags: string[];
   category: string;
   faq?: FaqItem[];
-  imagePrompt?: string;
 };
 
 /** Validate the model's FAQ into a clean [{q,a}] array (or null) for storage + JSON-LD. */
@@ -60,10 +25,10 @@ function sanitizeFaq(faq: unknown): FaqItem[] | null {
   if (!Array.isArray(faq)) return null;
   const out: FaqItem[] = [];
   for (const item of faq) {
-    const q = String((item as FaqItem)?.q ?? "").trim();
-    const a = String((item as FaqItem)?.a ?? "").trim();
+    const q = stripEmDashes(String((item as FaqItem)?.q ?? "").trim());
+    const a = stripEmDashes(String((item as FaqItem)?.a ?? "").trim());
     if (q.length >= 5 && a.length >= 5) out.push({ q: q.slice(0, 200), a: a.slice(0, 600) });
-    if (out.length >= 5) break;
+    if (out.length >= 12) break;
   }
   return out.length ? out : null;
 }
@@ -129,51 +94,73 @@ export async function generateBlogPost(opts?: {
   }
 
   const serviceUrl = `${SITE.url}${clusterToServicePath(cluster)}`;
+  const bookUrl = `${SITE.url}/book`;
+  const waLink = `https://wa.me/${SITE.whatsapp.replace(/[^0-9]/g, "")}`;
 
-  // Ground the writer in REAL, VAT-inclusive prices for this service area so it
-  // quotes accurate ranges (never invented figures). Empty for general topics.
+  // Valid internal links the writer may use (avoids 404s). 2–4 per post builds
+  // topical authority and guides readers toward booking.
+  const internalLinks = [
+    `${serviceUrl}  → our ${cluster === "general" ? "" : cluster + " "}services`,
+    `${SITE.url}/services  → all services`,
+    `${bookUrl}  → book an appointment`,
+  ].join("\n");
+
+  // Related recent posts, so the cluster interlinks itself (topical authority).
+  const recent = await prisma.blogPost
+    .findMany({ where: { status: "PUBLISHED" }, orderBy: { createdAt: "desc" }, take: 4, select: { title: true, slug: true } })
+    .catch(() => []);
+  const relatedLinks = recent.length
+    ? "Related articles you may link ONE or two of, where genuinely relevant:\n" + recent.map((r) => `${SITE.url}/blog/${r.slug}  → ${r.title}`).join("\n")
+    : "";
+
+  // Ground the writer in REAL, VAT-inclusive prices so it quotes accurate figures
+  // (never invented) and only ONCE (a repeated price list reads as cheap).
   const priceContext = clusterPriceContext(cluster);
   const priceGuidance = priceContext
-    ? `- Money: use ONLY these real salon prices for this area — quote the ones that match what you're writing about, as a range where it fits: ${priceContext} Never invent a figure. If a reader might want a variant that isn't in this list, do NOT guess a number — say the price depends on the design/length and is confirmed at the salon. Prices are inclusive of 5% VAT; say so once if you mention price.`
-    : `- If you mention price at all, keep it general and honest (prices vary with length and design and are confirmed at the salon). Do NOT invent specific figures.`;
+    ? `- Money: mention price at most ONCE in the prose (a natural range), and/or once inside the comparison table. Do NOT repeat prices across paragraphs, a repeated price list makes us look cheap. Use ONLY these real, VAT-inclusive figures and never invent one: ${priceContext} If a variant isn't listed, say the price depends on length/design and is confirmed at the salon.`
+    : `- If you mention price, keep it to a single general, honest line (prices vary with length and design, confirmed at the salon). Do NOT invent figures.`;
 
-  const system = `You are the in-house beauty editor for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro — part senior stylist, part luxury copywriter, part SEO strategist. Specialties: braiding, locs, henna, nails, facials, makeup, lashes, waxing, threading, massage. The salon serves all hair types including Afro / textured hair, and its senior "crown artists" are experienced specialists in protective styling and textured-hair care.
+  const system = `You are the in-house beauty editor for "Qasr Alshar Salon", a luxury multicultural salon in Dubai near Union Metro, and the go-to authority on African and textured hair in Dubai (braids, cornrows, knotless, locs, weaves) as well as henna, nails, facials, makeup, lashes, waxing, threading and massage. Our senior "crown artists" specialise in protective styling and Afro/textured hair, and we serve clients of every origin (Nigeria, Kenya, Uganda, Sudan, Ethiopia, the Gulf, Europe and beyond).
 
-Voice: warm, feminine and quietly confident, luxurious without being flashy, educational and honest — like a trusted stylist talking to a client she respects. Conversational and unmistakably human.
+Your goal: write the single most helpful guide on this topic in Dubai, so good the reader needs no other article. Teach generously; sell almost never.
 
-Write like a knowledgeable human, not an AI. Hard rules:
-- Sound 100% natural and human. NEVER use AI clichés or filler such as "In today's fast-paced world", "Look no further", "Nestled in", "Whether you're … or …", "Elevate", "Unlock", "delve", "In conclusion", "When it comes to". No em-dash overuse.
-- Be specific and concrete (real Dubai context, real product/technique names, real timeframes). Vary sentence length so it reads like a person wrote it.
-- Honest and balanced: give the real upsides AND the real trade-offs (upkeep, timing, comfort, aftercare) so a reader can decide with confidence. Educational, never fear-mongering or pushy.
-- Crisp and useful — no padding. Every sentence earns its place.
-- Markdown with ## headings and short bullet lists. Do NOT include the H1 title in the body.`;
+Voice: warm, feminine, quietly confident and genuinely caring about the reader's hair and results. Educational first, like a trusted senior stylist talking to a client she respects. Conversational and unmistakably human.
 
-  const user = `Write an SEO blog post built around real search demand.
-Primary keyword (use it naturally in the title, the first paragraph, and at least one ## heading): "${primaryKeyword}"
-Related terms to weave in where they fit naturally: ${secondary.join(", ") || "(none)"}
+HARD RULES:
+- NEVER use an em-dash ("—"). Use commas, full stops or brackets instead. Em-dashes read as AI and must not appear. (A hyphen inside a number range like "6-8 weeks" is fine.)
+- No AI clichés or filler ("In today's fast-paced world", "Look no further", "Nestled in", "Whether you're … or …", "Elevate", "Unlock", "delve", "In conclusion", "When it comes to"). Vary sentence length so it reads human.
+- TEACH, don't sell. Explain the how and the why (why knotless braids take longer than cornrows, how tension affects the scalp, which style suits which texture). Mention the salon at most once or twice in the whole piece, softly.
+- Be specific and honest: real techniques, real timeframes, genuine upsides AND trade-offs, real Dubai context (heat, humidity, neighbourhoods).
+- Trust signals must be TRUE: our crown artists' Afro/textured-hair specialism, the origins we serve, hygienic tools, honest advice. NEVER invent years of experience, client counts, awards or named people.
+- Markdown: ## headings, short paragraphs, bullet lists, one table where useful. Do NOT include the H1 title in the body.`;
 
-Requirements:
-- Title: compelling, <=60 chars, includes the primary keyword or a very close variant. Not clickbait.
-- 400–600 words, Markdown body only (no front matter, no H1).
-- 2–3 focused ## sections; put the keyword/related terms in headings where it reads naturally.
-- Real Dubai specifics (areas, timeframes, product/technique names).
+  const user = `Write the best, most complete guide in Dubai on this topic.
+Primary keyword (use naturally in the title, the first paragraph, and one ## heading): "${primaryKeyword}"
+Related terms to weave in naturally: ${secondary.join(", ") || "(none)"}
+
+STRUCTURE & CONTENT:
+- Title: <=60 chars, includes the primary keyword or a close variant. Compelling, not clickbait.
+- 700–1000 words. Open with a genuinely useful intro (no fluff), then 4–6 focused ## sections that answer what people actually search. Pick the sections that fit the topic, e.g.: how long it lasts, which style suits which hair texture, caring for it in Dubai's heat and humidity, maintenance and washing, swimming, styles for kids, prep before the appointment, aftercare and safe removal, or how to choose between two options.
+- Teach the real differences between related styles or products (e.g. knotless vs cornrows vs box braids: time, tension, longevity, who each suits).
 ${priceGuidance}
-- Show real expertise: reference how our senior crown artists approach this service (their experience with textured / Afro hair, technique, tension, timing, aftercare). Do NOT invent named individuals or fake credentials.
-- Be honest and balanced: include a short "what to know" beat with the genuine upsides AND the trade-offs (upkeep, longevity, comfort) and how we keep it healthy and safe. Educational, not fear-mongering.
-- Include exactly ONE natural internal link in the body, anchored on relevant words, to our services page: ${serviceUrl}
-- End with one short call-to-action sentence linking to ${SITE.url}/book.
+- Include exactly ONE Markdown comparison table where it genuinely helps (e.g. styles by time, how long they last, and price only if you have real figures above). Every cell must be accurate; never invent a price.
+- Mention 1–3 Dubai neighbourhoods naturally where clients come to us from (Deira, Al Rigga, Bur Dubai, Karama, Al Nahda, Dubai Marina, JLT, JVC, Business Bay). Never a stuffed list.
+- Weave in TRUE trust signals (crown-artist Afro/textured-hair specialism, origins served, hygiene, honest advice). No invented numbers.
+- Internal links: add 2–4 natural links on relevant anchor text, using ONLY these URLs:
+${internalLinks}
+${relatedLinks}
+- End with a warm, low-friction call to action: invite the reader to WhatsApp us a photo of the style they want plus their hair length for a quick estimate, or book online. Use the booking link ${bookUrl} and mention WhatsApp (${waLink}).
+- Series: if it truly fits, frame the piece as "Hair Diaries" (a first-person client/stylist story), "Ask the Stylist" (one real question answered in depth) or "Beauty Myth Busters" (debunk a myth), and set "category" accordingly. Don't force it.
 - Do NOT put the FAQ inside contentMarkdown — return it separately in "faq".
-- No generic AI filler. Get straight to the point.
-- Series: if it genuinely fits the topic, frame the piece as an entry in one of our recurring series and set "category" to that series name — "Hair Diaries" (a first-person client/stylist story), "Ask the Stylist" (one real question answered in depth), or "Beauty Myth Busters" (debunk a common beauty myth). Otherwise use a normal category. Don't force it.
+
 Return ONLY JSON with keys:
 {"title": string,
  "metaDescription": string (<=155 chars, include the primary keyword),
  "excerpt": string (<=160 chars, friendly summary),
  "tags": string[] (3-6 lowercase tags),
- "category": string (a normal category e.g. "Hair", "Henna", "Skincare", "Nails", "Bridal", "Beauty Tips", OR a recurring series: "Hair Diaries", "Ask the Stylist", "Beauty Myth Busters"),
- "contentMarkdown": string (the article body, no FAQ),
- "faq": [{"q": string, "a": string}] (2-3 real "people also ask" questions + concise answers),
- "imagePrompt": string (a vivid, specific description of a NATURAL candid photograph for THIS exact article. It MUST depict the actual service the post is about — the technique in progress or its finished result (a braids post shows the finished braids, a makeup post shows the finished look, a facial post shows the treatment) — never a generic gold flat-lay. Feature real women reflecting the salon's multicultural clientele, a natural mix of Black and white women, in the salon setting with a colour/mood that fits the topic. No text or logos.)}`;
+ "category": string (a normal category e.g. "Hair", "Henna", "Skincare", "Nails", "Bridal", "Beauty Tips", OR a series: "Hair Diaries", "Ask the Stylist", "Beauty Myth Busters"),
+ "contentMarkdown": string (the guide body incl. the comparison table; no FAQ, no H1),
+ "faq": [{"q": string, "a": string}] (8-12 real "people also ask" questions with concise, genuinely useful answers — target long-tail searches like cost, how long it lasts, washing, swimming, kids, natural hair, bringing your own extensions)}`;
 
   let parsed: Generated;
   try {
@@ -196,10 +183,10 @@ Return ONLY JSON with keys:
   const readingMinutes = Math.max(1, Math.round(words / 200));
   const slug = await uniqueSlug(parsed.title);
 
-  // Hero: the writer's bespoke natural scene (generated + stored on Blob), else a
-  // matching static gallery image so a post always has a relevant hero.
+  // Hero: a REAL, on-topic photo from the salon's own work gallery (original
+  // photography that Google + clients value), matched to the topic. No AI images.
   const heroText = `${primaryKeyword} ${parsed.tags?.join(" ") ?? ""} ${parsed.category ?? ""}`;
-  const heroImage = (await generateHeroImage(parsed.imagePrompt, heroText, slug)) ?? pickHeroImage(heroText);
+  const heroImage = pickBlogPhoto(heroText, slug);
 
   const post = await prisma.blogPost.create({
     data: {
@@ -207,7 +194,7 @@ Return ONLY JSON with keys:
       slug,
       excerpt: (parsed.excerpt || parsed.metaDescription || "").slice(0, 200),
       metaDescription: (parsed.metaDescription || parsed.excerpt || "").slice(0, 165),
-      contentMarkdown: parsed.contentMarkdown,
+      contentMarkdown: stripEmDashes(parsed.contentMarkdown),
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : [],
       category: parsed.category || "Beauty Tips",
       heroImage,
