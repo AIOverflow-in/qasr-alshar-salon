@@ -202,7 +202,11 @@ function ProductModal({ title, product, categories, onClose, onSaved }: {
       } else {
         res = await fetch("/api/erp/inventory", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, qty: Number(f.qty) || 0 }) });
       }
-      if (!res.ok) { setErr("Could not save."); return; }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setErr(d?.error || "Could not save.");
+        return;
+      }
       onSaved();
     } catch { setErr("Network error."); } finally { setSaving(false); }
   }
