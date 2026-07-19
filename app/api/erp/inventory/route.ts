@@ -83,9 +83,13 @@ export async function POST(req: Request) {
   }
 }
 
-async function requireManager() {
+// Reception runs the front desk and already adjusts stock here, so they may add
+// and edit products too. This matches the Inventory page's own access
+// (["SUPER_ADMIN","ADMIN","RECEPTION"]) so the buttons no longer hit a dead end.
+const INVENTORY_ROLES = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
+async function requireInventoryAccess() {
   const session = await getSession();
-  if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) return null;
+  if (!session || !INVENTORY_ROLES.includes(session.role)) return null;
   return session;
 }
 
@@ -104,33 +108,38 @@ const createSchema = z.object({
 
 // PUT /api/erp/inventory — create a new product
 export async function PUT(req: Request) {
-  if (!(await requireManager())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireInventoryAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const d = parsed.data;
 
-  const product = await prisma.product.create({
-    data: {
-      name: d.name.trim(),
-      category: d.category.trim() || "Retail / Aftercare",
-      barcode: d.barcode?.trim() || null,
-      qty: d.qty,
-      costAED: d.costAED ?? null,
-      saleAED: d.saleAED ?? null,
-      reorderAt: d.reorderAt,
-      retail: d.retail ?? false,
-      description: d.description?.trim() || null,
-      imageUrl: d.imageUrl || null,
-      slug: await uniqueSlug(d.name),
-    },
-  });
-  // Record the opening stock as a movement for the audit trail.
-  if (d.qty > 0) {
-    await prisma.stockMovement.create({ data: { productId: product.id, kind: "STOCK_IN", qty: d.qty, note: "Opening stock" } });
+  try {
+    const product = await prisma.product.create({
+      data: {
+        name: d.name.trim(),
+        category: d.category.trim() || "Retail / Aftercare",
+        barcode: d.barcode?.trim() || null,
+        qty: d.qty,
+        costAED: d.costAED ?? null,
+        saleAED: d.saleAED ?? null,
+        reorderAt: d.reorderAt,
+        retail: d.retail ?? false,
+        description: d.description?.trim() || null,
+        imageUrl: d.imageUrl || null,
+        slug: await uniqueSlug(d.name),
+      },
+    });
+    // Record the opening stock as a movement for the audit trail.
+    if (d.qty > 0) {
+      await prisma.stockMovement.create({ data: { productId: product.id, kind: "STOCK_IN", qty: d.qty, note: "Opening stock" } });
+    }
+    return NextResponse.json({ ok: true, product });
+  } catch (e) {
+    console.error("[inventory] create failed:", e);
+    return NextResponse.json({ error: "Could not save the product." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, product });
 }
 
 const editSchema = z.object({
@@ -149,7 +158,7 @@ const editSchema = z.object({
 
 // PATCH /api/erp/inventory — update product fields (not qty; use POST for stock)
 export async function PATCH(req: Request) {
-  if (!(await requireManager())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await requireInventoryAccess())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const parsed = editSchema.safeParse(body);
@@ -158,9 +167,15 @@ export async function PATCH(req: Request) {
   if (data.name) data.name = data.name.trim();
   if (data.barcode !== undefined) data.barcode = data.barcode?.trim() || null;
   if (data.description !== undefined) data.description = data.description?.trim() || null;
-  // Backfill a stable storefront slug if the product doesn't have one yet (never changes an existing slug).
-  const current = await prisma.product.findUnique({ where: { id }, select: { slug: true, name: true } });
-  const slug = current && !current.slug ? await uniqueSlug(data.name || current.name, id) : undefined;
-  const product = await prisma.product.update({ where: { id }, data: { ...data, ...(slug ? { slug } : {}) } });
-  return NextResponse.json({ ok: true, product });
+  try {
+    // Backfill a stable storefront slug if the product doesn't have one yet (never changes an existing slug).
+    const current = await prisma.product.findUnique({ where: { id }, select: { slug: true, name: true } });
+    if (!current) return NextResponse.json({ error: "Product not found." }, { status: 404 });
+    const slug = !current.slug ? await uniqueSlug(data.name || current.name, id) : undefined;
+    const product = await prisma.product.update({ where: { id }, data: { ...data, ...(slug ? { slug } : {}) } });
+    return NextResponse.json({ ok: true, product });
+  } catch (e) {
+    console.error("[inventory] update failed:", e);
+    return NextResponse.json({ error: "Could not save the product." }, { status: 500 });
+  }
 }

@@ -900,7 +900,7 @@ try {
       const pid = cr.ok ? (await cr.json())?.product?.id : null;
       const prod = pid ? await prisma.product.findUnique({ where: { id: pid }, select: { retail: true, description: true, imageUrl: true, saleAED: true } }) : null;
       ok(!!prod && prod.retail && prod.description === "Premium India hair" && prod.imageUrl === "https://example.com/hair.jpg" && prod.saleAED === 1000, "product created with shop fields (image/description/publish)");
-      ok((await fetch(BASE + "/api/erp/inventory", { method: "PUT", headers: await jhdr("RECEPTION"), body: JSON.stringify({ name: `${TAG}X`, saleAED: 1 }) })).status === 403, "product create: reception blocked (403)");
+      ok((await fetch(BASE + "/api/erp/inventory", { method: "PUT", headers: await jhdr("RECEPTION"), body: JSON.stringify({ name: `${TAG}X`, saleAED: 1 }) })).status === 200, "product create via inventory: reception allowed (200)");
       ok((await codeTok("/erp/products", await tok("ADMIN"))) === "200", "storefront catalog page: admin 200");
       ok((await codeTok("/erp/products", await tok("RECEPTION"))) === "REDIR", "storefront catalog page: reception redirected");
       if (pid) { await prisma.stockMovement.deleteMany({ where: { productId: pid } }); await prisma.product.delete({ where: { id: pid } }); }
@@ -1150,6 +1150,28 @@ try {
     const aJunkJ = await aJunk.json().catch(() => ({}));
     ok(aJunk.status === 200 && aJunkJ.intent === null && typeof aJunkJ.answer === "string" && aJunkJ.answer.length > 0,
       `assistant: off-catalogue intent is refused, never runs → clarify (intent=${aJunkJ.intent})`);
+  }
+
+  // ── Inventory: reception can now ADD + EDIT products (RBAC fix) ─────────────
+  section("Inventory: reception can create/edit products (was manager-only → 'Could not save')");
+  {
+    const iurl = BASE + "/api/erp/inventory";
+    const put = (t, payload) => fetch(iurl, { method: "PUT", headers: { "Content-Type": "application/json", ...(t ? { cookie: `qa_admin=${t}` } : {}) }, body: JSON.stringify(payload) });
+    const prod = { name: `${TAG}INVPROD_${Date.now()}`, category: "Retail / Aftercare", barcode: null, costAED: null, saleAED: null, reorderAt: 3, qty: 0 };
+
+    ok((await put(null, prod)).status === 403, "inventory create: no cookie → blocked");
+    ok((await put(await tok("STYLIST"), prod)).status === 403, "inventory create: stylist → 403");
+
+    const rec = await put(await tok("RECEPTION"), prod);
+    const rj = await rec.json().catch(() => ({}));
+    ok(rec.status === 200 && rj.ok === true, `inventory create: RECEPTION → 200 (was 403) (got ${rec.status})`);
+
+    if (rj.product?.id) {
+      const patch = await fetch(iurl, { method: "PATCH", headers: { "Content-Type": "application/json", cookie: `qa_admin=${await tok("RECEPTION")}` }, body: JSON.stringify({ id: rj.product.id, saleAED: 25 }) });
+      ok(patch.status === 200, `inventory edit: RECEPTION → 200 (got ${patch.status})`);
+      await prisma.stockMovement.deleteMany({ where: { productId: rj.product.id } });
+      await prisma.product.deleteMany({ where: { id: rj.product.id } });
+    }
   }
 
   console.log(`\n${fail === 0 ? "ALL CHECKS PASSED ✅" : "REGRESSIONS / FAILURES ❌"}  (${pass} passed, ${fail} failed)`);
