@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Sparkles, Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Sparkles, Loader2, Eye, EyeOff, Trash2, Pencil } from "lucide-react";
 import { generatePostNow, togglePostStatus, deletePost } from "@/lib/actions/admin";
 
 export function GenerateButton() {
@@ -37,6 +38,13 @@ export function PostActions({ id, published }: { id: string; published: boolean 
 
   return (
     <div className="flex items-center gap-2">
+      <Link
+        title="Edit"
+        href={`/erp/blog/${id}`}
+        className="rounded-lg border border-ink-line p-2 text-sand hover:border-gold/50 hover:text-gold"
+      >
+        <Pencil size={15} />
+      </Link>
       <button
         title={published ? "Unpublish" : "Publish"}
         onClick={() => start(() => togglePostStatus(id))}
