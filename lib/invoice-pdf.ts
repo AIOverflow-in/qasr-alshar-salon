@@ -4,6 +4,7 @@ import path from "node:path";
 import { SITE } from "./site";
 
 const GOLD = rgb(0.78, 0.6, 0.16);
+const WHITE = rgb(1, 1, 1);
 const INK = rgb(0.09, 0.08, 0.06);
 const GREY = rgb(0.42, 0.42, 0.42);
 const HAIR = rgb(0.85, 0.85, 0.85);
@@ -153,8 +154,8 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   // customer (the net/VAT split is still stored internally for FTA filing).
   y -= 14;
   page.drawRectangle({ x: tLabelX - 10, y: y - 4, width: RIGHT - (tLabelX - 10), height: 24, color: INK });
-  page.drawText("TOTAL", { x: tLabelX, y: y + 4, size: 11, font: bold, color: GOLD });
-  rt(page, money(order.totalAED), RIGHT - 8, y + 4, 11, bold, GOLD);
+  page.drawText("TOTAL", { x: tLabelX, y: y + 4, size: 11, font: bold, color: WHITE });
+  rt(page, money(order.totalAED), RIGHT - 8, y + 4, 11, bold, WHITE);
   y -= 18;
   rt(page, `Includes all taxes (VAT ${order.vatPct}%)`, RIGHT - 8, y, 7.5, reg, GREY);
   y -= 20;
