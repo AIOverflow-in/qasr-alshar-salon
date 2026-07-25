@@ -1,5 +1,5 @@
 import "server-only";
-import crypto from "node:crypto";
+import { signInvoiceToken, verifyInvoiceTokenWith } from "./invoice-token-core";
 
 /**
  * Short, unguessable token for shareable invoice links (HMAC of the invoice no).
@@ -16,15 +16,9 @@ function secret(): string {
 }
 
 export function invoiceToken(invoiceNo: string): string {
-  return crypto.createHmac("sha256", secret()).update(invoiceNo).digest("hex").slice(0, 24);
+  return signInvoiceToken(invoiceNo, secret());
 }
 
 export function verifyInvoiceToken(invoiceNo: string, token: string): boolean {
-  const expected = invoiceToken(invoiceNo);
-  if (token.length !== expected.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-  } catch {
-    return false;
-  }
+  return verifyInvoiceTokenWith(invoiceNo, token, secret());
 }
