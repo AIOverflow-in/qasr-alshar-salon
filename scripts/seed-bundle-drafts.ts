@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
 const CATEGORY = "Hair Extensions";
 
-const PRODUCTS: { slug: string; name: string; image: string; description: string }[] = [
+const PRODUCTS: { slug: string; name: string; image: string; description: string; category?: string }[] = [
   { slug: "raw-straight-bundle", name: "Raw Straight Bundle", image: "bundle-straight",
     description: "100% raw virgin human hair in a sleek, bone-straight finish. Soft and tangle-free, it holds a flat-iron press, takes colour like a dream and stays full from root to tip. Ethically sourced single-donor hair. Available 12 to 30 inches." },
   { slug: "raw-body-wave-bundle", name: "Raw Body Wave Bundle", image: "bundle-body-wave",
@@ -33,6 +33,15 @@ const PRODUCTS: { slug: string; name: string; image: string; description: string
     description: "Natural kinky-straight texture in 100% raw virgin hair, matching blown-out natural hair beautifully. Soft, full and easy to blend for a seamless leave-out. Available 12 to 28 inches." },
   { slug: "raw-hd-lace-closure", name: "Raw HD Lace Closure", image: "bundle-closure",
     description: "A raw virgin human hair HD lace closure for a flawless, scalp-like parting. Melts into the skin, bleaches and tints to match, and finishes any bundle install. 5x5 HD lace, straight and customisable." },
+  // Wigs by Qasr
+  { slug: "straight-lace-front-wig", name: "Straight Lace-Front Wig", image: "wig-straight", category: "Wigs",
+    description: "A sleek, long straight lace-front wig in 100% human hair with a natural, undetectable hairline. Pre-plucked and ready to wear, it lays flat and glossy for an effortless, glamorous finish. Customisable length and cap size." },
+  { slug: "body-wave-lace-front-wig", name: "Body Wave Lace-Front Wig", image: "wig-body-wave", category: "Wigs",
+    description: "A glamorous body-wave lace-front wig in 100% human hair. Soft, voluminous waves and a natural hairline that melts into the skin, for a red-carpet look you can wear every day. Customisable length and cap size." },
+  { slug: "curly-lace-front-wig", name: "Curly Lace-Front Wig", image: "wig-curly", category: "Wigs",
+    description: "A voluminous curly wig in 100% human hair with bouncy, defined spiral curls. Full-bodied and natural-looking, it revives with water and a little product for long-lasting wear. Customisable length and cap size." },
+  { slug: "straight-bob-hd-wig", name: "Straight Bob HD-Lace Wig", image: "wig-bob", category: "Wigs",
+    description: "A chic, straight HD-lace bob wig in 100% human hair. Shoulder-length, glossy and lightweight with a seamless hairline, for a sharp, modern finish. Customisable cap size." },
 ];
 
 async function main() {
@@ -45,7 +54,7 @@ async function main() {
     if (APPLY) {
       await prisma.product.create({
         data: {
-          name: p.name, slug: p.slug, category: CATEGORY, description: p.description,
+          name: p.name, slug: p.slug, category: p.category ?? CATEGORY, description: p.description,
           imageUrl: `/products/${p.image}.jpg`,
           retail: false,   // DRAFT: hidden from storefront until you publish
           active: true,    // visible in the ERP catalogue to price + publish
