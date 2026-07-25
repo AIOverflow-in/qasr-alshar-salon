@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublishedProducts } from "@/lib/shop";
-import { CartProvider } from "@/components/shop/cart";
-import { ProductCard } from "@/components/shop/ProductCard";
+import { ShopBrowser } from "@/components/shop/ShopBrowser";
 import { pageMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ export default async function ShopPage() {
   const products = await getPublishedProducts();
 
   return (
-    <div className="container-x py-16">
+    <div className="container-x pb-16 pt-28 md:pt-32">
       <div className="mx-auto max-w-2xl text-center">
         <div className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">The Shop</div>
         <h1 className="mt-3 font-display text-4xl text-cream md:text-5xl">Premium hair &amp; aftercare</h1>
@@ -30,11 +29,7 @@ export default async function ShopPage() {
           <Link href="/" className="mt-4 inline-block text-gold hover:underline">Back to home</Link>
         </div>
       ) : (
-        <CartProvider>
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((p) => <ProductCard key={p.id} p={p} />)}
-          </div>
-        </CartProvider>
+        <ShopBrowser products={products} />
       )}
     </div>
   );

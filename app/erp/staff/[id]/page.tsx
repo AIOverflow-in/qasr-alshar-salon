@@ -10,6 +10,7 @@ import { netFromInclusive } from "@/lib/vat-core";
 import { leaveSummary } from "@/lib/leave";
 import { inlineKind } from "@/lib/file-preview-core";
 import { StaffAdmin } from "@/components/erp/StaffAdmin";
+import { StaffIdCard } from "@/components/erp/StaffIdCard";
 import { ArrowLeft, Printer, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,14 @@ export default async function ArtistPerformance({
     if (!(isMarketer && staffId === id)) redirect(session.role === "STYLIST" ? "/erp/calendar" : "/erp");
   }
 
-  const staff = await prisma.staff.findUnique({ where: { id }, select: { id: true, name: true, role: true, commissionPct: true, referralPct: true, joinedOn: true } });
+  const staff = await prisma.staff.findUnique({
+    where: { id },
+    select: {
+      id: true, name: true, role: true, commissionPct: true, referralPct: true, joinedOn: true,
+      phone: true, passportNumber: true, passportExpiry: true, emiratesId: true, emiratesIdExpiry: true,
+      labourPermitNumber: true, labourCardNumber: true, emergencyContact: true, emergencyRelationship: true, passportPicLink: true,
+    },
+  });
   if (!staff) notFound();
 
   const sp = await searchParams;
@@ -237,10 +245,18 @@ export default async function ArtistPerformance({
         <div className="surface rounded-2xl p-12 text-center text-muted">No activity in {monthLabel(month)}.</div>
       )}
 
-      {/* Personnel — leave (managers) + documents (owner only) */}
+      {/* Personnel — leave (managers) + documents & IDs (owner only) */}
       {isAdmin && (
         <div className="space-y-3 border-t border-ink-line pt-6">
           <h2 className="font-display text-xl text-cream">Personnel</h2>
+          {isSuperAdmin && (
+            <StaffIdCard ids={{
+              phone: staff.phone, passportNumber: staff.passportNumber, passportExpiry: staff.passportExpiry,
+              emiratesId: staff.emiratesId, emiratesIdExpiry: staff.emiratesIdExpiry, labourPermitNumber: staff.labourPermitNumber,
+              labourCardNumber: staff.labourCardNumber, emergencyContact: staff.emergencyContact,
+              emergencyRelationship: staff.emergencyRelationship, passportPicLink: staff.passportPicLink,
+            }} />
+          )}
           <StaffAdmin staffId={id} documents={documents} leaves={leaves} summary={leaveSum} canViewDocs={isSuperAdmin} />
         </div>
       )}
