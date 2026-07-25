@@ -34,7 +34,7 @@ function catOf(p: Photo): string {
   const t = `${p.src} ${p.label}`.toLowerCase();
   if (t.includes("loc") || t.includes("dread") || t.includes("sister")) return "locs";
   if (t.includes("boho") || t.includes("goddess")) return "boho";
-  if (t.includes("cornrow") || t.includes("feedin") || t.includes("feed-in") || t.includes("fulani")) return "cornrows";
+  if (t.includes("cornrow") || t.includes("feedin") || t.includes("feed-in") || t.includes("fulani") || t.includes("stitch")) return "cornrows";
   return "braids"; // knotless / box / twists / other braiding
 }
 
