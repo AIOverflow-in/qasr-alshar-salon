@@ -130,6 +130,22 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
     { src: "/services/svc-qasr-glam-2.jpg",                      label: "Soft Glam" },
     { src: "/services/svc-qasr-glam-3.jpg",                      label: "Evening Glam" },
   ],
+  "face-waxing": [
+    { src: "/services/svc-face-waxing.jpg",                      label: "Brow Threading" },
+    { src: "/services/svc-face-waxing-1.jpg",                    label: "Facial Waxing" },
+  ],
+  "body-waxing": [
+    { src: "/services/svc-body-waxing.jpg",                      label: "Leg Waxing" },
+    { src: "/services/svc-body-waxing-1.jpg",                    label: "Arm Waxing" },
+  ],
+  lashes: [
+    { src: "/services/svc-lashes.jpg",                           label: "Lash Extensions" },
+    { src: "/services/svc-lashes-1.jpg",                         label: "Volume Lashes" },
+  ],
+  massage: [
+    { src: "/services/svc-massage.jpg",                          label: "Relaxing Massage" },
+    { src: "/services/svc-massage-1.jpg",                        label: "Spa Massage" },
+  ],
 };
 
 // Service galleries that read better split into labelled sub-sections
