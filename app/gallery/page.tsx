@@ -16,7 +16,6 @@ export const metadata: Metadata = pageMeta({
 const PHOTOS = [
   // ── Braiding & Hair ──────────────────────────────────────────────────────
   { src: "/work/hair/braiding-knotless-boho-curly-ends.jpg",    label: "Knotless Boho Braids",       category: "hair" },
-  { src: "/work/hair/braiding-cornrows-geometric-crown.jpg",    label: "Geometric Crown Cornrows",   category: "hair" },
   { src: "/work/hair/braiding-locs-updo-gold-charms.jpg",       label: "Locs Updo with Gold Charms", category: "hair" },
   { src: "/work/hair/braiding-cornrow-updo-bun.jpg",            label: "Cornrow Updo Bun",           category: "hair" },
   { src: "/work/hair/braiding-knotless-box-gold-beads.jpg",     label: "Knotless Box with Gold Beads", category: "hair" },

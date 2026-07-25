@@ -357,7 +357,7 @@ export default async function HomePage() {
               { src: "/work/hair/braiding-knotless-boho-curly-ends.jpg",  label: "Knotless Boho Braids" },
               { src: "/work/nails/nail-art-gold-chrome-french-tips.jpg",  label: "Gold Chrome Nails" },
               { src: "/work/henna/henna-floral-swirl-both-hands.jpg",     label: "Floral Henna" },
-              { src: "/work/hair/braiding-cornrows-geometric-crown.jpg",  label: "Geometric Cornrows" },
+              { src: "/work/hair/braiding-cornrows-feedin-long-portrait.jpg", label: "Feed-In Cornrows" },
               { src: "/work/nails/nail-art-leopard-print-stiletto.jpg",   label: "Leopard Stiletto Nails" },
               { src: "/work/henna/henna-floral-arabesque-both-hands.jpg", label: "Arabesque Mehndi" },
               { src: "/work/hair/braiding-locs-updo-gold-charms.jpg",     label: "Locs with Gold Charms" },

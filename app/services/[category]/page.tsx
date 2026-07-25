@@ -130,6 +130,12 @@ export default async function CategoryPage({
   const from = Math.min(...cat.items.map((i) => i.price));
   const others = CATEGORIES.filter((c) => c.slug !== cat.slug).slice(0, 4);
   const galleryPhotos = GALLERY_PHOTOS[cat.slug] ?? [];
+  // Deep-link the "View Full Gallery" button to this service's tab so it opens
+  // filtered (e.g. cornrows only), not the whole mixed gallery.
+  const galleryTab = ({
+    "cornrow-styles": "cornrows", "braiding-styles": "braids", locks: "locs",
+    hands: "nails", podology: "nails", henna: "henna",
+  } as Record<string, string>)[cat.slug];
 
   const serviceSchema = {
     "@context": "https://schema.org",
@@ -196,7 +202,7 @@ export default async function CategoryPage({
               ))}
             </div>
             <div className="mt-8 text-center">
-              <ButtonLink href="/gallery" variant="outline">View Full Gallery</ButtonLink>
+              <ButtonLink href={galleryTab ? `/gallery?cat=${galleryTab}` : "/gallery"} variant="outline">View Full Gallery</ButtonLink>
             </div>
           </div>
         </section>
