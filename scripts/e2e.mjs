@@ -103,6 +103,46 @@ try {
   ok((await code("/admin/login")) === "200", "/admin/login 200");
   ok((await code("/erp", "RECEPTION")) === "REDIR", "ERP dashboard: reception redirected (dashboard is owner-only now)");
 
+  section("Public website: every public page loads (regression)");
+  for (const p of ["/", "/services", "/gallery", "/shop", "/blog", "/about", "/contact", "/packages", "/henna", "/terms", "/sitemap.xml", "/robots.txt"])
+    ok((await code(p)) === "200", `${p} 200`);
+
+  section("Public website: every service category page loads");
+  for (const slug of ["cornrow-styles", "braiding-styles", "locks", "hair-styling", "haircut", "hairstyling-caucasian", "hair-coloring", "hair-treatment", "weaving", "qasr-glam", "hands", "podology", "facials", "face-waxing", "body-waxing", "lashes", "henna", "massage"])
+    ok((await code(`/services/${slug}`)) === "200", `/services/${slug} 200`);
+
+  section("Public website: shop detail + sellability DB-mapping (self-cleaning)");
+  {
+    // A sellable product must appear on the storefront; a hidden one must NOT — this
+    // guards the retail/active/price/qty/image mapping that decides what customers see.
+    const A = `e2e-shop-live-${Date.now()}`, B = `e2e-shop-hidden-${Date.now()}`;
+    const common = { category: "Hair Extensions", description: "E2E regression product.", imageUrl: "/products/bundle-straight.jpg", saleAED: 500, qty: 5, active: true };
+    await prisma.product.create({ data: { ...common, name: `${TAG}Live Product`, slug: A, retail: true } });
+    await prisma.product.create({ data: { ...common, name: `${TAG}Hidden Product`, slug: B, retail: false } });
+    ok((await code("/shop")) === "200", "shop page 200");
+    ok((await code(`/shop/${A}`)) === "200", "sellable product -> detail 200");
+    ok((await code(`/shop/${B}`)) !== "200", "hidden product (retail:false) -> NOT exposed on storefront (mapping intact)");
+    const pd = await (await fetch(BASE + `/shop/${A}`)).text();
+    ok(pd.includes("Live Product") && /add to cart/i.test(pd), "product detail renders name + Add to Cart");
+    ok((await code("/products/bundle-straight.jpg")) === "200", "product image file resolves (public/products served)");
+  }
+
+  section("Public website: shop-order API guards (no write, no email)");
+  {
+    const postShop = async (payload) => (await fetch(BASE + "/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })).status;
+    ok((await postShop({})) >= 400, "shop order: empty payload rejected");
+    ok((await postShop({ items: [], customerName: "Q", phone: "1", address: "x" })) >= 400, "shop order: invalid payload rejected");
+  }
+
+  section("Public website: blog post + service gallery render");
+  {
+    const post = await prisma.blogPost.findFirst({ where: { status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, select: { slug: true } });
+    ok(post ? (await code(`/blog/${post.slug}`)) === "200" : true, post ? "a published blog post renders 200" : "blog: no published posts (skipped)");
+    const svc = await (await fetch(BASE + "/services/facials")).text();
+    ok(/Book Now/i.test(svc), "service page has a Book Now button");
+    ok(/\/services\/svc-|\/work\//.test(svc), "service page renders work images");
+  }
+
   section("RBAC matrix");
   ok((await code("/erp/sales", "RECEPTION")) === "200", "sales: reception 200");
   ok((await code("/erp/sales", "STYLIST")) === "REDIR", "sales: stylist blocked");
