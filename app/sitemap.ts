@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/site";
 import { CATEGORIES } from "@/lib/services";
+import { getPublishedProducts } from "@/lib/shop";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 3600;
@@ -18,6 +19,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/contact`, priority: 0.6, changeFrequency: "yearly" },
     { url: `${base}/blog`, priority: 0.8, changeFrequency: "daily" },
     { url: `${base}/book`, priority: 0.9, changeFrequency: "monthly" },
+    { url: `${base}/shop`, priority: 0.9, changeFrequency: "weekly" },
+    { url: `${base}/terms`, priority: 0.3, changeFrequency: "yearly" },
   ];
 
   const serviceRoutes: MetadataRoute.Sitemap = CATEGORIES.map((c) => ({
@@ -40,5 +43,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly",
   }));
 
-  return [...staticRoutes, ...serviceRoutes, ...postRoutes];
+  const products = await getPublishedProducts().catch(() => []);
+  const productRoutes: MetadataRoute.Sitemap = products
+    .filter((p) => p.slug)
+    .map((p) => ({ url: `${base}/shop/${p.slug}`, priority: 0.7, changeFrequency: "weekly" }));
+
+  return [...staticRoutes, ...serviceRoutes, ...postRoutes, ...productRoutes];
 }

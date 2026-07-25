@@ -11,7 +11,7 @@ import { CATEGORIES } from "@/lib/services";
 import { SITE } from "@/lib/site";
 import { getI18n } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
-import { breadcrumbSchema } from "@/lib/seo";
+import { websiteSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 import { getPublishedProducts } from "@/lib/shop";
 import { ShopSection } from "@/components/shop/ShopSection";
@@ -51,7 +51,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <JsonLd data={breadcrumbSchema([{ name: "Home", path: "/" }])} />
+      <JsonLd data={websiteSchema()} />
       <Hero t={t} />
 
       {/* SERVICES */}

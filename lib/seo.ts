@@ -9,18 +9,19 @@ export function pageMeta(opts: {
   images?: string[];
   keywords?: string[];
 }): Metadata {
-  const title = opts.title ? `${opts.title} | ${SITE.name}` : SITE.name;
+  const fullTitle = opts.title ? `${opts.title} | ${SITE.name}` : SITE.name;
   const description = opts.description ?? SITE.description;
   const url = `${SITE.url}${opts.path ?? ""}`;
   const images = opts.images ?? ["/og/default.jpg"];
 
   return {
-    title,
+    // `absolute` bypasses the root layout's `title.template`, so the brand isn't appended twice.
+    title: { absolute: fullTitle },
     description,
     keywords: opts.keywords,
     alternates: { canonical: url },
     openGraph: {
-      title,
+      title: fullTitle,
       description,
       url,
       siteName: SITE.name,
@@ -30,7 +31,7 @@ export function pageMeta(opts: {
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: fullTitle,
       description,
       images,
     },
@@ -97,6 +98,19 @@ export function breadcrumbSchema(items: { name: string; path: string }[]) {
       name: it.name,
       item: `${SITE.url}${it.path}`,
     })),
+  };
+}
+
+/** schema.org WebSite (helps Google understand the site + enables sitelinks). */
+export function websiteSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE.url}/#website`,
+    url: SITE.url,
+    name: SITE.name,
+    description: SITE.description,
+    publisher: { "@id": `${SITE.url}/#salon` },
   };
 }
 
