@@ -148,7 +148,9 @@ export function ErpShell({
             {sidebar}
           </aside>
         )}
-        <main className="min-w-0 flex-1 p-5 md:p-8 lg:pt-20">{children}</main>
+        {/* Extra bottom space when the floating "Ask" button is shown, so it never
+            overlaps pagination or any other content at the bottom of a page. */}
+        <main className={cn("min-w-0 flex-1 p-5 md:p-8 lg:pt-20", (role === "SUPER_ADMIN" || role === "ADMIN") && "pb-24")}>{children}</main>
       </div>
     </div>
   );
