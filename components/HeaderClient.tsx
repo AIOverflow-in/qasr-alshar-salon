@@ -44,6 +44,7 @@ export function HeaderClient({
     { href: "/henna", label: nav.henna },
     { href: "/packages", label: nav.packages },
     { href: "/gallery", label: nav.gallery },
+    { href: "/shop", label: nav.shop },
     { href: "/blog", label: nav.blog },
     { href: "/about", label: nav.about },
     { href: "/contact", label: nav.contact },
