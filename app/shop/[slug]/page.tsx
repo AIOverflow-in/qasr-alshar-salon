@@ -16,15 +16,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const p = await getProductBySlug(slug);
   if (!p) return pageMeta({ title: "Shop", description: "Shop premium hair & aftercare at Qasr Alshar, Dubai.", path: `/shop/${slug}` });
-  const meta = pageMeta({
+  // og:type stays "website" (pageMeta's default): Next 16 validates og:type against a fixed
+  // enum and THROWS on "product", which silently wipes ALL metadata for the route. The rich
+  // product data for Google is carried by the Product JSON-LD in the page body instead.
+  return pageMeta({
     title: p.name,
     description: p.description || `${p.name} — ${aed(p.priceAED)}. Cash on delivery across the UAE.`,
     path: `/shop/${p.slug}`,
     images: [p.imageUrl],
   });
-  // Product pages are e-commerce, not generic pages. (Cast: Next's OG type union
-  // omits "product" but the string is emitted correctly to og:type.)
-  return { ...meta, openGraph: { ...meta.openGraph, type: "product" as "website" } };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
