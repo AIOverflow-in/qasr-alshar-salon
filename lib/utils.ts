@@ -29,7 +29,8 @@ export function whatsappLink(phone: string, message?: string) {
 
 /** AED price formatter. */
 export function aed(amount: number, plus = false) {
-  return `AED ${amount}${plus ? "+" : ""}`;
+  // Group thousands ("AED 1,200" not "AED 1200"). en-AE keeps ASCII digits + comma.
+  return `AED ${amount.toLocaleString("en-AE")}${plus ? "+" : ""}`;
 }
 
 export function slugify(input: string) {

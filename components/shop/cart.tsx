@@ -49,7 +49,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider value={value}>
       {children}
       {count > 0 && !drawer && (
-        <button onClick={() => setDrawer(true)} className="fixed bottom-40 right-4 z-40 flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-3 font-semibold text-espresso shadow-2xl lg:bottom-6 lg:right-6">
+        <button onClick={() => setDrawer(true)} aria-label={`Open cart — ${count} item${count === 1 ? "" : "s"}, ${aed(total)}`} className="fixed bottom-24 left-4 z-40 flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-3 font-semibold text-espresso shadow-2xl lg:bottom-6 lg:left-6">
           <ShoppingBag size={18} /> {count} · {aed(total)}
         </button>
       )}
@@ -128,13 +128,13 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
               <span>Total (COD)</span><span className="font-display text-xl text-gold">{aed(total)}</span>
             </div>
             <div className="mt-5 space-y-2">
-              <input value={form.customerName} onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} placeholder="Full name" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
-              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
-              <input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email (optional)" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
-              <select value={form.emirate} onChange={(e) => setForm((f) => ({ ...f, emirate: e.target.value }))} className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60">
+              <input value={form.customerName} onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} placeholder="Full name" aria-label="Full name" autoComplete="name" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" aria-label="Phone number" type="tel" inputMode="tel" autoComplete="tel" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
+              <input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email (optional)" aria-label="Email (optional)" type="email" inputMode="email" autoComplete="email" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
+              <select value={form.emirate} onChange={(e) => setForm((f) => ({ ...f, emirate: e.target.value }))} aria-label="Emirate" className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60">
                 {EMIRATES.map((em) => <option key={em} value={em} className="bg-ink">{em}</option>)}
               </select>
-              <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Delivery address" rows={3} className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
+              <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Delivery address" aria-label="Delivery address" autoComplete="street-address" rows={3} className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
             </div>
             {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
             <button onClick={checkout} disabled={submitting} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3.5 font-semibold text-espresso disabled:opacity-50">

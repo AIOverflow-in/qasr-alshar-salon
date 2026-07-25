@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { categoriesOf, filterProducts, pageSlice } from "@/lib/shop-browse-core";
 import type { ShopCard } from "@/lib/shop";
 
-const PER_PAGE = 12;
+const PER_PAGE = 24;
 
 export function ShopBrowser({ products }: { products: ShopCard[] }) {
   const [q, setQ] = useState("");
@@ -19,6 +19,7 @@ export function ShopBrowser({ products }: { products: ShopCard[] }) {
   const filtered = useMemo(() => filterProducts(products, q, cat), [products, q, cat]);
   const { items, page: cur, pageCount } = pageSlice(filtered, page, PER_PAGE);
 
+  const goPage = (p: number) => { setPage(p); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); };
   const setSearch = (v: string) => { setQ(v); setPage(1); };
   const setCategory = (c: string) => { setCat(c); setPage(1); };
   const clear = () => { setQ(""); setCat("all"); setPage(1); };
@@ -71,7 +72,7 @@ export function ShopBrowser({ products }: { products: ShopCard[] }) {
           {pageCount > 1 && (
             <div className="mt-12 flex items-center justify-center gap-4">
               <button
-                onClick={() => setPage(cur - 1)}
+                onClick={() => goPage(cur - 1)}
                 disabled={cur <= 1}
                 className="rounded-full border border-ink-line px-4 py-2 text-sm text-sand transition-colors hover:border-gold/50 hover:text-gold disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -79,7 +80,7 @@ export function ShopBrowser({ products }: { products: ShopCard[] }) {
               </button>
               <span className="text-sm text-muted">Page {cur} of {pageCount}</span>
               <button
-                onClick={() => setPage(cur + 1)}
+                onClick={() => goPage(cur + 1)}
                 disabled={cur >= pageCount}
                 className="rounded-full border border-ink-line px-4 py-2 text-sm text-sand transition-colors hover:border-gold/50 hover:text-gold disabled:cursor-not-allowed disabled:opacity-40"
               >
