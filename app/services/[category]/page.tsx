@@ -52,12 +52,12 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
     { src: "/work/hair/braiding-sisterlocks-02.jpg",             label: "Sisterlocks" },
     { src: "/work/hair/braiding-sisterlocks-03.jpg",             label: "Sisterlocks" },
     { src: "/work/hair/braiding-sisterlocks-04.jpg",             label: "Sisterlocks" },
-    { src: "/work/hair/braiding-locs-crochet-01.jpg",            label: "Crochet Locs" },
-    { src: "/work/hair/braiding-locs-crochet-02.jpg",            label: "Crochet Locs" },
-    { src: "/work/hair/braiding-locs-crochet-03.jpg",            label: "Crochet Locs" },
-    { src: "/work/hair/braiding-locs-crochet-04.jpg",            label: "Crochet Locs" },
-    { src: "/work/hair/braiding-locs-crochet-05.jpg",            label: "Crochet Locs" },
-    { src: "/work/hair/braiding-locs-crochet-06.jpg",            label: "Crochet Locs" },
+    { src: "/work/hair/braiding-locs-crochet-01.jpg",            label: "Dreadlocks & Faux Locs" },
+    { src: "/work/hair/braiding-locs-crochet-02.jpg",            label: "Dreadlocks & Faux Locs" },
+    { src: "/work/hair/braiding-locs-crochet-03.jpg",            label: "Dreadlocks & Faux Locs" },
+    { src: "/work/hair/braiding-locs-crochet-04.jpg",            label: "Dreadlocks & Faux Locs" },
+    { src: "/work/hair/braiding-locs-crochet-05.jpg",            label: "Dreadlocks & Faux Locs" },
+    { src: "/work/hair/braiding-locs-crochet-06.jpg",            label: "Dreadlocks & Faux Locs" },
   ],
   weaving: [
     { src: "/work/hair/wig-01.jpg",                              label: "Wig by Qasr" },
@@ -66,7 +66,6 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
   ],
   haircut: [
     { src: "/work/hair/haircut-pixie-01.jpg",                    label: "Pixie Cut" },
-    { src: "/work/hair/haircut-pixie-02.jpg",                    label: "Cut & Style" },
     { src: "/work/hair/haircut-pixie-03.jpg",                    label: "Cut & Style" },
     { src: "/work/hair/haircut-pixie-04.jpg",                    label: "Cut & Style" },
     { src: "/work/hair/haircut-pixie-05.jpg",                    label: "Cut & Style" },
@@ -93,7 +92,47 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
     { src: "/work/henna/henna-body-spine-01.jpg",                label: "Body Henna" },
     { src: "/work/henna/henna-body-spine-02.jpg",                label: "Body Henna" },
   ],
+  "hair-styling": [
+    { src: "/services/svc-hair-styling.jpg",                     label: "Hair Styling" },
+    { src: "/services/svc-hair-styling-1.jpg",                   label: "Blow-Dry & Style" },
+    { src: "/services/svc-hair-styling-2.jpg",                   label: "Salon Styling" },
+    { src: "/services/svc-hair-styling-3.jpg",                   label: "Styled Finish" },
+  ],
+  "hairstyling-caucasian": [
+    { src: "/services/svc-hairstyling-caucasian.jpg",           label: "Hair Styling" },
+    { src: "/services/svc-hairstyling-caucasian-1.jpg",         label: "Blow-Dry" },
+    { src: "/services/svc-hairstyling-caucasian-2.jpg",         label: "Sleek Finish" },
+    { src: "/services/svc-hairstyling-caucasian-3.jpg",         label: "Soft Waves" },
+  ],
+  "hair-coloring": [
+    { src: "/services/svc-hair-coloring.jpg",                    label: "Hair Colour" },
+    { src: "/services/svc-hair-coloring-1.jpg",                  label: "Salon Colour" },
+    { src: "/services/svc-hair-coloring-2.jpg",                  label: "Colour & Gloss" },
+    { src: "/services/svc-hair-coloring-3.jpg",                  label: "Fresh Colour" },
+  ],
+  "hair-treatment": [
+    { src: "/services/svc-hair-treatment.jpg",                   label: "Hair Treatment" },
+    { src: "/services/svc-hair-treatment-1.jpg",                 label: "Nourishing Treatment" },
+    { src: "/services/svc-hair-treatment-2.jpg",                 label: "Smoothing Treatment" },
+    { src: "/services/svc-hair-treatment-3.jpg",                 label: "Repair Treatment" },
+  ],
+  facials: [
+    { src: "/services/svc-facial.jpg",                           label: "Facial" },
+    { src: "/services/svc-facial-1.jpg",                         label: "Glow Facial" },
+    { src: "/services/svc-facial-2.jpg",                         label: "Hydrating Facial" },
+    { src: "/services/svc-facial-3.jpg",                         label: "Radiance Facial" },
+  ],
+  "qasr-glam": [
+    { src: "/services/svc-qasr-glam.jpg",                        label: "Qasr Glam" },
+    { src: "/services/svc-qasr-glam-1.jpg",                      label: "Bridal Glam" },
+    { src: "/services/svc-qasr-glam-2.jpg",                      label: "Soft Glam" },
+    { src: "/services/svc-qasr-glam-3.jpg",                      label: "Evening Glam" },
+  ],
 };
+
+// Service galleries that read better split into labelled sub-sections
+// (grouped by each photo's label) rather than one flat grid.
+const GROUPED_GALLERY = new Set(["braiding-styles", "locks"]);
 
 export function generateStaticParams() {
   return CATEGORIES.map((c) => ({ category: c.slug }));
@@ -130,6 +169,20 @@ export default async function CategoryPage({
   const from = Math.min(...cat.items.map((i) => i.price));
   const others = CATEGORIES.filter((c) => c.slug !== cat.slug).slice(0, 4);
   const galleryPhotos = GALLERY_PHOTOS[cat.slug] ?? [];
+  // Deep-link the "View Full Gallery" button to this service's tab so it opens
+  // filtered (e.g. cornrows only), not the whole mixed gallery.
+  const galleryTab = ({
+    "cornrow-styles": "cornrows", "braiding-styles": "braids", locks: "locs",
+    hands: "nails", podology: "nails", henna: "henna",
+  } as Record<string, string>)[cat.slug];
+  // Split the "Our Work" grid into labelled sub-sections for grouped services
+  // (e.g. Braids → Knotless/Boho/…; Locs → Sisterlocks/Dreadlocks & Faux Locs).
+  const galleryGroups = GROUPED_GALLERY.has(cat.slug)
+    ? Array.from(new Set(galleryPhotos.map((p) => p.label))).map((title) => ({
+        title: title as string | null,
+        photos: galleryPhotos.filter((p) => p.label === title),
+      }))
+    : [{ title: null as string | null, photos: galleryPhotos }];
 
   const serviceSchema = {
     "@context": "https://schema.org",
@@ -177,26 +230,34 @@ export default async function CategoryPage({
               title={`Real ${cat.name} at Qasr Alshar`}
               subtitle="Every photo taken at our salon in Dubai. Book your look today."
             />
-            <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {galleryPhotos.map((p, i) => (
-                <Reveal key={p.src} delay={(i % 4) * 50}>
-                  <div className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink-line">
-                    <Image
-                      src={p.src}
-                      alt={`${p.label} at Qasr Alshar Salon, Dubai`}
-                      fill
-                      sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
-                      className="object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-transparent to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                      <span className="font-display text-sm text-white drop-shadow">{p.label}</span>
-                    </div>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-            <div className="mt-8 text-center">
-              <ButtonLink href="/gallery" variant="outline">View Full Gallery</ButtonLink>
+            {galleryGroups.map((grp, gi) => (
+              <div key={grp.title ?? "all"} className={gi === 0 ? "mt-10" : "mt-12"}>
+                {grp.title && (
+                  <h3 className="mb-4 font-display text-xl text-gold">{grp.title}</h3>
+                )}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {grp.photos.map((p, i) => (
+                    <Reveal key={p.src} delay={(i % 4) * 50}>
+                      <div className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink-line">
+                        <Image
+                          src={p.src}
+                          alt={`${p.label} at Qasr Alshar Salon, Dubai`}
+                          fill
+                          sizes="(max-width:640px) 50vw, (max-width:1024px) 33vw, 25vw"
+                          className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-transparent to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                          <span className="font-display text-sm text-white drop-shadow">{p.label}</span>
+                        </div>
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <ButtonLink href={`/book?category=${cat.slug}`}>Book Now <ArrowRight size={18} /></ButtonLink>
+              <ButtonLink href={galleryTab ? `/gallery?cat=${galleryTab}` : "/gallery"} variant="outline">View Full Gallery</ButtonLink>
             </div>
           </div>
         </section>

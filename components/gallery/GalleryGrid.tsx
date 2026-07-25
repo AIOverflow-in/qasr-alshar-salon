@@ -48,6 +48,12 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
   const [active, setActive] = useState("all");
   const [open, setOpen] = useState<number | null>(null);
 
+  // Open pre-filtered when linked from a service page (/gallery?cat=cornrows).
+  useEffect(() => {
+    const cat = new URLSearchParams(window.location.search).get("cat");
+    if (cat && TABS.some((t) => t.key === cat)) setActive(cat);
+  }, []);
+
   // Remove exact-duplicate images (same src) while preserving order.
   const deduped = useMemo(() => {
     const seen = new Set<string>();
