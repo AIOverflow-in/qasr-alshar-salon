@@ -5,10 +5,10 @@ import { Plus, Trash2, Loader2 } from "lucide-react";
 import { deleteExpense, addCapital, deleteCapital } from "@/lib/actions/finance";
 import { AddExpenseForm } from "./AddExpenseForm";
 import { Pagination } from "./Pagination";
-import { ReceiptPreview } from "./ReceiptPreview";
+import { ExpenseReceipts } from "./ExpenseReceipts";
 import { aed } from "@/lib/utils";
 
-type Expense = { id: string; category: string; description: string; amountAED: number; incurredOn: string; recurring: boolean; invoiceNo?: string | null; receiptUrl?: string | null };
+type Expense = { id: string; category: string; description: string; amountAED: number; incurredOn: string; recurring: boolean; invoiceNo?: string | null; receiptUrl?: string | null; receiptUrls?: string[] };
 type Capital = { id: string; investor: string; amountAED: number; contributedOn: string };
 type Win = { total: number; page: number; size: number };
 
@@ -52,19 +52,19 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
                   <span>{e.category[0] + e.category.slice(1).toLowerCase()} · {fmtDate(e.incurredOn)}</span>
                   {e.invoiceNo && <span>· inv {e.invoiceNo}</span>}
-                  {e.receiptUrl && (
-                    <ReceiptPreview
-                      url={e.receiptUrl}
-                      title={e.description}
-                      details={[
-                        { label: "Description", value: e.description },
-                        { label: "Category", value: e.category[0] + e.category.slice(1).toLowerCase() },
-                        { label: "Date", value: fmtDate(e.incurredOn) },
-                        { label: "Amount", value: aed(e.amountAED), strong: true },
-                        ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
-                      ]}
-                    />
-                  )}
+                  <ExpenseReceipts
+                    expenseId={e.id}
+                    urls={e.receiptUrls?.length ? e.receiptUrls : (e.receiptUrl ? [e.receiptUrl] : [])}
+                    title={e.description}
+                    details={[
+                      { label: "Description", value: e.description },
+                      { label: "Category", value: e.category[0] + e.category.slice(1).toLowerCase() },
+                      { label: "Date", value: fmtDate(e.incurredOn) },
+                      { label: "Amount", value: aed(e.amountAED), strong: true },
+                      ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
+                    ]}
+                    canEdit={canEdit}
+                  />
                 </div>
               </div>
               <div className="flex items-center gap-3">

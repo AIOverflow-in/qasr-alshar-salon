@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
   const expenses = await prisma.expense.findMany({
     where, orderBy: { incurredOn: "desc" },
-    select: { incurredOn: true, category: true, description: true, invoiceNo: true, amountAED: true, receiptUrl: true, createdById: true },
+    select: { incurredOn: true, category: true, description: true, invoiceNo: true, amountAED: true, receiptUrl: true, receiptUrls: true, createdById: true },
   });
 
   // createdById is a plain id (no relation) — resolve the logger names in one query.
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     e.invoiceNo ?? "",
     e.amountAED,
     e.createdById ? (nameOf.get(e.createdById) ?? "") : "",
-    e.receiptUrl ?? "",
+    e.receiptUrls?.length ? e.receiptUrls.join(" | ") : (e.receiptUrl ?? ""),
   ].map(csv).join(","));
   const total = expenses.reduce((s, e) => s + e.amountAED, 0);
   rows.push(["", "", "", "TOTAL", total, "", ""].map(csv).join(","));

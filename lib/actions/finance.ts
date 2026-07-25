@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { del } from "@vercel/blob";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendDailyDigest } from "@/lib/digest";
@@ -51,6 +52,8 @@ export async function addExpense(data: {
   invoiceNo?: string | null;
   receiptUrl?: string | null;
   receiptPath?: string | null;
+  receiptUrls?: string[];
+  receiptPaths?: string[];
 }) {
   const session = await requireExpenseWriter();
   // Only managers may flag an expense as recurring (rent/salaries) — reception logs one-offs.
@@ -58,6 +61,10 @@ export async function addExpense(data: {
   const category = (CATEGORIES.includes(data.category as ExpenseCategory) ? data.category : "OTHER") as ExpenseCategory;
   const amountAED = Math.max(0, Math.round(data.amountAED || 0));
   if (!data.description?.trim() || amountAED <= 0) throw new Error("Description and a positive amount are required.");
+  // Accept multiple receipts (arrays); fall back to the legacy single fields.
+  const arrUrls = (data.receiptUrls ?? []).map((u) => u.trim()).filter(Boolean);
+  const allUrls = arrUrls.length ? arrUrls : (data.receiptUrl?.trim() ? [data.receiptUrl.trim()] : []);
+  const allPaths = arrUrls.length ? (data.receiptPaths ?? []) : (data.receiptPath?.trim() ? [data.receiptPath.trim()] : []);
   await prisma.expense.create({
     data: {
       category,
@@ -67,11 +74,41 @@ export async function addExpense(data: {
       recurring: isManager ? !!data.recurring : false,
       notes: data.notes?.trim() || null,
       invoiceNo: data.invoiceNo?.trim() || null,
-      receiptUrl: data.receiptUrl?.trim() || null,
-      receiptPath: data.receiptPath?.trim() || null,
+      receiptUrl: allUrls[0] ?? null,   // legacy mirror = first receipt
+      receiptPath: allPaths[0] ?? null,
+      receiptUrls: allUrls,
+      receiptPaths: allPaths,
       createdById: session.sub,
     },
   });
+  revalidatePath("/erp/finance");
+  revalidatePath("/erp/expenses");
+}
+
+/** Attach another receipt to an existing expense. */
+export async function addExpenseReceipt(id: string, url: string, path: string) {
+  await assertCanMutateExpense(id);
+  const e = await prisma.expense.findUnique({ where: { id }, select: { receiptUrls: true, receiptPaths: true } });
+  if (!e) throw new Error("Expense not found.");
+  if (!url.trim()) throw new Error("Missing receipt.");
+  const urls = [...e.receiptUrls, url.trim()];
+  const paths = [...e.receiptPaths, path.trim()];
+  await prisma.expense.update({ where: { id }, data: { receiptUrls: urls, receiptPaths: paths, receiptUrl: urls[0], receiptPath: paths[0] ?? null } });
+  revalidatePath("/erp/finance");
+  revalidatePath("/erp/expenses");
+}
+
+/** Remove one receipt from an expense (and best-effort delete its blob). */
+export async function removeExpenseReceipt(id: string, url: string) {
+  await assertCanMutateExpense(id);
+  const e = await prisma.expense.findUnique({ where: { id }, select: { receiptUrls: true, receiptPaths: true } });
+  if (!e) throw new Error("Expense not found.");
+  const idx = e.receiptUrls.indexOf(url);
+  if (idx < 0) return;
+  const urls = e.receiptUrls.filter((_, i) => i !== idx);
+  const paths = e.receiptPaths.filter((_, i) => i !== idx);
+  await prisma.expense.update({ where: { id }, data: { receiptUrls: urls, receiptPaths: paths, receiptUrl: urls[0] ?? null, receiptPath: paths[0] ?? null } });
+  if (e.receiptPaths[idx]) { try { await del(e.receiptPaths[idx]); } catch { /* blob may already be gone */ } }
   revalidatePath("/erp/finance");
   revalidatePath("/erp/expenses");
 }
