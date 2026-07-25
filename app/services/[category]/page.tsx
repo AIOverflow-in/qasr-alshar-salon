@@ -12,6 +12,8 @@ import { SITE } from "@/lib/site";
 import { aed } from "@/lib/utils";
 import { pageMeta, breadcrumbSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import { getPublishedProducts } from "@/lib/shop";
+import { RecommendedProducts } from "@/components/shop/RecommendedProducts";
 
 // Keyed by category slug. Kept in sync with lib/services.ts slugs — a unit test
 // (lib/services.test.ts) asserts every key here is a real category slug so a
@@ -183,6 +185,8 @@ export default async function CategoryPage({
         photos: galleryPhotos.filter((p) => p.label === title),
       }))
     : [{ title: null as string | null, photos: galleryPhotos }];
+  // Take-home aftercare recommendations (converts a service visit into a shop sale).
+  const recommended = (await getPublishedProducts()).slice(0, 4);
 
   const serviceSchema = {
     "@context": "https://schema.org",
@@ -342,6 +346,8 @@ export default async function CategoryPage({
           </aside>
         </div>
       </section>
+
+      <RecommendedProducts products={recommended} />
     </>
   );
 }
