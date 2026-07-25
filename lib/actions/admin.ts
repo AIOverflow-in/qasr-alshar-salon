@@ -374,6 +374,33 @@ export async function togglePostStatus(id: string) {
   revalidatePath("/blog");
 }
 
+export async function updatePost(id: string, data: {
+  title: string; category: string; status: "DRAFT" | "PUBLISHED";
+  excerpt: string; metaDescription: string; targetKeyword: string;
+  tags: string[]; contentMarkdown: string;
+}) {
+  await requireManager();
+  const post = await prisma.blogPost.findUnique({ where: { id }, select: { slug: true } });
+  if (!post) return { ok: false as const, error: "Post not found" };
+  await prisma.blogPost.update({
+    where: { id },
+    data: {
+      title: data.title.trim(),
+      category: data.category.trim() || "Beauty Tips",
+      status: data.status,
+      excerpt: data.excerpt.trim(),
+      metaDescription: data.metaDescription.trim(),
+      targetKeyword: data.targetKeyword.trim() || null,
+      tags: data.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
+      contentMarkdown: data.contentMarkdown,
+      // publishedAt is intentionally NOT touched — editing must never move the publish date.
+    },
+  });
+  revalidatePath("/erp/blog");
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${post.slug}`);
+  return { ok: true as const };
+}
 export async function deletePost(id: string) {
   await requireManager();
   await prisma.blogPost.delete({ where: { id } });

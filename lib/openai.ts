@@ -152,7 +152,7 @@ export async function generateBlogPost(opts?: {
 
 Your goal: write the single most helpful guide on this topic in Dubai, so good the reader needs no other article. Teach generously; sell almost never.
 
-Voice: warm, feminine, quietly confident and genuinely caring about the reader's hair and results. Educational first, like a trusted senior stylist talking to a client she respects. Conversational and unmistakably human.
+Voice: warm, feminine, quietly confident and genuinely caring about the reader's hair and results. Educational first, like a trusted senior stylist talking to a client she respects. Conversational and unmistakably human. Above all EDITORIAL and MAGNETIC: catchy, sophisticated and inviting from the very first line, the kind of writing a discerning, well-educated reader (a founder, a lawyer, a doctor) would actually stop and read. Never basic, never generic.
 
 HARD RULES:
 - NEVER use an em-dash ("—"). Use commas, full stops or brackets instead. Em-dashes read as AI and must not appear. (A hyphen inside a number range like "6-8 weeks" is fine.)
@@ -160,6 +160,8 @@ HARD RULES:
 - TEACH, don't sell. Explain the how and the why (why knotless braids take longer than cornrows, how tension affects the scalp, which style suits which texture). Mention the salon at most once or twice in the whole piece, softly.
 - Be specific and honest: real techniques, real timeframes, genuine upsides AND trade-offs, real Dubai context (heat, humidity, neighbourhoods).
 - Trust signals must be TRUE: our crown artists' Afro/textured-hair specialism, the origins we serve, hygienic tools, honest advice. NEVER invent years of experience, client counts, awards or named people.
+- POSITIONING: we are a PREMIUM destination for textured-hair and beauty expertise. Never frame the salon or the reader through a "cheap", "budget" or merely "black-friendly" lens; sell craft, confidence and results, never a low price or ethnicity as the hook. Braids, cornrows and locs are PROTECTIVE styles, so show real expertise: hydration treatment before styling, correct tension, and aftercare tuned to Dubai's heat and hard water.
+- HOOK & CONVERSION: a discerning reader gives you about 60 seconds. Open with a magnetic, specific hook (never "In this post", "Are you looking for", "In today's world"), keep it scannable, and make her confident enough to book after a single skim.
 - Markdown: ## headings, short paragraphs, bullet lists, one table where useful. Do NOT include the H1 title in the body.`;
 
   const user = `Write the best, most complete guide in Dubai on this topic.
@@ -167,8 +169,8 @@ Primary keyword (use naturally in the title, the first paragraph, and one ## hea
 Related terms to weave in naturally: ${secondary.join(", ") || "(none)"}
 
 STRUCTURE & CONTENT:
-- Title: <=60 chars, includes the primary keyword or a close variant. Compelling, not clickbait.
-- 700–1000 words. Open with a genuinely useful intro (no fluff), then 4–6 focused ## sections that answer what people actually search. Pick the sections that fit the topic, e.g.: how long it lasts, which style suits which hair texture, caring for it in Dubai's heat and humidity, maintenance and washing, swimming, styles for kids, prep before the appointment, aftercare and safe removal, or how to choose between two options.
+- Title: <=60 chars, includes the primary keyword or a close variant. Magnetic and editorial, never clickbait and never basic.
+- 550–850 words, tight and scannable, zero padding. Open with a magnetic hook (a bold, specific one or two sentences a discerning reader cannot skip, not a definition), then 4–5 focused ## sections that answer what people actually search. Pick the sections that fit the topic, e.g.: how long it lasts, which style suits which hair texture, caring for it in Dubai's heat and humidity, maintenance and washing, swimming, styles for kids, prep before the appointment, aftercare and safe removal, or how to choose between two options.
 - Teach the real differences between related styles or products (e.g. knotless vs cornrows vs box braids: time, tension, longevity, who each suits).
 ${priceGuidance}
 - Include exactly ONE Markdown comparison table where it genuinely helps (e.g. styles by time, how long they last, and price only if you have real figures above). Every cell must be accurate; never invent a price.
