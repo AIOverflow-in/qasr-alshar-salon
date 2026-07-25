@@ -55,6 +55,9 @@ export function Hero({ t }: { t: Dictionary }) {
           <ButtonLink href="/book" size="lg">
             {t.hero.cta}
           </ButtonLink>
+          <ButtonLink href="/shop" size="lg" variant="outline">
+            Shop Now
+          </ButtonLink>
           <Link
             href="/services"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-gold transition-colors hover:text-gold-deep"

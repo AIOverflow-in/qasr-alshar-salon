@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Search,
   Clock,
@@ -30,6 +31,7 @@ type Service = {
   durationMin: number;
   category: string;
   categorySlug: string;
+  image?: string;
 };
 type Stylist = { id: string; name: string; role: string; offDay: string | null };
 type Slot = { time: string; iso: string };
@@ -392,6 +394,9 @@ export function BookingWizard({
                         )}
                       >
                         <span className="flex items-center gap-2.5">
+                          <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink-line">
+                            <Image src={s.image || "/gallery/hero.jpg"} alt={s.name} fill sizes="48px" className="object-cover" />
+                          </span>
                           <span
                             className={cn(
                               "grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors",

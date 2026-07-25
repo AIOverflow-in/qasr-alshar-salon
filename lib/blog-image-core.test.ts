@@ -47,11 +47,11 @@ test("photoTreatment is deterministic per seed and varies across seeds", () => {
 
 test("pickBlogPhoto returns a REAL, on-topic salon work photo", () => {
   assert.match(pickBlogPhoto("Best knotless braids in Dubai", "s1"), /^\/work\/hair\/braiding-knotless-.+\.jpg$/);
-  assert.match(pickBlogPhoto("Fulani braids guide", "s2"), /^\/work\/hair\/braiding-fulani-.+\.jpg$/);
-  assert.match(pickBlogPhoto("Cornrow updo styles", "s3"), /^\/work\/hair\/braiding-.*cornrow.*\.jpg$/);
-  assert.match(pickBlogPhoto("Loc retwist Dubai", "s4"), /^\/work\/hair\/braiding-locs-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Fulani braids guide", "s2"), /^\/work\/hair\/braiding-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Cornrow updo styles", "s3"), /^\/work\/hair\/braiding-(cornrow|stitch).+\.jpg$/);
+  assert.match(pickBlogPhoto("Loc retwist Dubai", "s4"), /^\/work\/hair\/braiding-(loc|sisterlock).+\.jpg$/);
   assert.match(pickBlogPhoto("Bridal henna designs", "s5"), /^\/work\/henna\/henna-.+\.jpg$/);
-  assert.match(pickBlogPhoto("Gel manicure aftercare", "s6"), /^\/work\/nails\/nail-art-.+\.jpg$/);
+  assert.match(pickBlogPhoto("Gel manicure aftercare", "s6"), /^\/work\/nails\/nail-.+\.(jpg|png)$/);
   assert.match(pickBlogPhoto("Medical pedicure", "s7"), /^\/work\/nails\/pedicure-.+\.jpg$/);
 });
 

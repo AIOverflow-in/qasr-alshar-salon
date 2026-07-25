@@ -52,7 +52,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "protective styling Dubai",
       "Afro hair salon Dubai",
     ],
-    image: "/work/hair/braiding-cornrows-updo-closeup.jpg",
+    image: "/work/hair/braiding-cornrows-01.jpg",
     items: [
       { name: "Cornrow Updo", price: 315, duration: 240 },
       { name: "Cornrow Downdo", price: 158, duration: 180, plus: true, note: "AED 158–368 depending on design" },
@@ -73,7 +73,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "French curls Dubai",
       "human hair braids Dubai",
     ],
-    image: "/work/hair/braiding-knotless-boho-curly-ends.jpg",
+    image: "/work/hair/braiding-knotless-01.jpg",
     items: [
       { name: "Boho Braids (Human Hair)", price: 368, duration: 300, note: "Small · mid-back — extendable for an extra charge" },
       { name: "Boho Braids (Synthetic)", price: 315, duration: 300, note: "Small · mid-back" },
@@ -99,7 +99,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "dreadlock retwist Dubai",
       "natural hair Dubai",
     ],
-    image: "/work/hair/braiding-locs-updo-gold-charms.jpg",
+    image: "/work/hair/braiding-sisterlocks-01.jpg",
     items: [
       { name: "Artificial Locks (New Installation)", price: 525, duration: 300 },
       { name: "Human Hair Locks (New Installation)", price: 525, duration: 300 },
@@ -119,7 +119,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "hair styling Dubai",
       "hair salon Union Metro",
     ],
-    image: "/salon/salon-styling.jpg",
+    image: "/services/svc-hair-styling.jpg",
     items: [
       { name: "Blow Dry Classic (Short)", price: 189, duration: 45 },
       { name: "Blow Dry Classic (Medium)", price: 210, duration: 45 },
@@ -147,7 +147,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "kids haircut Dubai",
       "fringe cut Dubai",
     ],
-    image: "/salon/salon-styling-chairs-gold-mirrors.jpg",
+    image: "/work/hair/haircut-pixie-01.jpg",
     items: [
       { name: "Fringe Cut", price: 158, duration: 30 },
       { name: "Trimming", price: 210, duration: 45 },
@@ -167,7 +167,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "event hairstyle Dubai",
       "ponytail styling Dubai",
     ],
-    image: "/salon/salon-styling.jpg",
+    image: "/services/svc-hairstyling-caucasian.jpg",
     items: [
       { name: "Blow Dry Classic", price: 189, duration: 45, plus: true, note: "By length: 189 / 210 / 231 / 263" },
       { name: "Blow Dry Brushing", price: 210, duration: 45, plus: true, note: "By length: 210 / 231 / 252 / 273 / 294" },
@@ -190,7 +190,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "highlights Dubai",
       "bleach hair Dubai",
     ],
-    image: "/gallery/hair.jpg",
+    image: "/services/svc-hair-coloring.jpg",
     items: [
       { name: "Roots Coloring (up to 7cm)", price: 368, duration: 90 },
       { name: "Toner", price: 315, duration: 90, plus: true, note: "By length: 315 / 368 / 420 / 473" },
@@ -213,7 +213,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "K18 Dubai",
       "hair treatment Union Metro",
     ],
-    image: "/gallery/hair.jpg",
+    image: "/services/svc-hair-treatment.jpg",
     items: [
       { name: "K18 Treatment (Short)", price: 368, duration: 60 },
       { name: "K18 Treatment (Medium)", price: 473, duration: 75 },
@@ -270,7 +270,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "custom wig Dubai",
       "wig making Dubai",
     ],
-    image: "/services/weaving.jpg",
+    image: "/work/hair/wig-01.jpg",
     items: [
       { name: "Track and Sew", price: 210, duration: 150 },
       { name: "Weaving", price: 263, duration: 180 },
@@ -293,7 +293,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "photoshoot makeup Dubai",
       "full glam Dubai",
     ],
-    image: "/salon/salon-makeup.jpg",
+    image: "/services/svc-qasr-glam.jpg",
     items: [
       { name: "Soft Glam", price: 735, duration: 60 },
       { name: "Full Face Beat", price: 1050, duration: 90 },
@@ -322,7 +322,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "Japanese manicure Dubai",
       "nail salon Union Metro",
     ],
-    image: "/work/nails/nail-art-gold-chrome-french-tips.jpg",
+    image: "/work/nails/nail-manicure-01.jpg",
     items: [
       { name: "Japanese Manicure", price: 210, duration: 60 },
       { name: "Manicure Classic", price: 168, duration: 45 },
@@ -350,7 +350,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "podology Dubai",
       "callus treatment Dubai",
     ],
-    image: "/salon/salon-pedicure.jpg",
+    image: "/work/nails/pedicure-new-01.jpg",
     items: [
       { name: "Pedicure Classic (Smart Filing)", price: 210, duration: 60 },
       { name: "Pedicure Gelish (Smart Filing)", price: 294, duration: 75 },
@@ -377,7 +377,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "skin brightening Dubai",
       "best facial Union Metro",
     ],
-    image: "/salon/salon-facial.jpg",
+    image: "/services/svc-facial.jpg",
     items: [
       { name: "Classic Facial", price: 105, duration: 60 },
       { name: "Hydra Facial", price: 263, duration: 75 },
@@ -467,7 +467,7 @@ export const CATEGORIES: ServiceCategory[] = [
       "mehndi artist Dubai",
       "henna design Dubai",
     ],
-    image: "/work/henna/henna-floral-arabesque-both-hands.jpg",
+    image: "/work/henna/henna-hand-01.jpg",
     items: [
       { name: "Henna — One Side", price: 105, duration: 45 },
       { name: "Henna — Leg", price: 105, duration: 45 },

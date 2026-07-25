@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { CATEGORIES } from "@/lib/services";
+import { pickWorkPhoto } from "@/lib/blog-image-core";
+import { CATEGORY_IMAGE_POOL } from "@/lib/service-gallery";
 import { getI18n } from "@/lib/i18n/server";
 import { BookingWizard } from "@/components/booking/BookingWizard";
 import { Logo } from "@/components/Logo";
@@ -27,12 +29,11 @@ export default async function BookPage({
   const { service: serviceParam, category: categoryParam } = await searchParams;
   const { locale, t } = await getI18n();
 
-  let services: { id: string; name: string; priceAED: number; durationMin: number; category: string; categorySlug: string }[];
+  let services: { id: string; name: string; priceAED: number; durationMin: number; category: string; categorySlug: string; image: string }[];
   let stylists: { id: string; name: string; role: string; offDay: string | null }[];
   let depositAED = 0;
   try {
-    let settings: { depositAED: number } | null;
-    [services, stylists, settings] = await Promise.all([
+    const [rawServices, staffList, settings] = await Promise.all([
       prisma.service.findMany({
         where: { active: true },
         orderBy: { order: "asc" },
@@ -45,6 +46,25 @@ export default async function BookPage({
       }),
       prisma.salonSettings.findUnique({ where: { id: "singleton" }, select: { depositAED: true } }),
     ]);
+    stylists = staffList;
+    // Attach a related photo to each service so booking shows a picture per service:
+    //  1) a real work photo when the name matches one (knotless, henna, nails…),
+    //  2) else rotate a per-category pool so services in the same category differ,
+    //  3) else the category image. Every service ends up with a relevant picture.
+    const catImage = new Map(CATEGORIES.map((c) => [c.slug, c.image] as const));
+    const poolIdx = new Map<string, number>();
+    services = rawServices.map((s) => {
+      let image = pickWorkPhoto(s.name, s.id);
+      if (!image) {
+        const pool = CATEGORY_IMAGE_POOL[s.categorySlug];
+        if (pool?.length) {
+          const i = poolIdx.get(s.categorySlug) ?? 0;
+          poolIdx.set(s.categorySlug, i + 1);
+          image = pool[i % pool.length];
+        }
+      }
+      return { ...s, image: image ?? catImage.get(s.categorySlug) ?? "/gallery/hero.jpg" };
+    });
     depositAED = Math.max(settings?.depositAED ?? 0, 0);
   } catch (e) {
     // Neon free-tier can briefly cold-start; show a friendly retry instead of a 500.
