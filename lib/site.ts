@@ -9,7 +9,7 @@ export const SITE = {
   tagline: "Dubai's Crown of Beauty",
   description:
     "Qasr Alshar Salon in Dubai — expert braiding, weaving, hair, nails, facials, makeup, henna, lashes, waxing & massage. Book your appointment online at Dalmok Series Building, Union Metro.",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://qasr-alshar.netlify.app",
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://qasralsharsalon.com",
   // Customer storefront (aftercare/e-commerce). Empty until the shop is live — links are conditional.
   storefront: process.env.NEXT_PUBLIC_STOREFRONT_URL || "",
   locale: "en_AE",
