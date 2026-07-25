@@ -8,7 +8,7 @@ import { dubaiMonthRange, currentDubaiMonth, recentMonths } from "@/lib/payroll"
 import { expenseWhere, EXPENSE_TAB_CATEGORIES, EXPENSE_CATEGORIES, isExpenseCategory } from "@/lib/expense-filter";
 import { AddExpenseForm } from "@/components/erp/AddExpenseForm";
 import { Pagination } from "@/components/erp/Pagination";
-import { ReceiptPreview } from "@/components/erp/ReceiptPreview";
+import { ExpenseReceipts } from "@/components/erp/ExpenseReceipts";
 import { ExpenseActions } from "@/components/erp/ExpenseActions";
 import { MonthPicker } from "@/components/erp/MonthPicker";
 import { SearchBox } from "@/components/erp/SearchBox";
@@ -132,19 +132,19 @@ export default async function ErpExpenses({
                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
                   <span>{cap(e.category)} · {fmtDate(e.incurredOn)}</span>
                   {e.invoiceNo && <span>· inv {e.invoiceNo}</span>}
-                  {e.receiptUrl && (
-                    <ReceiptPreview
-                      url={e.receiptUrl}
-                      title={e.description}
-                      details={[
-                        { label: "Description", value: e.description },
-                        { label: "Category", value: cap(e.category) },
-                        { label: "Date", value: fmtDate(e.incurredOn) },
-                        { label: "Amount", value: aed(e.amountAED), strong: true },
-                        ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
-                      ]}
-                    />
-                  )}
+                  <ExpenseReceipts
+                    expenseId={e.id}
+                    urls={e.receiptUrls.length ? e.receiptUrls : (e.receiptUrl ? [e.receiptUrl] : [])}
+                    title={e.description}
+                    details={[
+                      { label: "Description", value: e.description },
+                      { label: "Category", value: cap(e.category) },
+                      { label: "Date", value: fmtDate(e.incurredOn) },
+                      { label: "Amount", value: aed(e.amountAED), strong: true },
+                      ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
+                    ]}
+                    canEdit={isManager || (e.createdById === ok.sub && e.category !== "SALARIES")}
+                  />
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">

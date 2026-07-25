@@ -86,7 +86,7 @@ export default async function ErpFinance({ searchParams }: { searchParams: Promi
 
       <FinanceManager
         canEdit={canEdit}
-        expenses={expenses.map((e) => ({ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), recurring: e.recurring, invoiceNo: e.invoiceNo, receiptUrl: e.receiptUrl }))}
+        expenses={expenses.map((e) => ({ id: e.id, category: e.category, description: e.description, amountAED: e.amountAED, incurredOn: e.incurredOn.toISOString(), recurring: e.recurring, invoiceNo: e.invoiceNo, receiptUrl: e.receiptUrl, receiptUrls: e.receiptUrls }))}
         capital={capital.map((c) => ({ id: c.id, investor: c.investor, amountAED: c.amountAED, contributedOn: c.contributedOn.toISOString() }))}
         expenseWin={{ total: expWin.total, page: expWin.page, size: expWin.size }}
         capitalWin={{ total: capWin.total, page: capWin.page, size: capWin.size }}

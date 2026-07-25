@@ -35,12 +35,12 @@ export function AddExpenseForm({
   const [notice, setNotice] = useState<string | null>(null);
   const initialCat = categories.includes("SUPPLIES") ? "SUPPLIES" : categories[0];
   const [f, setF] = useState({ category: initialCat, incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function reset() {
     setF({ category: initialCat, incurredOn: "", description: "", amountAED: "", invoiceNo: "", recurring: false });
-    setFile(null);
+    setFiles([]);
     setProgress(0);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -51,24 +51,25 @@ export function AddExpenseForm({
     if (!f.description.trim()) { setErr("Add a short description."); return; }
     if (!Number(f.amountAED) || Number(f.amountAED) <= 0) { setErr("Add a positive amount."); return; }
     start(async () => {
-      // 1) Try the receipt — but NEVER let it block the expense.
-      let receiptUrl: string | null = null;
-      let receiptPath: string | null = null;
+      // 1) Try the receipts — but NEVER let them block the expense.
+      const receiptUrls: string[] = [];
+      const receiptPaths: string[] = [];
       let receiptFailed = false;
-      if (file) {
+      if (files.length) {
         setUploading(true);
         setProgress(0);
-        try {
-          const up = await uploadToBlob(file, "receipt", { onProgress: setProgress });
-          receiptUrl = up.url;
-          receiptPath = up.pathname;
-        } catch {
-          receiptFailed = true; // keep going — save the expense anyway
-        } finally {
-          setUploading(false);
+        for (const file of files) {
+          try {
+            const up = await uploadToBlob(file, "receipt", { onProgress: setProgress });
+            receiptUrls.push(up.url);
+            receiptPaths.push(up.pathname);
+          } catch {
+            receiptFailed = true; // keep going — save the expense anyway
+          }
         }
+        setUploading(false);
       }
-      // 2) Save the expense (this must succeed; the receipt is optional).
+      // 2) Save the expense (this must succeed; the receipts are optional).
       try {
         await addExpense({
           category: f.category,
@@ -77,8 +78,8 @@ export function AddExpenseForm({
           incurredOn: f.incurredOn || null,
           invoiceNo: f.invoiceNo || null,
           recurring: f.recurring,
-          receiptUrl,
-          receiptPath,
+          receiptUrls,
+          receiptPaths,
         });
       } catch {
         setErr("Could not save the expense. Please try again.");
@@ -103,25 +104,24 @@ export function AddExpenseForm({
       <input type="number" min={0} value={f.amountAED} onChange={(e) => setF((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
       <input value={f.invoiceNo} onChange={(e) => setF((p) => ({ ...p, invoiceNo: e.target.value }))} placeholder="Invoice # (optional)" className={input} />
 
-      <div className="sm:col-span-2">
-        {file ? (
-          <div className="flex items-center gap-2 rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream">
+      <div className="space-y-1.5 sm:col-span-2">
+        {files.map((file, i) => (
+          <div key={i} className="flex items-center gap-2 rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream">
             <Paperclip size={14} className="text-gold" />
             <span className="min-w-0 flex-1 truncate">{file.name} <span className="text-muted">· {(file.size / 1024 / 1024).toFixed(1)} MB</span></span>
-            {!busy && <button type="button" onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = ""; }} aria-label="Remove receipt" className="-m-1 p-1 text-muted hover:text-red-400"><X size={14} /></button>}
+            {!busy && <button type="button" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Remove receipt" className="-m-1 p-1 text-muted hover:text-red-400"><X size={14} /></button>}
           </div>
-        ) : (
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-ink-line bg-ink-card px-3 py-2 text-sm text-muted hover:border-gold/50 hover:text-gold">
-            <Paperclip size={14} /> Attach receipt / invoice — photo or PDF (optional, up to 20 MB)
-            <input ref={fileRef} type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="hidden" />
-          </label>
-        )}
+        ))}
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-ink-line bg-ink-card px-3 py-2 text-sm text-muted hover:border-gold/50 hover:text-gold">
+          <Paperclip size={14} /> {files.length ? "Add another receipt" : "Attach receipt(s) / invoice — photo or PDF (optional, up to 20 MB each)"}
+          <input ref={fileRef} type="file" accept={ACCEPT} multiple onChange={(e) => { setFiles((fs) => [...fs, ...Array.from(e.target.files ?? [])]); if (fileRef.current) fileRef.current.value = ""; }} className="hidden" />
+        </label>
         {uploading && (
           <div className="mt-1.5">
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-line">
               <div className="h-full rounded-full bg-gold-gradient transition-all" style={{ width: `${Math.max(6, progress)}%` }} />
             </div>
-            <p className="mt-1 text-xs text-gold">Uploading receipt… {progress}%</p>
+            <p className="mt-1 text-xs text-gold">Uploading receipts… {progress}%</p>
           </div>
         )}
       </div>
