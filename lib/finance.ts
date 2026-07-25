@@ -129,3 +129,21 @@ export async function getSalesBreakdown(range: DayRange): Promise<SalesBreakdown
   out.byMethod.TRANSFER += split._sum.transferAED ?? 0;
   return out;
 }
+
+export type RevenueByKind = { service: number; product: number; total: number };
+/** Split PAID takings into service vs product revenue for a window (by OrderLine.kind, gross lineAED). */
+export async function getRevenueByKind(range: DayRange): Promise<RevenueByKind> {
+  const grouped = await prisma.orderLine.groupBy({
+    by: ["kind"],
+    where: { order: { status: "PAID", createdAt: { gte: range.start, lt: range.end } } },
+    _sum: { lineAED: true },
+  });
+  const out: RevenueByKind = { service: 0, product: 0, total: 0 };
+  for (const g of grouped) {
+    const sum = g._sum.lineAED ?? 0;
+    if (g.kind === "PRODUCT") out.product += sum;
+    else out.service += sum;
+  }
+  out.total = out.service + out.product;
+  return out;
+}

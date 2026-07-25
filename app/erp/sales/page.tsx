@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { salesRange, getSalesBreakdown } from "@/lib/finance";
+import { salesRange, getSalesBreakdown, getRevenueByKind } from "@/lib/finance";
+import { aed } from "@/lib/utils";
 import { lineArtistIds } from "@/lib/artists";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
 import { SalesTable, type SalesRow } from "@/components/erp/SalesTable";
@@ -70,7 +71,7 @@ export default async function ErpSales({
   const filteredTotal = await prisma.salesOrder.count({ where });
   const win = pageWindow(filteredTotal, parsePage(sp.page));
 
-  const [orders, summary, staffList] = await Promise.all([
+  const [orders, summary, staffList, byKind] = await Promise.all([
     prisma.salesOrder.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -86,6 +87,7 @@ export default async function ErpSales({
     }),
     getSalesBreakdown(window), // accurate totals for the whole period (never narrowed by search/page)
     prisma.staff.findMany({ select: { id: true, name: true } }),
+    getRevenueByKind(window),
   ]);
 
   const staffMap = new Map(staffList.map((s) => [s.id, s.name] as const));
@@ -130,6 +132,26 @@ export default async function ErpSales({
         <h1 className="font-display text-3xl text-cream">Sales</h1>
         <p className="text-sm text-muted">Every completed bill — filter by period, see takings, and reprint.</p>
       </div>
+
+      {byKind.total > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="surface rounded-2xl p-5">
+            <div className="text-xs uppercase tracking-wider text-muted">Service revenue</div>
+            <div className="mt-1 font-display text-2xl text-cream">{aed(byKind.service)}</div>
+            <div className="mt-1 text-xs text-muted">{Math.round((byKind.service / byKind.total) * 100)}% of takings</div>
+          </div>
+          <div className="surface rounded-2xl p-5">
+            <div className="text-xs uppercase tracking-wider text-muted">Product revenue</div>
+            <div className="mt-1 font-display text-2xl text-cream">{aed(byKind.product)}</div>
+            <div className="mt-1 text-xs text-muted">{Math.round((byKind.product / byKind.total) * 100)}% of takings</div>
+          </div>
+          <div className="surface rounded-2xl p-5">
+            <div className="text-xs uppercase tracking-wider text-muted">Services + products</div>
+            <div className="mt-1 font-display text-2xl text-gold-gradient">{aed(byKind.total)}</div>
+            <div className="mt-1 text-xs text-muted">gross, this period</div>
+          </div>
+        </div>
+      )}
 
       <SalesTable
         rows={rows}
