@@ -64,8 +64,8 @@ export function HeaderClient({
           <Logo className="max-w-[160px] sm:max-w-none" />
         </Link>
 
-        {/* desktop nav */}
-        <nav className="hidden items-center gap-7 lg:flex">
+        {/* desktop nav — gated at xl: 8 links + logo + book + lang crowd at lg */}
+        <nav className="hidden items-center gap-6 xl:flex">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -88,7 +88,7 @@ export function HeaderClient({
           </ButtonLink>
           <button
             onClick={() => setOpen((v) => !v)}
-            className="rounded-full border border-stone-200 p-2 text-neutral-700 hover:border-gold hover:text-gold transition-colors lg:hidden"
+            className="rounded-full border border-stone-200 p-2 text-neutral-700 hover:border-gold hover:text-gold transition-colors xl:hidden"
             aria-label={open ? "Close menu" : "Open menu"}
           >
             {open ? <X size={20} /> : <Menu size={20} />}
@@ -99,7 +99,7 @@ export function HeaderClient({
       {/* mobile drawer */}
       <div
         className={cn(
-          "fixed inset-0 top-[4.5rem] z-40 origin-top overflow-y-auto overscroll-contain bg-ink/97 backdrop-blur-xl transition-all duration-300 lg:hidden",
+          "fixed inset-0 top-[4.5rem] z-40 origin-top overflow-y-auto overscroll-contain bg-ink/97 backdrop-blur-xl transition-all duration-300 xl:hidden",
           open
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"

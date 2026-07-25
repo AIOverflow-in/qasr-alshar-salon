@@ -9,7 +9,7 @@ import { whatsappLink } from "@/lib/utils";
 
 export async function Footer() {
   const { t } = await getI18n();
-  const year = 2026;
+  const year = new Date().getFullYear();
 
   return (
     <footer className="relative mt-auto border-t border-ink-line bg-ink-soft">

@@ -12,9 +12,9 @@ test("rangeLabel renders named windows and explicit ranges", () => {
 
 test("takings answer contains only the given figures + method split", () => {
   const a = formatAnswer("takings", { window: { range: "today" }, total: 1575, net: 1500, vat: 75, count: 3, byMethod: { CASH: 1000, CARD: 500, TRANSFER: 75 } });
-  assert.match(a, /AED 1575/);
-  assert.match(a, /net AED 1500 \+ VAT AED 75/);
-  assert.match(a, /Cash AED 1000 · Card AED 500 · Transfer AED 75/);
+  assert.match(a, /AED 1,575/); // aed() groups thousands
+  assert.match(a, /net AED 1,500 \+ VAT AED 75/);
+  assert.match(a, /Cash AED 1,000 · Card AED 500 · Transfer AED 75/);
   assert.match(a, /3 bills/);
 });
 
@@ -24,8 +24,8 @@ test("takings with no sales reads cleanly", () => {
 
 test("top services lists ranked rows with real numbers", () => {
   const a = formatAnswer("top_services", { window: { range: "month" }, rows: [{ name: "Knotless Braids", qty: 12, revenue: 3156 }, { name: "Soft Glam", qty: 4, revenue: 2940 }] });
-  assert.match(a, /1\. Knotless Braids — 12 sold, AED 3156/);
-  assert.match(a, /2\. Soft Glam — 4 sold, AED 2940/);
+  assert.match(a, /1\. Knotless Braids — 12 sold, AED 3,156/);
+  assert.match(a, /2\. Soft Glam — 4 sold, AED 2,940/);
 });
 
 test("low stock: happy path and empty path", () => {
@@ -35,9 +35,9 @@ test("low stock: happy path and empty path", () => {
 
 test("expenses summary shows category breakdown + total", () => {
   const a = formatAnswer("expenses_summary", { window: { range: "month" }, total: 8000, rows: [{ category: "RENT", total: 6000 }, { category: "SUPPLIES", total: 2000 }] });
-  assert.match(a, /Expenses — this month: AED 8000/);
-  assert.match(a, /Rent — AED 6000/);
-  assert.match(a, /Supplies — AED 2000/);
+  assert.match(a, /Expenses — this month: AED 8,000/);
+  assert.match(a, /Rent — AED 6,000/);
+  assert.match(a, /Supplies — AED 2,000/);
 });
 
 test("bookings summary counts by status + upcoming", () => {
@@ -49,6 +49,6 @@ test("bookings summary counts by status + upcoming", () => {
 
 test("top clients ranks by spend", () => {
   const a = formatAnswer("top_clients", { rows: [{ name: "Aisha", visits: 8, spent: 4200 }, { name: "Mariam", visits: 1, spent: 735 }] });
-  assert.match(a, /1\. Aisha — AED 4200 over 8 visits/);
+  assert.match(a, /1\. Aisha — AED 4,200 over 8 visits/);
   assert.match(a, /2\. Mariam — AED 735 over 1 visit\b/); // singular
 });

@@ -21,12 +21,18 @@ export function ProductCard({ p }: { p: CartProductInput & { category?: string }
     <div className="surface flex flex-col overflow-hidden rounded-2xl border border-ink-line">
       <Link href={`/shop/${p.slug}`} className="block aspect-square overflow-hidden bg-ink-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" loading="lazy" />
+        <img
+          src={p.imageUrl}
+          alt={p.name}
+          className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+          loading="lazy"
+          onError={(e) => { const t = e.currentTarget; if (t.src.indexOf("/gallery/hero.jpg") === -1) t.src = "/gallery/hero.jpg"; }}
+        />
       </Link>
       <div className="flex flex-1 flex-col p-3">
-        {p.category && <div className="text-[0.6rem] uppercase tracking-wider text-muted">{p.category}</div>}
+        {p.category && <div className="text-[0.7rem] uppercase tracking-wider text-muted">{p.category}</div>}
         <Link href={`/shop/${p.slug}`} className="mt-0.5 line-clamp-2 text-sm text-cream hover:text-gold">{p.name}</Link>
-        <div className="mt-1 font-display text-lg text-gold">{aed(p.priceAED)}</div>
+        <div className="mt-1 font-display text-lg text-gold-deep">{aed(p.priceAED)}</div>
         <div className="mt-auto pt-2">
           <button onClick={() => add(p)} className="w-full rounded-lg bg-gold-gradient py-2 text-xs font-semibold text-espresso">Add to cart</button>
         </div>
