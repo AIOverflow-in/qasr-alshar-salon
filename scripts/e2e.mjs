@@ -124,6 +124,10 @@ try {
     ok((await code(`/shop/${B}`)) !== "200", "hidden product (retail:false) -> NOT exposed on storefront (mapping intact)");
     const pd = await (await fetch(BASE + `/shop/${A}`)).text();
     ok(pd.includes("Live Product") && /add to cart/i.test(pd), "product detail renders name + Add to Cart");
+    // Guard SEO metadata: a throwing generateMetadata (e.g. an og:type Next rejects) silently wipes
+    // ALL head metadata with a 200, so assert a real, product-named <title> is actually emitted.
+    const pdTitle = (pd.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || "";
+    ok(/Live Product/.test(pdTitle) && /Qasr Alshar/.test(pdTitle), "product detail emits a real <title> (generateMetadata didn't throw)");
     ok((await code("/products/bundle-straight.jpg")) === "200", "product image file resolves (public/products served)");
   }
 
