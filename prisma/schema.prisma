@@ -213,6 +213,17 @@ model Staff {
   referralPct   Int     @default(5)
   joinedOn   DateTime?  // hire date — drives annual leave entitlement
   biometricPin String?  @unique // this staff's user ID on the ZKTeco attendance terminal
+  // HR / compliance IDs (sensitive — Super Admin only). Dates kept as free text
+  // because the source (STAFF INFO.xlsx) is inconsistent ("22ND JANUARY 2035", "N/A").
+  passportNumber       String?
+  passportExpiry       String?
+  emiratesId           String?
+  emiratesIdExpiry     String?
+  labourPermitNumber   String?
+  labourCardNumber     String?
+  emergencyContact     String?  // next-of-kin phone number
+  emergencyRelationship String? // e.g. "Sister", "Mother"
+  passportPicLink      String?  // external link to the passport scan
   active     Boolean    @default(true)
   order      Int        @default(0)
   createdAt  DateTime   @default(now())
