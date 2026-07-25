@@ -119,6 +119,7 @@ const GALLERY_PHOTOS: Record<string, { src: string; label: string }[]> = {
     { src: "/services/svc-hair-treatment-3.jpg",                 label: "Repair Treatment" },
   ],
   facials: [
+    { src: "/services/svc-hydrafacial.jpg",                      label: "14-Step HydraFacial" },
     { src: "/services/svc-facial.jpg",                           label: "Facial" },
     { src: "/services/svc-facial-1.jpg",                         label: "Glow Facial" },
     { src: "/services/svc-facial-2.jpg",                         label: "Hydrating Facial" },

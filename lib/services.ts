@@ -379,6 +379,8 @@ export const CATEGORIES: ServiceCategory[] = [
     ],
     image: "/services/svc-facial.jpg",
     items: [
+      { name: "14-Step HydraFacial (Signature)", price: 580, duration: 90, note: "Our advanced 14-step deep cleanse, extract, infuse & glow" },
+      { name: "14-Step HydraFacial (Express)", price: 380, duration: 60 },
       { name: "Classic Facial", price: 105, duration: 60 },
       { name: "Hydra Facial", price: 263, duration: 75 },
       { name: "Face Brightening", price: 105, duration: 45 },
