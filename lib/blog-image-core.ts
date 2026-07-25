@@ -114,31 +114,34 @@ export function pickHeroImage(text: string): string {
 const w = (dir: string, ...names: string[]) => names.map((n) => `/work/${dir}/${n}.jpg`);
 
 const CORNROWS = w("hair",
-  "braiding-cornrow-bun-black-honey-side", "braiding-cornrow-feedin-salon", "braiding-cornrow-geometric-dome-full-head",
-  "braiding-cornrow-updo-bun", "braiding-cornrow-updo-sleek-pink-bg", "braiding-cornrows-feedin-long-portrait",
-  "braiding-cornrows-geometric-crown", "braiding-cornrows-sleek-side", "braiding-cornrows-swirl-pattern",
-  "braiding-cornrows-updo-closeup", "braiding-feedin-cornrows-salon-client-front", "braiding-swirl-cornrows-closeup");
+  "braiding-cornrows-01", "braiding-cornrows-02", "braiding-cornrows-03",
+  "braiding-stitch-01", "braiding-stitch-02", "braiding-stitch-03", "braiding-stitch-04", "braiding-stitch-05");
 const KNOTLESS = w("hair",
-  "braiding-knotless-boho-curly-bob-medium", "braiding-knotless-boho-curly-ends", "braiding-knotless-box-bun-shop",
-  "braiding-knotless-box-gold-beads", "braiding-knotless-box-kid-long-curly", "braiding-knotless-bun-shop-back",
-  "braiding-knotless-feedin-gold-cuffs", "braiding-knotless-updo-bun");
-const FULANI = w("hair", "braiding-fulani-cornrow-box-braids-girl");
-const LOCS = w("hair", "braiding-locs-twisted-updo-brown", "braiding-locs-updo-bun-gold-star-charms", "braiding-locs-updo-gold-charms", "braiding-locs-updo-twisted");
-const BRAIDS = [...KNOTLESS, ...CORNROWS, ...FULANI];
-const HENNA_WORK = w("henna", "henna-floral-arabesque-both-hands", "henna-floral-back-of-hand", "henna-floral-back-of-hands-duo", "henna-floral-both-hands", "henna-floral-hand-back", "henna-floral-swirl-both-hands");
-const NAILS_WORK = w("nails",
-  "nail-art-black-glossy-square", "nail-art-french-tip-gold-heart-mani-pedi", "nail-art-gold-chrome-french-tips",
-  "nail-art-hot-pink-leopard-coffin", "nail-art-magenta-gold-mani-pedi", "nail-art-nude-leopard-tips-stiletto",
-  "nail-art-ombre-blush-square", "nail-art-pink-french-tip-almond", "nail-art-red-glossy-coffin");
-const PEDICURE = w("nails", "pedicure-french-tip-clean", "pedicure-french-tip-toes", "pedicure-french-tip-white-both-feet");
+  "braiding-knotless-01", "braiding-knotless-02", "braiding-knotless-03", "braiding-knotless-04", "braiding-knotless-05");
+const LOCS = w("hair",
+  "braiding-sisterlocks-01", "braiding-sisterlocks-02", "braiding-sisterlocks-03", "braiding-sisterlocks-04",
+  "braiding-locs-crochet-01", "braiding-locs-crochet-02", "braiding-locs-crochet-03", "braiding-locs-crochet-04", "braiding-locs-crochet-05", "braiding-locs-crochet-06");
+const BOHO = w("hair",
+  "braiding-boho-01", "braiding-boho-02", "braiding-boho-03", "braiding-boho-04", "braiding-boho-05", "braiding-boho-06", "braiding-boho-07",
+  "braiding-french-curl-01", "braiding-french-curl-02", "braiding-french-curl-03",
+  "braiding-crochet-01", "braiding-crochet-02", "braiding-crochet-03");
+const WIGS = w("hair", "wig-01", "wig-02", "wig-03");
+const BRAIDS = [...KNOTLESS, ...CORNROWS, ...BOHO];
+const HENNA_WORK = w("henna", "henna-hand-01", "henna-hand-02", "henna-body-spine-01", "henna-body-spine-02");
+const NAILS_WORK = [...w("nails",
+  "nail-manicure-01", "nail-manicure-02", "nail-manicure-03", "nail-manicure-04", "nail-manicure-05",
+  "nail-manicure-07", "nail-manicure-08", "nail-manicure-09"),
+  "/work/nails/nail-manicure-06.png"];
+const PEDICURE = w("nails", "pedicure-new-01");
 
-// Most-specific first (knotless/fulani/locs before the generic "braid").
+// Most-specific first (knotless/locs/cornrow/boho before the generic "braid").
 const WORK: [RegExp, string[]][] = [
   [/knotless/, KNOTLESS],
-  [/fulani/, FULANI],
   [/sisterlock|micro ?loc|\bloc\b|locs|dreadlock/, LOCS],
   [/cornrow|feed.?in|stitch braid/, CORNROWS],
-  [/box braid|\bbraid|protective style/, BRAIDS],
+  [/boho|french curl|crochet|fulani|box braid/, BOHO],
+  [/weav|sew.?in|\bwig|frontal|closure/, WIGS],
+  [/\bbraid|protective style/, BRAIDS],
   [/henna|mehndi/, HENNA_WORK],
   [/pedicure|toe ?nail|\btoes\b/, PEDICURE],
   [/nail|manicure|gelish|polygel|acrylic|gel/, NAILS_WORK],
