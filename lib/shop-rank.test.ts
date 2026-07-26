@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { categoryWeight, styleScore, popularityScore, rankProducts, assignBadges } from "./shop-rank";
 
-const P = (over) => ({ name: "X", category: "Wigs", description: "", unitsSold: 0, stock: 5, ...over });
+const P = (over) => ({ name: "X", category: "Wigs", description: "", unitsSold: 0, stock: 5, priceAED: 500, ...over });
 
 test("categoryWeight: hero wigs outrank extensions, which outrank accessories", () => {
   assert.ok(categoryWeight("Lace Front Wigs") > categoryWeight("Hair Extensions"));
@@ -34,6 +34,15 @@ test("rankProducts: best-selling first, then market demand, sold-out last", () =
   assert.equal(order[1], "Zoe");   // popular style beats specialty
   assert.equal(order[2], "Ada");
   assert.equal(order[3], "Gone");  // out of stock sinks to the bottom despite sales
+});
+
+test("rankProducts: among equivalent items, the premium (higher-priced) piece leads", () => {
+  // Same texture/colour/category/sales → price breaks the tie (premium first), not the name.
+  const items = [
+    P({ name: "Zed", description: "straight black", priceAED: 9000 }),
+    P({ name: "Abe", description: "straight black", priceAED: 4000 }),
+  ];
+  assert.deepEqual(rankProducts(items).map((p) => p.name), ["Zed", "Abe"]); // not alphabetical
 });
 
 test("rankProducts is pure (does not mutate input)", () => {
