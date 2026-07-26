@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
-import { aed } from "@/lib/utils";
+import { aed, cn } from "@/lib/utils";
+import type { ShopBadge } from "@/lib/shop-rank";
 import { useCart, type CartProductInput } from "./cart";
 
 /** Full-width add-to-cart button for the product detail page. */
@@ -15,11 +16,21 @@ export function AddToCartButton({ p }: { p: CartProductInput }) {
   );
 }
 
-export function ProductCard({ p }: { p: CartProductInput & { category?: string } }) {
+export function ProductCard({ p }: { p: CartProductInput & { category?: string; badge?: ShopBadge } }) {
   const { add } = useCart();
   return (
     <div className="surface flex flex-col overflow-hidden rounded-2xl border border-ink-line">
-      <Link href={`/shop/${p.slug}`} className="block aspect-square overflow-hidden bg-ink-card">
+      <Link href={`/shop/${p.slug}`} className="relative block aspect-square overflow-hidden bg-ink-card">
+        {p.badge && (
+          <span
+            className={cn(
+              "absolute left-2 top-2 z-10 rounded-full px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-wide shadow-sm",
+              p.badge === "bestseller" ? "bg-gold-gradient text-espresso" : "border border-gold/30 bg-ink-card/90 text-gold-deep",
+            )}
+          >
+            {p.badge === "bestseller" ? "Bestseller" : "Popular"}
+          </span>
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={p.imageUrl}
