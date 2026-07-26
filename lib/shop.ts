@@ -101,3 +101,32 @@ export function getProductBySlug(slug: string): Promise<ShopCard | null> {
     { revalidate: 300 },
   )();
 }
+
+/**
+ * A product for its detail PAGE — like getProductBySlug but keeps OUT-OF-STOCK items (still
+ * published, priced, imaged), so a sold-out product shows a "sold out" state instead of a hard
+ * 404 (preserves the URL for Google + shared links). Stock is surfaced via `stock` so the page
+ * gates buying.
+ */
+export function getProductForPage(slug: string): Promise<ShopCard | null> {
+  return unstable_cache(
+    async () => {
+      const p = await prisma.product.findFirst({
+        where: { slug, retail: true, active: true },
+        select: { id: true, slug: true, name: true, category: true, saleAED: true, qty: true, imageUrl: true, description: true },
+      });
+      if (!p || !p.imageUrl || (p.saleAED ?? 0) <= 0) return null; // viewable = published + priced + imaged
+      return { id: p.id, slug: p.slug ?? p.id, name: p.name, category: p.category, priceAED: p.saleAED ?? 0, stock: p.qty, imageUrl: p.imageUrl, description: p.description, unitsSold: 0, badge: null };
+    },
+    ["shop-product-page", slug],
+    { revalidate: 300 },
+  )();
+}
+
+/** A few other in-stock products to suggest on a detail page — same category first, then the rest. */
+export async function getRelatedProducts(category: string, excludeId: string, limit = 4): Promise<ShopCard[]> {
+  const all = await getPublishedProducts();
+  const sameCat = all.filter((p) => p.category === category && p.id !== excludeId);
+  const others = all.filter((p) => p.category !== category && p.id !== excludeId);
+  return [...sameCat, ...others].slice(0, limit);
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ShoppingBag, X, Plus, Minus, Loader2, CheckCircle2, Trash2 } from "lucide-react";
 import { aed } from "@/lib/utils";
 
@@ -64,6 +64,20 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ ref: string; totalAED: number } | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Accessible drawer: lock body scroll, close on Escape, focus into the panel — set up once on open
+  // (via a ref for onClose) so re-renders don't re-steal focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, []);
 
   async function checkout() {
     setError(null);
@@ -89,10 +103,10 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/70" onClick={onClose}>
-      <div className="h-full w-full max-w-md overflow-y-auto bg-ink p-6" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Your cart" className="h-full w-full max-w-md overflow-y-auto bg-ink p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-2xl text-cream">{done ? "Order placed" : "Your cart"}</h3>
-          <button onClick={onClose} className="text-muted hover:text-cream"><X size={22} /></button>
+          <button ref={closeRef} onClick={onClose} aria-label="Close cart" className="grid h-11 w-11 place-items-center rounded-lg text-muted hover:text-cream"><X size={22} /></button>
         </div>
 
         {done ? (
@@ -116,10 +130,10 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
                     <div className="text-xs text-muted">{aed(i.priceAED)} × {i.qty}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold"><Minus size={15} /></button>
+                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity" className="grid h-11 w-11 place-items-center rounded-lg text-gold"><Minus size={15} /></button>
                     <span className="w-5 text-center text-sm text-cream">{i.qty}</span>
-                    <button onClick={() => setQty(i.id, i.qty + 1)} disabled={i.qty >= i.stock} aria-label="Increase quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold disabled:opacity-30"><Plus size={15} /></button>
-                    <button onClick={() => setQty(i.id, 0)} aria-label="Remove item" className="ml-1 grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-red-600"><Trash2 size={15} /></button>
+                    <button onClick={() => setQty(i.id, i.qty + 1)} disabled={i.qty >= i.stock} aria-label="Increase quantity" className="grid h-11 w-11 place-items-center rounded-lg text-gold disabled:opacity-30"><Plus size={15} /></button>
+                    <button onClick={() => setQty(i.id, 0)} aria-label="Remove item" className="ml-1 grid h-11 w-11 place-items-center rounded-lg text-muted hover:text-red-600"><Trash2 size={15} /></button>
                   </div>
                 </div>
               ))}
