@@ -346,5 +346,8 @@ h1, h2, h3, h4, .font-display {
     border-color: #e2e2e2 !important;
   }
   .no-print { display: none !important; }
+  /* A <details> collapsed on screen still prints its contents in full (e.g. booking terms). */
+  .terms-print > summary { list-style: none; }
+  .terms-print > *:not(summary) { display: block !important; }
   @page { margin: 14mm; }
 }

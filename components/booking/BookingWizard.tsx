@@ -284,9 +284,10 @@ export function BookingWizard({
             )
           )}
 
-          {/* Full terms & conditions */}
-          <div className="mt-6 border-t border-ink-line pt-5">
-            <h3 className="font-display text-lg text-cream">Terms &amp; Conditions</h3>
+          {/* Terms — collapsed on screen so the WhatsApp/Print actions stay near the top; the printed
+              PDF still shows them in full (forced open via the .terms-print print rule). */}
+          <details className="terms-print mt-6 border-t border-ink-line pt-5">
+            <summary className="cursor-pointer font-display text-lg text-cream">Terms &amp; Conditions</summary>
             <div className="mt-3 space-y-3">
               {TERMS.map((s) => (
                 <div key={s.heading}>
@@ -297,7 +298,7 @@ export function BookingWizard({
                 </div>
               ))}
             </div>
-          </div>
+          </details>
         </div>
 
         {done.emailWarning && (
@@ -551,9 +552,9 @@ export function BookingWizard({
         <div>
           <SelectionSummary services={selected} stylistName={stylist?.name ?? "Any Available"} when={`${dayLabel(date).weekday} ${dayLabel(date).day} ${dayLabel(date).month} · ${timeLabel(slot.time)}`} />
           <div className="mt-6 space-y-4">
-            <Field label={dict.name} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-            <Field label={dict.email} type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
-            <Field label={dict.phone} type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <Field label={dict.name} value={form.name} onChange={(v) => setForm({ ...form, name: v })} autoComplete="name" required />
+            <Field label={dict.phone} type="tel" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} autoComplete="tel" inputMode="tel" required />
+            <Field label={dict.email} type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} autoComplete="email" inputMode="email" required />
             {/* where: salon vs home */}
             <div>
               <label className="mb-1.5 block text-sm text-sand">Where would you like the service?</label>
@@ -562,6 +563,7 @@ export function BookingWizard({
                   <button
                     key={m}
                     type="button"
+                    aria-pressed={form.serviceMode === m}
                     onClick={() => setForm({ ...form, serviceMode: m })}
                     className={cn(
                       "rounded-xl border p-3 text-start transition-colors",
@@ -640,7 +642,19 @@ export function BookingWizard({
             </p>
           )}
 
-          <div className="mt-8 flex justify-between">
+          {(() => {
+            // Tell the visitor exactly what's still needed instead of a mute, disabled button.
+            const missing: string[] = [];
+            if (form.name.trim().length < 2) missing.push("your name");
+            if (form.phone.trim().length < 6) missing.push("a phone number");
+            if (!form.email.includes("@")) missing.push("a valid email");
+            if (form.serviceMode === "HOME" && form.address.trim().length < 6) missing.push("your address");
+            if (!form.agreed) missing.push("to accept the terms");
+            return missing.length ? (
+              <p className="mt-4 text-end text-xs text-muted">Add {missing.join(", ")} to confirm.</p>
+            ) : null;
+          })()}
+          <div className="mt-4 flex justify-between">
             <Button variant="ghost" onClick={() => setStep(3)}>
               <ChevronLeft size={16} /> {dict.back}
             </Button>
@@ -648,10 +662,10 @@ export function BookingWizard({
               onClick={submit}
               disabled={
                 submitting ||
-                form.name.length < 2 ||
-                !form.email.includes("@") ||
-                form.phone.length < 6 ||
+                form.name.trim().length < 2 ||
+                form.phone.trim().length < 6 ||
                 !form.agreed ||
+                (!form.email.includes("@")) ||
                 (form.serviceMode === "HOME" && form.address.trim().length < 6)
               }
             >
@@ -755,19 +769,36 @@ function Field({
   value,
   onChange,
   type = "text",
+  autoComplete,
+  inputMode,
+  required,
+  optional,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  autoComplete?: string;
+  inputMode?: "text" | "tel" | "email" | "numeric";
+  required?: boolean;
+  optional?: boolean;
 }) {
+  const id = `bf-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
   return (
     <div>
-      <label className="mb-1.5 block text-sm text-sand">{label}</label>
+      <label htmlFor={id} className="mb-1.5 block text-sm text-sand">
+        {label}
+        {required && <span className="text-gold-deep"> *</span>}
+        {optional && <span className="text-muted"> (optional)</span>}
+      </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        required={required}
         className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60"
       />
     </div>
