@@ -129,7 +129,7 @@ function BarcodeScanPanel({ onClose }: { onClose: () => void }) {
           <div className="space-y-3">
             <div className="rounded-xl border border-ink-line bg-ink-card p-4">
               <div className="text-cream font-semibold">{product.name}</div>
-              <div className="text-xs text-muted mt-0.5">{product.category} · Current qty: <span className={cn("font-semibold", product.qty === 0 ? "text-red-400" : product.qty <= 3 ? "text-gold" : "text-sand")}>{product.qty}</span></div>
+              <div className="text-xs text-muted mt-0.5">{product.category} · Current qty: <span className={cn("font-semibold", product.qty === 0 ? "text-red-600" : product.qty <= 3 ? "text-gold" : "text-sand")}>{product.qty}</span></div>
               {product.saleAED && <div className="text-xs text-muted mt-0.5">Sale price: AED {product.saleAED}</div>}
             </div>
 

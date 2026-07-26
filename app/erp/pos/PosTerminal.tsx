@@ -435,7 +435,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
               >
                 <div className="min-w-0">
                   <div className="truncate text-cream text-sm">{p.name}</div>
-                  <div className="text-xs text-muted">{p.category} · <span className={p.qty === 0 ? "text-red-400" : p.qty <= 3 ? "text-gold" : ""}>{p.qty} in stock</span></div>
+                  <div className="text-xs text-muted">{p.category} · <span className={p.qty === 0 ? "text-red-600" : p.qty <= 3 ? "text-gold" : ""}>{p.qty} in stock</span></div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-gold text-sm font-semibold">{p.saleAED ? aed(p.saleAED) : "—"}</span>
@@ -580,7 +580,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
                   onChange={(e) => updateLine(l.key, { unitAED: parseInt(e.target.value) || 0 })}
                   className="w-20 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-right text-sm text-gold outline-none"
                 />
-                <button onClick={() => removeLine(l.key)} className="text-muted hover:text-red-400 transition-colors flex-shrink-0">
+                <button onClick={() => removeLine(l.key)} className="text-muted hover:text-red-600 transition-colors flex-shrink-0">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -759,7 +759,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         </div>
 
         {error && (
-          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-start gap-2">
+          <div className="rounded-xl border border-red-500/40 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-start gap-2">
             <X size={14} className="mt-0.5 flex-shrink-0" />
             {error}
           </div>

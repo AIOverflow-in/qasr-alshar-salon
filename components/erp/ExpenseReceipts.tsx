@@ -46,7 +46,7 @@ export function ExpenseReceipts({ expenseId, urls, title, details, canEdit = fal
             <Paperclip size={11} /> receipt{urls.length > 1 ? ` ${i + 1}` : ""}
           </button>
           {canEdit && !busy && (
-            <button type="button" onClick={() => start(() => removeExpenseReceipt(expenseId, u))} aria-label="Remove this receipt" className="text-muted hover:text-red-400"><X size={10} /></button>
+            <button type="button" onClick={() => start(() => removeExpenseReceipt(expenseId, u))} aria-label="Remove this receipt" className="text-muted hover:text-red-600"><X size={10} /></button>
           )}
         </span>
       ))}

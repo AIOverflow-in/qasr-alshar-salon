@@ -101,7 +101,7 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
                 <td className="p-4 text-right tabular-nums text-sand" title="Base salary (guaranteed floor)">{r.salary ? aed(r.salary) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-sand" title={`Sales split ${aed(r.salesCommission)} · Referral ${aed(r.referral)} · paid only if it beats base`}>{r.commission ? aed(r.commission) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-green-400">{r.bonus ? aed(r.bonus) : "—"}</td>
-                <td className="p-4 text-right tabular-nums text-red-400">{r.deductions ? `−${aed(r.deductions)}` : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-red-600">{r.deductions ? `−${aed(r.deductions)}` : "—"}</td>
                 <td className="p-4 text-right font-semibold tabular-nums text-cream">{aed(r.net)}</td>
                 <td className="p-4">
                   {r.paid
@@ -167,7 +167,7 @@ function AdjustModal({ row, month, onClose, onDone }: { row: PayrollRow; month: 
           <input type="number" value={amount} min={1} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (AED)" className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60" />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="w-full rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/60" />
           <p className="text-xs text-muted">{type === "BONUS" ? "Adds to" : "Subtracts from"} {row.name}&apos;s net pay for {month}.</p>
-          {error && <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
+          {error && <p className="rounded-lg border border-red-500/40 bg-red-50 p-2 text-xs text-red-600">{error}</p>}
           <button onClick={submit} disabled={pending} className="w-full rounded-lg bg-gold-gradient py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {pending ? "Saving…" : "Add adjustment"}
           </button>

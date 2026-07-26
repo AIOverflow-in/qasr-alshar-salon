@@ -94,7 +94,7 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
               </select>
             </div>
           )}
-          {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
           <button onClick={add} disabled={pending} className="mt-3 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {pending ? "Creating…" : "Create user"}
           </button>
@@ -158,7 +158,7 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
                       <KeyRound size={12} /> Reset password
                     </button>
                     {u.id !== currentUserId && (
-                      <button onClick={() => removeUser(u.id, u.name)} title="Delete this login permanently" className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 px-2.5 py-1.5 text-xs text-red-400 hover:border-red-500 hover:bg-red-500/10">
+                      <button onClick={() => removeUser(u.id, u.name)} title="Delete this login permanently" className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 px-2.5 py-1.5 text-xs text-red-600 hover:border-red-500 hover:bg-red-50">
                         <Trash2 size={12} /> Delete
                       </button>
                     )}

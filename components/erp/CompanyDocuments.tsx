@@ -78,7 +78,7 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
           <button onClick={submit} disabled={busy} className="mt-3 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} {busy ? (progress > 0 ? `Uploading… ${progress}%` : "Saving…") : "Upload"}
           </button>
-          {error && <div className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}
+          {error && <div className="mt-3 rounded-xl border border-red-500/40 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>}
         </div>
       )}
 
@@ -102,7 +102,7 @@ export function CompanyDocuments({ docs, canEdit }: { docs: Doc[]; canEdit: bool
               <div className="flex shrink-0 items-center gap-2">
                 <button type="button" onClick={() => setPreview(d)} className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"><Eye size={13} /> Open</button>
                 <a href={`/api/erp/company-doc/${d.id}`} className="inline-flex items-center gap-1 rounded-lg border border-ink-line px-2.5 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold"><Download size={13} /> Download</a>
-                {canEdit && <button onClick={() => remove(d.id)} disabled={pending} className="text-muted hover:text-red-400 disabled:opacity-40"><Trash2 size={14} /></button>}
+                {canEdit && <button onClick={() => remove(d.id)} disabled={pending} className="text-muted hover:text-red-600 disabled:opacity-40"><Trash2 size={14} /></button>}
               </div>
             </div>
           ))}

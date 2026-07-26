@@ -70,7 +70,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(e.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteExpense(e.id))} aria-label="Delete expense" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                  <button onClick={() => start(() => deleteExpense(e.id))} aria-label="Delete expense" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>
@@ -106,7 +106,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(c.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteCapital(c.id))} aria-label="Delete capital entry" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                  <button onClick={() => start(() => deleteCapital(c.id))} aria-label="Delete capital entry" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>
@@ -115,7 +115,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
         <Pagination total={capitalWin.total} page={capitalWin.page} size={capitalWin.size} param="cp" />
       </div>
 
-      {error && <div className="lg:col-span-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}
+      {error && <div className="lg:col-span-2 rounded-xl border border-red-500/40 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>}
     </div>
   );
 }

@@ -635,7 +635,7 @@ export function BookingWizard({
           )}
 
           {error && (
-            <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+            <p role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
               {error}
             </p>
           )}

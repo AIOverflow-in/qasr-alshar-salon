@@ -12,8 +12,10 @@
   --color-ink-card: #ffffff;   /* cards / inputs */
   --color-ink-line: #e7dcc6;   /* hairline borders */
 
-  /* Brand — gold spectrum (tuned for contrast on white) */
-  --color-gold: #b1842f;
+  /* Brand — gold spectrum (tuned for contrast on white).
+     --color-gold darkened #b1842f -> #8a6a1e so gold TEXT clears WCAG AA (~4.6:1 on the cream
+     surface, ~5:1 on white); the bright/pale stops below keep the gradient's highlight. */
+  --color-gold: #8a6a1e;
   --color-gold-bright: #d6ad52;
   --color-gold-pale: #e6c478;
   --color-gold-deep: #7c5d20;
@@ -275,6 +277,53 @@ h1, h2, h3, h4, .font-display {
   color: var(--color-cream);
   margin: 1.5rem 0;
 }
+/* Media + tables — the blog engine emits GFM tables and inline images; without these they
+   render unstyled and overflow the column on mobile. */
+.prose-salon img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  margin: 1.5rem 0;
+}
+.prose-salon figure { margin: 1.5rem 0; }
+.prose-salon figcaption { font-size: 0.9rem; color: var(--color-muted); text-align: center; margin-top: 0.5rem; }
+/* A table scrolls inside its own box so the page body never scrolls sideways. */
+.prose-salon table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1.75rem 0;
+  font-size: 0.98rem;
+}
+.prose-salon th,
+.prose-salon td {
+  border: 1px solid var(--color-ink-line);
+  padding: 0.65rem 0.85rem;
+  text-align: start;
+  vertical-align: top;
+}
+.prose-salon thead th {
+  background: var(--color-ink-soft);
+  color: var(--color-cream);
+  font-weight: 600;
+}
+.prose-salon tbody tr:nth-child(even) { background: color-mix(in srgb, var(--color-ink-soft) 45%, transparent); }
+.prose-salon code {
+  background: var(--color-ink-soft);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  font-size: 0.9em;
+}
+.prose-salon pre {
+  background: var(--color-ink-soft);
+  border: 1px solid var(--color-ink-line);
+  border-radius: 0.9rem;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+.prose-salon pre code { background: none; padding: 0; }
 
 /* Print: show only .print-area, on clean white paper (overrides the dark theme + gradient text). */
 @media print {

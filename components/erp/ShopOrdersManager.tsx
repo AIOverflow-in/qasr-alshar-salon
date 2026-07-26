@@ -13,7 +13,7 @@ type Order = {
 
 const STATUSES = ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"];
 const STATUS_CLR: Record<string, string> = {
-  PENDING: "text-gold", CONFIRMED: "text-blue-300", SHIPPED: "text-sand", DELIVERED: "text-green-400", CANCELLED: "text-red-400",
+  PENDING: "text-gold", CONFIRMED: "text-blue-300", SHIPPED: "text-sand", DELIVERED: "text-green-400", CANCELLED: "text-red-600",
 };
 
 export function ShopOrdersManager({ orders, canEdit }: { orders: Order[]; canEdit: boolean }) {

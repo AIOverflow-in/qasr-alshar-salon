@@ -82,7 +82,7 @@ export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }:
             </button>
           </div>
           {uploading && progress > 0 && <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-line"><div className="h-full rounded-full bg-gold-gradient transition-all" style={{ width: `${Math.max(6, progress)}%` }} /></div>}
-          {docErr && <p className="text-xs text-red-400">{docErr}</p>}
+          {docErr && <p className="text-xs text-red-600">{docErr}</p>}
         </div>
         <ul className="mt-3 divide-y divide-ink-line/50">
           {documents.map((d) => (
@@ -92,11 +92,11 @@ export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }:
               </button>
               <div className="flex items-center gap-3">
                 {d.expiry && (
-                  <span className={cn("text-xs", expiringSoon(d.expiry) ? "text-red-400" : "text-muted")}>
+                  <span className={cn("text-xs", expiringSoon(d.expiry) ? "text-red-600" : "text-muted")}>
                     {expiringSoon(d.expiry) && <AlertTriangle size={11} className="mr-1 inline" />}exp {fmtDate(d.expiry)}
                   </span>
                 )}
-                <button onClick={() => removeDoc(d.id)} disabled={pending} aria-label="Remove document" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                <button onClick={() => removeDoc(d.id)} disabled={pending} aria-label="Remove document" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
               </div>
             </li>
           ))}
@@ -128,14 +128,14 @@ export function StaffAdmin({ staffId, documents, leaves, summary, canViewDocs }:
             <button onClick={addLeave} disabled={pending} className="rounded-lg bg-gold-gradient px-3 py-1.5 text-xs font-semibold text-espresso disabled:opacity-50">Add</button>
           </div>
           <input value={ln} onChange={(e) => setLn(e.target.value)} placeholder="Note (optional)" className={cn(input, "w-full")} />
-          {leaveErr && <p className="text-xs text-red-400">{leaveErr}</p>}
+          {leaveErr && <p className="text-xs text-red-600">{leaveErr}</p>}
           <p className="text-[0.7rem] text-muted">Tip: schedule leave outside peak periods (December, Ramadan, month-end summer).</p>
         </div>
         <ul className="mt-3 divide-y divide-ink-line/50">
           {leaves.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-2 py-2 text-sm">
               <span className="min-w-0 text-cream">{fmtDate(l.startDate)} – {fmtDate(l.endDate)} <span className="text-xs text-muted">· {l.days}d · {l.type.toLowerCase()}{l.note ? ` · ${l.note}` : ""}</span></span>
-              <button onClick={() => removeLeave(l.id)} disabled={pending} aria-label="Remove leave" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
+              <button onClick={() => removeLeave(l.id)} disabled={pending} aria-label="Remove leave" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
             </li>
           ))}
           {leaves.length === 0 && <li className="py-3 text-center text-xs text-muted">No leave recorded.</li>}

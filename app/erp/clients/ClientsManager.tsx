@@ -114,7 +114,7 @@ export function ClientsManager({ editClient }: { editClient?: ClientForm } = {})
               <span className="text-xs text-muted">Consents to marketing (WhatsApp / email)</span>
             </label>
 
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-red-600">{error}</p>}
 
             <button
               onClick={save}

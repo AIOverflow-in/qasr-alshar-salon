@@ -122,7 +122,7 @@ export default async function ErpDashboard() {
                     <td className="p-4 text-sand">{p.name}</td>
                     <td className="p-4 text-xs text-muted">{p.category}</td>
                     <td className="p-4 text-right">
-                      <span className={`rounded-full border px-2.5 py-1 text-xs ${p.qty === 0 ? "border-red-500/40 text-red-400" : "border-gold/40 text-gold"}`}>
+                      <span className={`rounded-full border px-2.5 py-1 text-xs ${p.qty === 0 ? "border-red-500/40 text-red-600" : "border-gold/40 text-gold"}`}>
                         {p.qty} left
                       </span>
                     </td>
@@ -151,7 +151,7 @@ export default async function ErpDashboard() {
                       <td className="p-4 text-sand">{d.staff?.name ?? "—"}</td>
                       <td className="p-4 text-xs text-muted">{DOC_LABEL[d.type] ?? d.type}</td>
                       <td className="p-4 text-right">
-                        <span className={`rounded-full border px-2.5 py-1 text-xs ${expired ? "border-red-500/40 text-red-400" : "border-gold/40 text-gold"}`}>
+                        <span className={`rounded-full border px-2.5 py-1 text-xs ${expired ? "border-red-500/40 text-red-600" : "border-gold/40 text-gold"}`}>
                           {expired ? "expired" : "expires"} {exp ? exp.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : ""}
                         </span>
                       </td>

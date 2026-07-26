@@ -15,7 +15,7 @@ const STATUSES: BookingStatus[] = ["CONFIRMED", "COMPLETED", "CANCELLED", "NO_SH
 const color: Record<string, string> = {
   CONFIRMED: "text-gold",
   COMPLETED: "text-green-400",
-  CANCELLED: "text-red-400",
+  CANCELLED: "text-red-600",
   NO_SHOW: "text-muted",
 };
 

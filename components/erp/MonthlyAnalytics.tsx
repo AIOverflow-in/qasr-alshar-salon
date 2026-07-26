@@ -95,7 +95,7 @@ function CrownDial({ d, pct }: { d: Data; pct: number }) {
           <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="rgba(201,162,76,0.14)" strokeWidth="15" strokeLinecap="round" />
           <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#dial)" strokeWidth="15" strokeLinecap="round" strokeDasharray={`${(pct / 100) * L} ${L}`} />
           <text x="100" y="86" textAnchor="middle" className="fill-cream" style={{ font: "700 22px var(--font-display, serif)" }}>{pct}%</text>
-          <text x="100" y="104" textAnchor="middle" className="fill-[color:var(--muted,#9a8f73)]" style={{ font: "10px sans-serif" }}>of goal</text>
+          <text x="100" y="104" textAnchor="middle" className="fill-[color:var(--color-muted)]" style={{ font: "10px sans-serif" }}>of goal</text>
         </svg>
       </div>
       <Footer items={[[aed(d.total), "Taken"], [aed(Math.max(0, d.target - d.total)), "To goal"], [aed(d.avgActiveDay), "Avg / active day"]]} />
@@ -172,7 +172,7 @@ function HeatCalendar({ d }: { d: Data }) {
         {blanks.map((_, i) => <div key={`b${i}`} />)}
         {d.byDay.map((x) => (
           <div key={x.day} className="relative aspect-[4/3] rounded-md border border-ink-line/40 p-1 text-left"
-            style={{ background: x.amount > 0 ? goldAlpha(x.amount / max) : "rgba(255,255,255,0.02)" }}>
+            style={{ background: x.amount > 0 ? goldAlpha(x.amount / max) : "rgba(33,28,20,0.05)" }}>
             <span className={`text-[0.6rem] ${x.day === d.todayDom ? "font-bold text-gold" : "text-sand/70"}`}>{x.day}</span>
             {x.amount > 0 && <span className="absolute bottom-1 right-1 hidden text-[0.6rem] font-semibold text-cream sm:inline">{x.amount}</span>}
           </div>
@@ -197,7 +197,7 @@ function PaymentMix({ d }: { d: Data }) {
       <Caption title="Payment Mix" sub="How this month's cash actually came in — by payment method." />
       <div className="flex flex-wrap items-center justify-center gap-8">
         <svg viewBox="0 0 140 140" className="h-40 w-40 -rotate-90">
-          <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="18" />
+          <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(33,28,20,0.08)" strokeWidth="18" />
           {rows.map((r) => {
             const frac = r.v / sum;
             const seg = <circle key={r.k} cx="70" cy="70" r={R} fill="none" stroke={r.c} strokeWidth="18" strokeDasharray={`${frac * C} ${C}`} strokeDashoffset={-off} />;
