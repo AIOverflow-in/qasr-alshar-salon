@@ -119,7 +119,7 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
                     <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold"><Minus size={15} /></button>
                     <span className="w-5 text-center text-sm text-cream">{i.qty}</span>
                     <button onClick={() => setQty(i.id, i.qty + 1)} disabled={i.qty >= i.stock} aria-label="Increase quantity" className="grid h-9 w-9 place-items-center rounded-lg text-gold disabled:opacity-30"><Plus size={15} /></button>
-                    <button onClick={() => setQty(i.id, 0)} aria-label="Remove item" className="ml-1 grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-red-400"><Trash2 size={15} /></button>
+                    <button onClick={() => setQty(i.id, 0)} aria-label="Remove item" className="ml-1 grid h-9 w-9 place-items-center rounded-lg text-muted hover:text-red-600"><Trash2 size={15} /></button>
                   </div>
                 </div>
               ))}
@@ -136,7 +136,7 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
               </select>
               <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Delivery address" aria-label="Delivery address" autoComplete="street-address" rows={3} className="w-full rounded-xl border border-ink-line bg-ink-card p-3 text-cream outline-none focus:border-gold/60" />
             </div>
-            {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+            {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
             <button onClick={checkout} disabled={submitting} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gold-gradient py-3.5 font-semibold text-espresso disabled:opacity-50">
               {submitting ? <Loader2 className="animate-spin" size={18} /> : <ShoppingBag size={16} />} Place order · Cash on delivery
             </button>

@@ -270,7 +270,7 @@ export function EditBookingServices({
             </div>
             </div>
 
-            {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-sm text-red-300">{error}</p>}
+            {error && <p className="mt-3 rounded-lg border border-red-500/40 bg-red-50 p-2.5 text-sm text-red-600">{error}</p>}
 
             <div className="mt-4 flex items-center justify-between gap-3">
               <div className="text-sm text-muted">

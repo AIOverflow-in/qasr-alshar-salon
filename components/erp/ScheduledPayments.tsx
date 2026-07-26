@@ -24,7 +24,7 @@ function daysUntil(iso: string) {
 function statusBadge(p: Payment) {
   if (p.status === "PAID") return { text: p.paidAt ? `Paid ${fmtDate(p.paidAt)}` : "Paid", cls: "text-green-400" };
   const d = daysUntil(p.dueDate);
-  if (d < 0) return { text: `Overdue ${-d}d`, cls: "text-red-400" };
+  if (d < 0) return { text: `Overdue ${-d}d`, cls: "text-red-600" };
   if (d === 0) return { text: "Due today", cls: "text-gold" };
   if (d <= p.remindDaysBefore) return { text: `Due in ${d}d`, cls: "text-gold" };
   return { text: `Due in ${d}d`, cls: "text-muted" };
@@ -109,7 +109,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
         </div>
       )}
 
-      {error && <div className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">{error}</div>}
+      {error && <div className="mt-3 rounded-xl border border-red-500/40 bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</div>}
 
       <div className="mt-4 divide-y divide-ink-line/60">
         {sorted.length === 0 && <p className="py-6 text-center text-sm text-muted">No scheduled payments yet.</p>}
@@ -136,7 +136,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
                     ) : (
                       <button onClick={() => start(() => setScheduledPaymentPaid(p.id, false))} title="Mark unpaid" className="rounded-lg border border-ink-line p-1.5 text-muted hover:text-cream"><Undo2 size={14} /></button>
                     )}
-                    <button onClick={() => start(() => deleteScheduledPayment(p.id))} title="Delete" aria-label="Delete payment" className="-m-2 p-2 text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                    <button onClick={() => start(() => deleteScheduledPayment(p.id))} title="Delete" aria-label="Delete payment" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
                   </div>
                 )}
               </div>

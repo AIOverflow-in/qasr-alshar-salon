@@ -59,7 +59,7 @@ export function PostActions({ id, published }: { id: string; published: boolean 
           if (confirm("Delete this post permanently?")) start(() => deletePost(id));
         }}
         disabled={pending}
-        className="rounded-lg border border-ink-line p-2 text-sand hover:border-red-500/50 hover:text-red-400"
+        className="rounded-lg border border-ink-line p-2 text-sand hover:border-red-500/50 hover:text-red-600"
       >
         <Trash2 size={15} />
       </button>

@@ -78,7 +78,7 @@ function WorkingHoursCard({ hours }: { hours: Hours[] }) {
             <button
               onClick={() => update(r.weekday, { closed: !r.closed })}
               className={`rounded-full border px-2.5 py-1 text-xs ${
-                r.closed ? "border-red-500/40 text-red-400" : "border-green-500/40 text-green-400"
+                r.closed ? "border-red-500/40 text-red-600" : "border-green-500/40 text-green-400"
               }`}
             >
               {r.closed ? "Closed" : "Open"}
@@ -217,7 +217,7 @@ function BlockedSlotsCard({ blocks }: { blocks: Block[] }) {
                 {b.reason && <span className="text-muted"> · {b.reason}</span>}
               </span>
               <form action={removeBlockedSlot.bind(null, b.id)}>
-                <button className="text-muted hover:text-red-400">
+                <button className="text-muted hover:text-red-600">
                   <Trash2 size={15} />
                 </button>
               </form>

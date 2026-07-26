@@ -68,7 +68,7 @@ export function BlogEditor({ post }: { post: EditablePost }) {
         </div>
       </div>
 
-      {err && <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{err}</p>}
+      {err && <p className="rounded-lg border border-red-500/40 bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       <div className="surface space-y-4 rounded-2xl p-6">
         <div>

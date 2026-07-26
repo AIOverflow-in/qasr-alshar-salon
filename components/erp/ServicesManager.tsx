@@ -50,7 +50,7 @@ function Row({ s }: { s: Service }) {
             {pending ? <Loader2 size={12} className="animate-spin" /> : saved ? <Check size={12} /> : null}
             {saved ? "Saved" : "Save"}
           </button>
-          {err && <span className="text-xs text-red-400">{err}</span>}
+          {err && <span className="text-xs text-red-600">{err}</span>}
         </div>
       </td>
     </tr>
@@ -105,7 +105,7 @@ export function ServicesManager({
           <button onClick={add} disabled={adding} className="inline-flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add
           </button>
-          {addErr && <span className="text-xs text-red-400">{addErr}</span>}
+          {addErr && <span className="text-xs text-red-600">{addErr}</span>}
         </div>
       </div>
 

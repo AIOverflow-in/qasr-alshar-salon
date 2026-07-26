@@ -145,7 +145,7 @@ export function InventoryTable({ products, categories, category, total, page, si
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1.5">
                     <button onClick={() => adjust(p, -1)} disabled={p.qty <= 0} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50 disabled:opacity-30"><Minus size={12} /></button>
-                    <span className={cn("w-8 text-center font-semibold", p.qty === 0 ? "text-red-400" : p.qty <= p.reorderAt ? "text-gold" : "text-sand")}>{p.qty}</span>
+                    <span className={cn("w-8 text-center font-semibold", p.qty === 0 ? "text-red-600" : p.qty <= p.reorderAt ? "text-gold" : "text-sand")}>{p.qty}</span>
                     <button onClick={() => adjust(p, 1)} className="grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50"><Plus size={12} /></button>
                     <button onClick={() => setStockFor(p)} title="Bulk stock in/out" className="ml-1 grid h-6 w-6 place-items-center rounded border border-ink-line text-muted hover:border-gold/50"><Boxes size={12} /></button>
                   </div>
@@ -232,7 +232,7 @@ function ProductModal({ title, product, categories, onClose, onSaved }: {
             <Field label="Sale AED" type="number" value={f.saleAED} onChange={(e) => setF({ ...f, saleAED: e.target.value })} />
             <Field label="Reorder at" type="number" value={f.reorderAt} onChange={(e) => setF({ ...f, reorderAt: e.target.value })} />
           </div>
-          {err && <p className="text-sm text-red-400">{err}</p>}
+          {err && <p className="text-sm text-red-600">{err}</p>}
           <button onClick={save} disabled={saving} className="w-full rounded-lg bg-gold-gradient py-2.5 text-sm font-semibold text-espresso disabled:opacity-50">
             {saving ? <span className="flex items-center justify-center gap-2"><Loader2 size={15} className="animate-spin" /> Saving…</span> : "Save product"}
           </button>
@@ -282,7 +282,7 @@ function StockModal({ product, onClose, onSaved }: { product: Product; onClose: 
             <input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))} className="w-24 rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-center text-sm text-cream outline-none" />
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="flex-1 rounded-lg border border-ink-line bg-ink-card px-3 py-2 text-sm text-cream outline-none focus:border-gold/40" />
           </div>
-          {err && <p className="text-sm text-red-400">{err}</p>}
+          {err && <p className="text-sm text-red-600">{err}</p>}
           <button onClick={save} disabled={saving} className="w-full rounded-lg bg-gold-gradient py-2.5 text-sm font-semibold text-espresso disabled:opacity-50">
             {saving ? "Saving…" : `${kind === "STOCK_IN" ? "Add" : "Remove"} ${qty} unit${qty !== 1 ? "s" : ""}`}
           </button>

@@ -116,7 +116,7 @@ export function CatalogManager({ products }: { products: Product[] }) {
               Publish to the storefront (needs a price, image &amp; stock to appear)
             </label>
           </div>
-          {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>}
+          {error && <div className="mt-3 rounded-lg border border-red-500/40 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
           <button onClick={save} disabled={busy} className="mt-4 flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {editId ? "Save changes" : "Create product"}
           </button>

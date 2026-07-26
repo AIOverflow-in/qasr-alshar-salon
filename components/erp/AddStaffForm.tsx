@@ -71,7 +71,7 @@ export function AddStaffForm() {
               <input className={`${input} w-full`} type="date" value={f.joinedOn} onChange={(e) => setF({ ...f, joinedOn: e.target.value })} onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* native icon still works */ } }} title="Hire date — drives annual-leave entitlement" />
             </label>
           </div>
-          {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
           <button onClick={add} disabled={pending} className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-gold-gradient px-4 py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {pending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} {pending ? "Adding…" : "Create staff"}
           </button>

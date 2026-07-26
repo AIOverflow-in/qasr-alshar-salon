@@ -190,7 +190,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
                         <input type="number" min={0} value={l.price}
                           onChange={(e) => updateLine(i, e.target.value === "" ? "" : Number(e.target.value))}
                           className="w-20 rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/60" />
-                        <button onClick={() => removeLine(i)} className="text-muted hover:text-red-400"><X size={14} /></button>
+                        <button onClick={() => removeLine(i)} className="text-muted hover:text-red-600"><X size={14} /></button>
                       </div>
                       <select value={l.staffId} onChange={(e) => updateLineStaff(i, e.target.value)}
                         className="w-full rounded-lg border border-ink-line bg-ink-card px-2 py-1 text-xs text-cream outline-none focus:border-gold/60" title="Artist for this service">
@@ -277,7 +277,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
             Walk-in / phone — skip availability check
           </label>
 
-          {err && <p className="text-sm text-red-400">{err}</p>}
+          {err && <p className="text-sm text-red-600">{err}</p>}
           <button onClick={save} disabled={saving} className="w-full rounded-lg bg-gold-gradient py-2.5 text-sm font-semibold text-espresso disabled:opacity-50">
             {saving ? <span className="flex items-center justify-center gap-2"><Loader2 size={15} className="animate-spin" /> Saving…</span> : "Create booking"}
           </button>

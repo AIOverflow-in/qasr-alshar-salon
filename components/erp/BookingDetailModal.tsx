@@ -12,7 +12,7 @@ type Item = { serviceId?: string | null; name: string; price: number; duration: 
 type ServiceOpt = { id: string; name: string; category: string; priceAED: number };
 
 const SOURCE_LABEL: Record<string, string> = { ONLINE: "🌐 Online", WALKIN: "🏪 In-store", PHONE: "☎ Phone", WHATSAPP: "WhatsApp" };
-const STATUS_CLR: Record<string, string> = { CONFIRMED: "text-gold", COMPLETED: "text-green-400", CANCELLED: "text-red-400", NO_SHOW: "text-muted" };
+const STATUS_CLR: Record<string, string> = { CONFIRMED: "text-gold", COMPLETED: "text-green-400", CANCELLED: "text-red-600", NO_SHOW: "text-muted" };
 
 export function BookingDetailModal({
   onClose,
@@ -237,7 +237,7 @@ function DepositControl({ bookingId, depositAED, depositPaidAt, canEdit }: {
             {depositAED > 0 ? "Update amount" : "Request deposit"}
           </button>
           {depositAED > 0 && (
-            <button onClick={() => { setAmount(""); patch({ depositAED: 0, paid: false }); }} disabled={busy} className="text-xs text-muted hover:text-red-400 disabled:opacity-40">Waive</button>
+            <button onClick={() => { setAmount(""); patch({ depositAED: 0, paid: false }); }} disabled={busy} className="text-xs text-muted hover:text-red-600 disabled:opacity-40">Waive</button>
           )}
         </div>
       )}
