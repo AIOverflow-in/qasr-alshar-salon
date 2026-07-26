@@ -70,7 +70,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(e.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteExpense(e.id))} aria-label="Delete expense" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
+                  <button onClick={() => { if (window.confirm("Delete this expense? This can't be undone.")) start(() => deleteExpense(e.id)); }} aria-label="Delete expense" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>
@@ -106,7 +106,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sand">{aed(c.amountAED)}</span>
                 {canEdit && (
-                  <button onClick={() => start(() => deleteCapital(c.id))} aria-label="Delete capital entry" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
+                  <button onClick={() => { if (window.confirm("Delete this capital contribution? This can't be undone.")) start(() => deleteCapital(c.id)); }} aria-label="Delete capital entry" className="-m-2 p-2 text-muted hover:text-red-600"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>

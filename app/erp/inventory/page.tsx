@@ -36,7 +36,7 @@ export default async function ErpInventory({
   const total = await prisma.product.count({ where });
   const win = pageWindow(total, parsePage(sp.page));
 
-  const [products, grouped, lowCount] = await Promise.all([
+  const [products, grouped, lowRows] = await Promise.all([
     prisma.product.findMany({
       where,
       orderBy: [{ qty: "asc" }, { name: "asc" }],
@@ -45,8 +45,10 @@ export default async function ErpInventory({
       select: { id: true, name: true, category: true, barcode: true, qty: true, costAED: true, saleAED: true, reorderAt: true },
     }),
     prisma.product.groupBy({ by: ["category"], _count: true, where: { active: true }, orderBy: { category: "asc" } }),
-    prisma.product.count({ where: { active: true, qty: { lte: 3 } } }),
+    // Count against each product's own reorderAt (matches the per-row gold highlight), not a fixed 3.
+    prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM "Product" WHERE "active" = true AND "qty" <= "reorderAt"`,
   ]);
+  const lowCount = Number(lowRows[0]?.count ?? 0);
 
   const categories = grouped.map((g) => g.category);
   const totalActive = grouped.reduce((n, g) => n + g._count, 0);

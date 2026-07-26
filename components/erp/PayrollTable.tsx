@@ -25,12 +25,16 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
   const [busyId, setBusyId] = useState<string | null>(null);
 
   function pay(staffId: string) {
+    const r = rows.find((x) => x.staffId === staffId);
+    if (r && !window.confirm(`Mark ${r.name} paid ${aed(r.net)} for ${monthLabel(month)}?`)) return;
     setBusyId(staffId);
     start(async () => { await payStaffMonth(staffId, month); setBusyId(null); router.refresh(); });
   }
   function payAll() {
-    const due = rows.filter((r) => !r.paid && r.net !== 0);
+    const due = rows.filter((r) => !r.paid && r.net > 0); // never auto-settle a zero/negative net
     if (!due.length) return;
+    const totalDue = due.reduce((s, r) => s + r.net, 0);
+    if (!window.confirm(`Pay ${due.length} staff a total of ${aed(totalDue)} for ${monthLabel(month)}? This marks them paid.`)) return;
     start(async () => { for (const r of due) await payStaffMonth(r.staffId, month); router.refresh(); });
   }
 
@@ -80,8 +84,8 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
               <th className="p-4 font-medium">Staff</th>
               <th className="p-4 text-right font-medium">Clients</th>
               <th className="p-4 text-right font-medium">Services</th>
-              <th className="p-4 text-right font-medium">Salary</th>
-              <th className="p-4 text-right font-medium">Commission</th>
+              <th className="p-4 text-right font-medium">Earned</th>
+              <th className="p-4 text-right font-medium">Referral</th>
               <th className="p-4 text-right font-medium">Bonus</th>
               <th className="p-4 text-right font-medium">Adv./Ded.</th>
               <th className="p-4 text-right font-medium">Net pay</th>
@@ -90,7 +94,9 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line/60">
-            {rows.map((r) => (
+            {rows.map((r) => {
+              const earned = Math.max(r.salesCommission, r.salary); // base is a floor: commission only if it beats base
+              return (
               <tr key={r.staffId} className={cn(busyId === r.staffId && "opacity-50")}>
                 <td className="p-4">
                   <div className="text-cream">{r.name}</div>
@@ -98,8 +104,11 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
                 </td>
                 <td className="p-4 text-right tabular-nums text-sand" title="Distinct clients served this month">{r.clientsServed || "—"}</td>
                 <td className="p-4 text-right tabular-nums text-sand" title="Net service revenue this person generated (ex-VAT)">{r.servicesAED ? aed(r.servicesAED) : "—"}</td>
-                <td className="p-4 text-right tabular-nums text-sand" title="Base salary (guaranteed floor)">{r.salary ? aed(r.salary) : "—"}</td>
-                <td className="p-4 text-right tabular-nums text-sand" title={`Sales split ${aed(r.salesCommission)} · Referral ${aed(r.referral)} · paid only if it beats base`}>{r.commission ? aed(r.commission) : "—"}</td>
+                <td className="p-4 text-right tabular-nums text-sand" title={`Base salary ${aed(r.salary)} vs sales commission ${aed(r.salesCommission)} — the higher is paid`}>
+                  {earned ? aed(earned) : "—"}
+                  {earned > 0 && <span className="block text-[0.6rem] text-muted">{r.salesCommission >= r.salary ? "commission" : "base floor"}</span>}
+                </td>
+                <td className="p-4 text-right tabular-nums text-sand" title="Referral (marketer) — always added on top">{r.referral ? aed(r.referral) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-green-400">{r.bonus ? aed(r.bonus) : "—"}</td>
                 <td className="p-4 text-right tabular-nums text-red-600">{r.deductions ? `−${aed(r.deductions)}` : "—"}</td>
                 <td className="p-4 text-right font-semibold tabular-nums text-cream">{aed(r.net)}</td>
@@ -116,13 +125,13 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
                     <a href={`/api/erp/payroll/payslip/${r.staffId}?month=${month}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2 py-1 text-xs text-gold hover:bg-gold/10" title="Payslip PDF">
                       <Printer size={12} /> Slip
                     </a>
-                    {!r.paid && r.net !== 0 && (
+                    {!r.paid && r.net > 0 && (
                       <button onClick={() => pay(r.staffId)} disabled={pending} className="rounded-lg bg-gold-gradient px-2.5 py-1 text-xs font-semibold text-espresso disabled:opacity-40">Pay</button>
                     )}
                   </div>
                 </td>
               </tr>
-            ))}
+              ); })}
           </tbody>
         </table>
       </div>
