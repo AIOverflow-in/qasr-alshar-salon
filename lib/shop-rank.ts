@@ -52,20 +52,22 @@ export function styleScore(text: string): number {
   return Math.max(0, textureScore(t) + colourScore(t));
 }
 
-/** Composite popularity: real sales dominate (a single sale outranks any heuristic tier), then demand. */
-export function popularityScore(p: Rankable): number {
-  return p.unitsSold * 1000 + categoryWeight(p.category) + styleScore(`${p.name} ${p.description ?? ""}`);
-}
-
-/** Order the storefront: in-stock first, most popular next, premium-first among equals, stable by name. */
+/**
+ * Order the storefront (best-value-first, per the salon's choice):
+ *   in-stock first → genuine bestsellers → best value (lowest price) → popular styles break ties → name.
+ * Accessible price points usually move the most units, so this doubles as a "top-selling" proxy until
+ * real orders accumulate; a genuine sale still lifts any product above unsold ones regardless of price.
+ */
 export function rankProducts<T extends Rankable>(products: T[]): T[] {
   return [...products].sort((a, b) => {
     const inStock = (b.stock > 0 ? 1 : 0) - (a.stock > 0 ? 1 : 0);
     if (inStock) return inStock;                        // sold-out sinks to the bottom
-    const byPop = popularityScore(b) - popularityScore(a);
-    if (byPop) return byPop;                            // most popular first
-    const byPrice = (b.priceAED ?? 0) - (a.priceAED ?? 0);
-    if (byPrice) return byPrice;                        // feature the premium piece among equivalents
+    const bySales = b.unitsSold - a.unitsSold;
+    if (bySales) return bySales;                        // real bestsellers always win
+    const byValue = (a.priceAED ?? 0) - (b.priceAED ?? 0);
+    if (byValue) return byValue;                        // best value (lowest price) first
+    const byStyle = styleScore(`${b.name} ${b.description ?? ""}`) - styleScore(`${a.name} ${a.description ?? ""}`);
+    if (byStyle) return byStyle;                        // among same-priced items, popular styles first
     return a.name.localeCompare(b.name);                // stable, predictable
   });
 }

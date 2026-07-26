@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { categoryWeight, styleScore, popularityScore, rankProducts, assignBadges } from "./shop-rank";
+import { categoryWeight, styleScore, rankProducts, assignBadges } from "./shop-rank";
 
 const P = (over) => ({ name: "X", category: "Wigs", description: "", unitsSold: 0, stock: 5, priceAED: 500, ...over });
 
@@ -16,10 +16,12 @@ test("styleScore: in-demand textures beat specialty shades", () => {
   assert.equal(styleScore(""), 0);
 });
 
-test("popularityScore: a single real sale outranks any heuristic advantage", () => {
-  const sold = P({ category: "Accessories", name: "Edge gel", unitsSold: 1 }); // weakest heuristic, but sold
-  const unsold = P({ category: "Lace Front Wigs", name: "Body Wave", unitsSold: 0 }); // strongest heuristic, unsold
-  assert.ok(popularityScore(sold) > popularityScore(unsold));
+test("rankProducts: a genuine sale lifts a product above unsold ones, whatever the price", () => {
+  const items = [
+    P({ name: "Unsold Cheap", priceAED: 200, unitsSold: 0 }),
+    P({ name: "Sold Premium", priceAED: 9000, unitsSold: 1 }),
+  ];
+  assert.equal(rankProducts(items)[0].name, "Sold Premium"); // real sales beat best-value
 });
 
 test("rankProducts: best-selling first, then market demand, sold-out last", () => {
@@ -36,13 +38,13 @@ test("rankProducts: best-selling first, then market demand, sold-out last", () =
   assert.equal(order[3], "Gone");  // out of stock sinks to the bottom despite sales
 });
 
-test("rankProducts: among equivalent items, the premium (higher-priced) piece leads", () => {
-  // Same texture/colour/category/sales → price breaks the tie (premium first), not the name.
+test("rankProducts: among equivalent unsold items, best value (lower price) leads", () => {
+  // Same texture/colour/category/sales → price breaks the tie (best value first), not the name.
   const items = [
     P({ name: "Zed", description: "straight black", priceAED: 9000 }),
     P({ name: "Abe", description: "straight black", priceAED: 4000 }),
   ];
-  assert.deepEqual(rankProducts(items).map((p) => p.name), ["Zed", "Abe"]); // not alphabetical
+  assert.deepEqual(rankProducts(items).map((p) => p.name), ["Abe", "Zed"]); // cheaper first, not alphabetical
 });
 
 test("rankProducts is pure (does not mutate input)", () => {
