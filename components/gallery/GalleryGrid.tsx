@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 
@@ -69,20 +69,34 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
   const next = useCallback(() => setOpen((i) => (i === null ? i : (i + 1) % visible.length)), [visible.length]);
   const prev = useCallback(() => setOpen((i) => (i === null ? i : (i - 1 + visible.length) % visible.length)), [visible.length]);
 
+  const isOpen = open !== null;
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  // Open/close only (not per-image navigation): lock body scroll + move focus into the dialog and
+  // restore it to the thumbnail on close, so keyboard/screen-reader users aren't stranded behind it.
   useEffect(() => {
-    if (open === null) return;
+    if (!isOpen) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
+    closeBtnRef.current?.focus();
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+      openerRef.current?.focus?.();
+    };
+  }, [isOpen]);
+
+  // Keyboard navigation while the lightbox is open.
+  useEffect(() => {
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       else if (e.key === "ArrowRight") next();
       else if (e.key === "ArrowLeft") prev();
     };
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, close, next, prev]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, close, next, prev]);
 
   const current = open === null ? null : visible[open];
 
@@ -148,7 +162,7 @@ export function GalleryGrid({ photos }: { photos: Photo[] }) {
           aria-label={current.label}
           onClick={close}
         >
-          <button onClick={close} aria-label="Close" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full border border-white/20 text-white/80 hover:bg-white/10">
+          <button ref={closeBtnRef} onClick={close} aria-label="Close" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full border border-white/20 text-white/80 hover:bg-white/10">
             <X size={22} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); prev(); }} aria-label="Previous" className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/20 text-white/80 hover:bg-white/10 sm:left-6">
