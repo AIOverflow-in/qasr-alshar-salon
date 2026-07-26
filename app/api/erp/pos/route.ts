@@ -11,6 +11,12 @@ import { vatFromInclusive, netFromInclusive, VAT_PCT } from "@/lib/vat-core";
 
 export const dynamic = "force-dynamic";
 
+/** Tokenized, client-shareable invoice URL — returned so reception can WhatsApp/share the receipt. */
+function invoicePublicUrl(invoiceNo: string): string {
+  return `${SITE.url}/api/invoice/${invoiceNo}?t=${invoiceToken(invoiceNo)}`;
+}
+const withInvoiceUrl = <T extends { invoiceNo: string }>(o: T) => ({ ...o, publicUrl: invoicePublicUrl(o.invoiceNo) });
+
 const lineSchema = z.object({
   kind: z.enum(["SERVICE", "PRODUCT"]),
   description: z.string().min(1),
@@ -260,7 +266,7 @@ export async function POST(req: Request) {
       where: { clientRequestId: data.clientRequestId },
       select: { id: true, invoiceNo: true, totalAED: true },
     });
-    if (dupe) return NextResponse.json({ ok: true, order: dupe, idempotent: true });
+    if (dupe) return NextResponse.json({ ok: true, order: withInvoiceUrl(dupe), idempotent: true });
   }
 
   // Create with a retry loop: invoice-number collisions and serialization
@@ -352,7 +358,7 @@ export async function POST(req: Request) {
       // Two identical submits raced → return the one that won.
       if (data.clientRequestId && isUniqueOn(e, "clientRequestId")) {
         const existing = await prisma.salesOrder.findUnique({ where: { clientRequestId: data.clientRequestId }, select: { id: true, invoiceNo: true, totalAED: true } });
-        if (existing) return NextResponse.json({ ok: true, order: existing, idempotent: true });
+        if (existing) return NextResponse.json({ ok: true, order: withInvoiceUrl(existing), idempotent: true });
       }
       if (e instanceof Error && e.message === "ALREADY_BILLED") {
         return NextResponse.json({ error: "This booking has already been billed." }, { status: 409 });
@@ -371,7 +377,7 @@ export async function POST(req: Request) {
 
   await emailInvoice(order.id);
 
-  return NextResponse.json({ ok: true, order });
+  return NextResponse.json({ ok: true, order: withInvoiceUrl(order) });
 }
 
 // PATCH — edit an existing invoice: reverse old stock/commission/client totals, apply new ones.
@@ -480,8 +486,9 @@ export async function PATCH(req: Request) {
   if (!done) return NextResponse.json({ error: "The system was busy — please try the edit again." }, { status: 409 });
 
   const updated = await prisma.salesOrder.findUnique({ where: { id: data.orderId }, select: { id: true, invoiceNo: true, totalAED: true } });
+  if (!updated) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   await emailInvoice(data.orderId);
-  return NextResponse.json({ ok: true, order: updated });
+  return NextResponse.json({ ok: true, order: withInvoiceUrl(updated) });
 }
 
 export async function GET(req: Request) {

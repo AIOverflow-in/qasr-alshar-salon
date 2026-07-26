@@ -96,7 +96,8 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   const [saleTime, setSaleTime] = useState<string>(toTimeInput(saleInit)); // HH:mm
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientEmail: string | null; clientPhone: string | null } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [lastInvoice, setLastInvoice] = useState<{ invoiceNo: string; totalAED: number; clientPhone: string | null; publicUrl: string | null } | null>(null);
   const [bookingId] = useState<string | undefined>(prefill?.bookingId);
   const [orderId] = useState<string | undefined>(prefill?.orderId);
   const editing = !!orderId;
@@ -245,21 +246,40 @@ export function PosTerminal({ services, staff, clients: initialClients, products
   }
 
   function reset() {
+    // A booking-billed or edited invoice carries prefill (bookingId/orderId have no setter) —
+    // reload a clean terminal so nothing from that transaction leaks into the next sale.
+    if (bookingId || orderId) { window.location.assign("/erp/pos"); return; }
     setLines([]);
     setSelectedStaff("");
+    setSelectedMarketer("");
     setSelectedClient("");
     setClientQuery("");
+    setShowNewClient(false);
+    setNewClient({ name: "", phone: "", email: "" });
     setPaymentMethod("CASH");
+    setSplit(false);
+    setCashAED(""); setCardAED(""); setTransferAED("");
+    setCommissionEdits({});
+    setMarketerCommission("");
+    setBookingQuery("");
     setNotes("");
     setError(null);
+    setLinkCopied(false);
     setLastInvoice(null);
     setQuery("");
+    // Re-stamp the sale time so consecutive sales in one session aren't all frozen at page-load time.
+    const now = new Date();
+    setSaleDay(toDateInput(now));
+    setSaleTime(toTimeInput(now));
     requestIdRef.current = null; // fresh idempotency key for the next sale
   }
 
   async function checkout() {
     if (lines.length === 0) { setError("Add at least one item."); return; }
     if (split && splitSum !== total) { setError(`Split amounts (AED ${splitSum}) must add up to the total (AED ${total}).`); return; }
+    // A service line with no per-line artist and no main artist earns no commission — warn before it's lost.
+    const serviceMissingArtist = lines.some((l) => l.kind === "SERVICE" && l.staffIds.length === 0 && !selectedStaff);
+    if (serviceMissingArtist && !window.confirm("No artist is set for one or more services — no commission will be recorded for them. Charge anyway?")) return;
     if (submitting) return;
     if (!editing && !requestIdRef.current) requestIdRef.current = crypto.randomUUID();
     setError(null);
@@ -293,8 +313,8 @@ export function PosTerminal({ services, staff, clients: initialClients, products
       setLastInvoice({
         invoiceNo: data.order.invoiceNo,
         totalAED: data.order.totalAED,
-        clientEmail: selectedClientObj?.phone ? null : null,
         clientPhone: selectedClientObj?.phone ?? newClient.phone ?? null,
+        publicUrl: data.order.publicUrl ?? null,
       });
     } catch { setError("Network error — please try again."); }
     finally { setSubmitting(false); }
@@ -304,7 +324,8 @@ export function PosTerminal({ services, staff, clients: initialClients, products
     const invoiceUrl = `/api/erp/invoice/${lastInvoice.invoiceNo}`;
     const phone = (lastInvoice.clientPhone ?? "").replace(/\D/g, "");
     const waText = encodeURIComponent(
-      `Hello from Qasr Alshar Salon 👑\nThank you for your visit! Your invoice ${lastInvoice.invoiceNo} for ${aed(lastInvoice.totalAED)} is ready.`
+      `Hello from Qasr Alshar Salon 👑\nThank you for your visit! Your invoice ${lastInvoice.invoiceNo} for ${aed(lastInvoice.totalAED)} is ready.` +
+      (lastInvoice.publicUrl ? `\nView it any time: ${lastInvoice.publicUrl}` : "")
     );
     const waUrl = phone ? `https://wa.me/${phone}?text=${waText}` : null;
     return (
@@ -320,15 +341,20 @@ export function PosTerminal({ services, staff, clients: initialClients, products
             <Printer size={15} /> Print / PDF
           </a>
           {waUrl && (
-            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-green-500/50 px-5 py-2.5 text-sm text-green-400 hover:bg-green-500/10">
+            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-green-600/50 px-5 py-2.5 text-sm text-green-700 hover:bg-green-50">
               <MessageCircle size={15} /> Send on WhatsApp
             </a>
+          )}
+          {lastInvoice.publicUrl && (
+            <button onClick={() => { navigator.clipboard?.writeText(lastInvoice.publicUrl!); setLinkCopied(true); }} className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-5 py-2.5 text-sm text-gold hover:bg-gold/10">
+              <Link2 size={15} /> {linkCopied ? "Copied!" : "Copy link"}
+            </button>
           )}
           <button onClick={reset} className="inline-flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso">
             New Sale
           </button>
         </div>
-        <p className="mt-4 text-xs text-muted">A copy was emailed to the client automatically (if an email is on file).</p>
+        <p className="mt-4 text-xs text-muted">A copy is emailed to the client automatically when an email is on file.</p>
       </div>
     );
   }
@@ -558,32 +584,47 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         {/* line items */}
         <div className="surface rounded-2xl p-4 space-y-2 min-h-[160px]">
           {lines.length === 0 && <p className="text-center text-sm text-muted py-6">Add services from the list →</p>}
-          {lines.map((l) => (
+          {lines.map((l) => {
+            const prod = l.kind === "PRODUCT" && l.productId ? products.find((p) => p.id === l.productId) : undefined;
+            const maxQty = prod ? Math.max(1, prod.qty) : undefined; // cap a product line at available stock
+            const menu = l.kind === "SERVICE" ? services.find((s) => `svc-${s.id}` === l.key)?.priceAED : (prod?.saleAED ?? undefined);
+            const priceOff = menu != null && l.unitAED !== menu; // flag an off-menu price edit
+            const atStockMax = maxQty != null && l.qty >= maxQty;
+            return (
             <div key={l.key} className="rounded-lg border border-ink-line/40 p-2 space-y-1.5">
               <div className="flex items-center gap-2">
                 <input
                   value={l.description}
                   onChange={(e) => updateLine(l.key, { description: e.target.value })}
-                  className="flex-1 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-sm text-cream outline-none focus:border-gold/40 min-w-0"
+                  className="flex-1 rounded border border-ink-line/50 bg-transparent px-2 py-1.5 text-sm text-cream outline-none focus:border-gold/40 min-w-0"
                 />
                 <input
                   type="number"
                   value={l.qty}
                   min={1}
-                  onChange={(e) => updateLine(l.key, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
-                  className="w-12 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-center text-sm text-cream outline-none"
+                  max={maxQty}
+                  aria-label="Quantity"
+                  onChange={(e) => updateLine(l.key, { qty: Math.min(maxQty ?? Infinity, Math.max(1, parseInt(e.target.value) || 1)) })}
+                  className="w-14 rounded border border-ink-line/50 bg-transparent px-2 py-1.5 text-center text-sm text-cream outline-none focus:border-gold/40"
                 />
                 <input
                   type="number"
                   value={l.unitAED}
                   min={0}
-                  onChange={(e) => updateLine(l.key, { unitAED: parseInt(e.target.value) || 0 })}
-                  className="w-20 rounded border border-ink-line/50 bg-transparent px-2 py-1 text-right text-sm text-gold outline-none"
+                  aria-label="Unit price (AED)"
+                  onChange={(e) => updateLine(l.key, { unitAED: Math.max(0, parseInt(e.target.value) || 0) })}
+                  className={cn("w-20 rounded border bg-transparent px-2 py-1.5 text-right text-sm outline-none focus:border-gold/40", priceOff ? "border-amber-500/70 text-amber-700" : "border-ink-line/50 text-gold")}
                 />
-                <button onClick={() => removeLine(l.key)} className="text-muted hover:text-red-600 transition-colors flex-shrink-0">
-                  <Trash2 size={14} />
+                <button onClick={() => removeLine(l.key)} aria-label="Remove line" className="grid h-9 w-9 flex-shrink-0 place-items-center rounded text-muted transition-colors hover:text-red-600">
+                  <Trash2 size={16} />
                 </button>
               </div>
+              {(priceOff || atStockMax) && (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 pl-1 text-[0.65rem]">
+                  {priceOff && <span className="text-amber-700">Off menu — was {aed(menu!)}</span>}
+                  {atStockMax && <span className="text-muted">Only {prod!.qty} in stock</span>}
+                </div>
+              )}
               {staff.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {l.staffIds.map((id) => {
@@ -614,7 +655,7 @@ export function PosTerminal({ services, staff, clients: initialClients, products
                 </div>
               )}
             </div>
-          ))}
+          ); })}
         </div>
 
         {/* totals */}
@@ -758,23 +799,27 @@ export function PosTerminal({ services, staff, clients: initialClients, products
           />
         </div>
 
-        {error && (
-          <div className="rounded-xl border border-red-500/40 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-start gap-2">
-            <X size={14} className="mt-0.5 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={checkout}
-          disabled={submitting || lines.length === 0 || total === 0 || !splitValid}
-          className={cn(
-            "w-full rounded-2xl py-4 font-semibold text-espresso transition-opacity text-base flex items-center justify-center gap-2",
-            "bg-gold-gradient disabled:opacity-40"
+        {/* Charge + total pin to the bottom of the viewport on mobile/tablet so they're always in
+            reach (and the on-screen keyboard can't hide them); static in the sidebar on desktop. */}
+        <div className="sticky bottom-0 z-10 space-y-3 bg-ink/95 py-2 backdrop-blur lg:static lg:bg-transparent lg:py-0 lg:backdrop-blur-none">
+          {error && (
+            <div className="rounded-xl border border-red-500/40 bg-red-50 px-4 py-3 text-sm text-red-600 flex items-start gap-2" role="alert">
+              <X size={14} className="mt-0.5 flex-shrink-0" />
+              {error}
+            </div>
           )}
-        >
-          {submitting ? <><Loader2 className="animate-spin" size={18} /> Processing…</> : <><Send size={16} /> {editing ? `Update invoice · ${aed(total)}` : `Charge ${aed(total)}`}</>}
-        </button>
+
+          <button
+            onClick={checkout}
+            disabled={submitting || lines.length === 0 || total === 0 || !splitValid}
+            className={cn(
+              "w-full rounded-2xl py-4 font-semibold text-espresso transition-opacity text-base flex items-center justify-center gap-2",
+              "bg-gold-gradient disabled:opacity-40"
+            )}
+          >
+            {submitting ? <><Loader2 className="animate-spin" size={18} /> Processing…</> : <><Send size={16} /> {editing ? `Update invoice · ${aed(total)}` : `Charge ${aed(total)}`}</>}
+          </button>
+        </div>
       </div>
     </div>
   );
