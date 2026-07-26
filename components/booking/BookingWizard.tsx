@@ -451,6 +451,7 @@ export function BookingWizard({
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 onClick={() => { setStylist(null); setStep(3); }}
+                aria-pressed={stylist === null}
                 className={cn(
                   "rounded-xl border p-4 text-start transition-colors",
                   stylist === null ? "border-gold bg-gold/10 text-cream" : "border-ink-line text-sand hover:border-gold/50"
@@ -463,6 +464,7 @@ export function BookingWizard({
                 <button
                   key={s.id}
                   onClick={() => { setStylist(s); setStep(3); }}
+                  aria-pressed={stylist?.id === s.id}
                   className={cn(
                     "rounded-xl border p-4 text-start transition-colors",
                     stylist?.id === s.id ? "border-gold bg-gold/10" : "border-ink-line hover:border-gold/50"
@@ -497,6 +499,7 @@ export function BookingWizard({
                 <button
                   key={iso}
                   onClick={() => setDate(iso)}
+                  aria-pressed={active}
                   className={cn(
                     "flex min-w-16 shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition-colors",
                     active ? "border-gold bg-gold-gradient text-espresso" : "border-ink-line text-sand hover:border-gold/50"
@@ -523,6 +526,7 @@ export function BookingWizard({
                 <button
                   key={s.iso}
                   onClick={() => setSlot(s)}
+                  aria-pressed={slot?.iso === s.iso}
                   className={cn(
                     "rounded-lg border py-2.5 text-sm transition-colors",
                     slot?.iso === s.iso
