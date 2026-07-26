@@ -52,6 +52,11 @@ export function AssistantPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q }),
       });
+      if (res.status === 401 || res.status === 403) {
+        // Don't blame the AI for an expired session — say what actually happened.
+        setMessages((m) => [...m, { role: "assistant", text: "Your session has expired — please refresh the page and log in again." }]);
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       const answer = typeof data.answer === "string" && data.answer ? data.answer : "Sorry, I couldn't answer that.";
       setMessages((m) => [...m, { role: "assistant", text: answer }]);

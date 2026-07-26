@@ -439,7 +439,9 @@ export async function createUser(data: { name: string; email: string; role: Role
 }
 
 export async function updateUserRole(id: string, role: Role) {
-  await requireSuperAdmin();
+  const me = await requireSuperAdmin();
+  // Can't demote yourself — otherwise the last Super Admin could lock everyone out of user management.
+  if (id === me.sub) return { ok: false, error: "You can't change your own role — ask another Super Admin." };
   if (!VALID_ROLES.includes(role)) return { ok: false, error: "Invalid role." };
   // Block switching to crown artist unless the login is already linked to a staff record.
   if (role === "STYLIST") {

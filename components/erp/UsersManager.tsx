@@ -33,6 +33,7 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
   }
   function act(id: string, fn: () => Promise<unknown>) { setBusyId(id); start(async () => { await fn(); setBusyId(null); }); }
   function changeRole(id: string, role: Role) {
+    if (!window.confirm(`Change this user's role to ${ROLE_LABEL[role] ?? role}?`)) { router.refresh(); return; }
     setBusyId(id);
     start(async () => {
       const r = await updateUserRole(id, role);
@@ -121,8 +122,10 @@ export function UsersManager({ users, staff, unlinked, currentUserId }: { users:
                 <td className="p-4">
                   <select
                     defaultValue={u.role}
+                    disabled={u.id === currentUserId}
+                    title={u.id === currentUserId ? "You can't change your own role" : undefined}
                     onChange={(e) => changeRole(u.id, e.target.value as Role)}
-                    className="rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-xs text-cream outline-none focus:border-gold/60"
+                    className="rounded-lg border border-ink-line bg-ink-card px-2 py-1.5 text-xs text-cream outline-none focus:border-gold/60 disabled:opacity-50"
                   >
                     {ROLES.map((r) => <option key={r} value={r} className="bg-ink">{ROLE_LABEL[r]}</option>)}
                   </select>
