@@ -80,7 +80,9 @@ export function InventoryTable({ products, categories, category, total, page, si
       const idx = (k: string) => header.indexOf(k);
       const ci = { name: idx("name"), category: idx("category"), barcode: idx("barcode"), qty: idx("qty"), cost: idx("costaed"), sale: idx("saleaed"), reorder: idx("reorderat") };
       if (ci.name < 0) { setImportMsg("CSV needs a 'name' column."); return; }
-      const num = (v: string | undefined) => { const n = parseInt((v ?? "").replace(/[^\d-]/g, "")); return Number.isFinite(n) ? n : null; };
+      // Parse a decimal-aware number and round to whole dirhams (cost/sale/qty are integers).
+      // Keeps the '.' so "12.50" -> 13, not 1250 (the old /[^\d-]/ strip 100×'d decimals).
+      const num = (v: string | undefined) => { const n = Math.round(parseFloat((v ?? "").replace(/[^\d.-]/g, ""))); return Number.isFinite(n) ? n : null; };
       const rows = allRows.slice(1).filter((c) => c[ci.name]?.trim()).map((c) => ({
         name: c[ci.name].trim(),
         category: ci.category >= 0 ? c[ci.category]?.trim() ?? null : null,
