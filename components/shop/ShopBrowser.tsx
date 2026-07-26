@@ -13,16 +13,23 @@ const PER_PAGE = 24;
 export function ShopBrowser({ products }: { products: ShopCard[] }) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  const [sort, setSort] = useState<"featured" | "price-asc" | "price-desc">("featured");
   const [page, setPage] = useState(1);
 
   const categories = useMemo(() => categoriesOf(products), [products]);
   const filtered = useMemo(() => filterProducts(products, q, cat), [products, q, cat]);
-  const { items, page: cur, pageCount } = pageSlice(filtered, page, PER_PAGE);
+  const sorted = useMemo(() => {
+    if (sort === "price-asc") return [...filtered].sort((a, b) => a.priceAED - b.priceAED);
+    if (sort === "price-desc") return [...filtered].sort((a, b) => b.priceAED - a.priceAED);
+    return filtered; // "featured" keeps the server order (best-value / bestsellers first)
+  }, [filtered, sort]);
+  const { items, page: cur, pageCount } = pageSlice(sorted, page, PER_PAGE);
 
   const goPage = (p: number) => { setPage(p); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); };
   const setSearch = (v: string) => { setQ(v); setPage(1); };
   const setCategory = (c: string) => { setCat(c); setPage(1); };
-  const clear = () => { setQ(""); setCat("all"); setPage(1); };
+  const setSorting = (v: "featured" | "price-asc" | "price-desc") => { setSort(v); setPage(1); };
+  const clear = () => { setQ(""); setCat("all"); setSort("featured"); setPage(1); };
   const chipCls = (on: boolean) =>
     cn("rounded-full border px-3.5 py-1.5 text-xs transition-colors", on ? "border-gold bg-gold/10 text-gold" : "border-ink-line text-sand hover:border-gold/50 hover:text-gold");
 
@@ -55,9 +62,24 @@ export function ShopBrowser({ products }: { products: ShopCard[] }) {
         )}
       </div>
 
-      <p className="mt-4 text-center text-xs text-muted">
-        {filtered.length} product{filtered.length === 1 ? "" : "s"}{q || cat !== "all" ? " found" : ""}
-      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+        <p className="text-xs text-muted">
+          {filtered.length} product{filtered.length === 1 ? "" : "s"}{q || cat !== "all" ? " found" : ""}
+        </p>
+        <label className="flex items-center gap-1.5 text-xs text-muted">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => setSorting(e.target.value as "featured" | "price-asc" | "price-desc")}
+            aria-label="Sort products"
+            className="rounded-lg border border-ink-line bg-ink-card px-2.5 py-1.5 text-xs text-cream outline-none focus:border-gold/60"
+          >
+            <option value="featured" className="bg-ink">Featured</option>
+            <option value="price-asc" className="bg-ink">Price: low to high</option>
+            <option value="price-desc" className="bg-ink">Price: high to low</option>
+          </select>
+        </label>
+      </div>
 
       {filtered.length === 0 ? (
         <div className="mt-14 text-center text-muted">
