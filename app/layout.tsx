@@ -90,6 +90,13 @@ export default async function RootLayout({
   const pathname = headersList.get("x-pathname") ?? "";
   const isInternal = pathname.startsWith("/admin") || pathname.startsWith("/erp");
 
+  // Arabic stopgap (free; can't break a page): only the homepage and booking are actually translated.
+  // For every other (English) page, render the CONTENT left-to-right/English when Arabic is selected so
+  // it isn't mirrored/broken; the translated pages + the Arabic nav & footer keep their RTL layout.
+  // As pages get real Arabic translations later, drop them from this list.
+  const contentTranslated = pathname === "/" || pathname.startsWith("/book");
+  const forceLtr = locale === "ar" && !contentTranslated;
+
   return (
     <html
       lang={locale}
@@ -99,7 +106,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-ink text-cream">
         <JsonLd data={localBusinessSchema()} />
         {!isInternal && <Header />}
-        <main className="flex-1 pb-24 lg:pb-0">{children}</main>
+        <main dir={forceLtr ? "ltr" : undefined} lang={forceLtr ? "en" : undefined} className="flex-1 pb-24 lg:pb-0">{children}</main>
         {!isInternal && <Footer />}
         {!isInternal && <MobileBookingBar />}
         {!isInternal && <SocialFab />}
