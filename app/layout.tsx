@@ -88,7 +88,8 @@ export default async function RootLayout({
 
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") ?? "";
-  const isInternal = pathname.startsWith("/admin") || pathname.startsWith("/erp");
+  // /receipt/* is a chrome-free printable page (thermal receipt) — no header/footer/fabs.
+  const isInternal = pathname.startsWith("/admin") || pathname.startsWith("/erp") || pathname.startsWith("/receipt");
 
   // Arabic stopgap (free; can't break a page): only the homepage and booking are actually translated.
   // For every other (English) page, render the CONTENT left-to-right/English when Arabic is selected so

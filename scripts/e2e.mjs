@@ -722,6 +722,19 @@ try {
       const invNo = (await (await fetch(BASE + "/api/erp/pos", { method: "POST", headers: hdr, body: JSON.stringify({ clientRequestId: `${REQ}inv-${Date.now()}`, customerName: `${TAG}Inv`, lines: [{ kind: "SERVICE", description: `${TAG}INV`, qty: 1, unitAED: 150 }] }) })).json().catch(() => ({})))?.order?.invoiceNo;
       const pdf = invNo ? await fetch(`${BASE}/api/erp/invoice/${invNo}`, { headers: hdr }) : null;
       ok(!!pdf && pdf.status === 200 && (pdf.headers.get("content-type") || "").includes("application/pdf"), `invoice ${invNo} → PDF (${pdf?.status}, ${pdf?.headers.get("content-type")})`);
+
+      // Thermal client receipt (printable page) — POS roles render it; others are gated; unknown → 404.
+      if (invNo) {
+        ok((await code(`/receipt/${invNo}`, "RECEPTION")) === "200", "receipt: reception renders (200)");
+        ok((await code(`/receipt/${invNo}`, "SUPER_ADMIN")) === "200", "receipt: super-admin renders (200)");
+        ok((await code(`/receipt/${invNo}`, "STYLIST")) === "REDIR", "receipt: stylist redirected (not a POS role)");
+        ok((await code(`/receipt/${invNo}`)) === "REDIR", "receipt: anon redirected to login");
+        const rb = await body(`/receipt/${invNo}`, "RECEPTION");
+        ok(rb.text.includes("Scan to review us on Google") && rb.text.includes("Qasr Alshar"), "receipt: branded receipt with review QR renders");
+        ok(rb.text.includes(">Receipt<") && !rb.text.includes("Tax Invoice"), "receipt: titled RECEIPT (not a TAX INVOICE before VAT registration)");
+        ok(!rb.text.includes("TRN") || rb.text.includes("VAT TRN"), "receipt: no bare/pending TRN before VAT registration");
+      }
+      ok((await code(`/receipt/${TAG}NOPE-000`, "RECEPTION")) === "404", "receipt: unknown invoice → 404");
     }
 
     section("Booking edit sets the marketer");
