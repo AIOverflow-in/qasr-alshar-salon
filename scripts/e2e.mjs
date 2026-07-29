@@ -730,8 +730,9 @@ try {
         ok((await code(`/receipt/${invNo}`, "STYLIST")) === "REDIR", "receipt: stylist redirected (not a POS role)");
         ok((await code(`/receipt/${invNo}`)) === "REDIR", "receipt: anon redirected to login");
         const rb = await body(`/receipt/${invNo}`, "RECEPTION");
-        ok(rb.text.includes("Scan to review us on Google") && rb.text.includes("Qasr Alshar"), "receipt: branded receipt with review QR renders");
-        ok(rb.text.includes(">Receipt<") && !rb.text.includes("Tax Invoice"), "receipt: titled RECEIPT (not a TAX INVOICE before VAT registration)");
+        ok(rb.text.includes("Qasr Alshar Salon") && rb.text.includes("Sale Receipt"), "receipt: Sale Receipt renders with brand header");
+        ok(rb.text.includes("Payment Detail") && rb.text.includes("Net Amount"), "receipt: has payment-detail + net-amount sections");
+        ok(!rb.text.includes("Tax Invoice"), "receipt: 'Sale Receipt' (not a Tax Invoice) before VAT registration");
         ok(!rb.text.includes("TRN") || rb.text.includes("VAT TRN"), "receipt: no bare/pending TRN before VAT registration");
       }
       ok((await code(`/receipt/${TAG}NOPE-000`, "RECEPTION")) === "404", "receipt: unknown invoice → 404");
