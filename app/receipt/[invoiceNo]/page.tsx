@@ -21,7 +21,8 @@ const money2 = (n: number) => n.toLocaleString("en-AE", { minimumFractionDigits:
 const CSS = `
   .rc { --w: 80mm; width: var(--w); margin: 0 auto; padding: 4mm 3mm 5mm; box-sizing: border-box;
     color:#000; background:#fff; font-family: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
-    font-size: 11px; line-height: 1.35; -webkit-font-smoothing: antialiased; }
+    font-size: 11px; line-height: 1.35; -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rc .serif { font-family: var(--font-playfair), Georgia, serif; }
   .rc .c { text-align:center; }
   .rc .crest { width: 20mm; height:auto; margin: 0 auto 1mm; display:block; }
@@ -46,7 +47,17 @@ const CSS = `
   .rc .bc { margin:8px auto 2px; display:block; }
   .rc .bctext { text-align:center; font-family: ui-monospace, monospace; letter-spacing:.35em; font-size:11px; }
   .rc .foot { text-align:center; font-size:8.5px; color:#333; margin-top:6px; }
-  @media print { @page { size: 80mm auto; margin: 0; } html, body { background:#fff !important; } .no-print { display:none !important; } }
+  /* globals.css prints only ".print-area" (it hides body * and forces A4 @page{margin:14mm}).
+     This thermal receipt uses its own layout, so re-show ".rc" and reclaim the page box. */
+  @media print {
+    @page { size: 80mm auto; margin: 0; }
+    html, body { background:#fff !important; }
+    /* globals hides body * and pins .print-area absolute; re-show the receipt in normal flow so
+       the 80mm auto-height page sizes to the content (absolute would collapse the page height). */
+    .rc, .rc * { visibility: visible !important; }
+    .rc { position: static !important; margin: 0 auto; }
+    .no-print { display: none !important; }
+  }
 `;
 
 export default async function ReceiptPage({ params }: { params: Promise<{ invoiceNo: string }> }) {
