@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, X, ArrowUp } from "lucide-react";
+import { Sparkles, X, ArrowUp, GripVertical } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; text: string };
+
+const POS_KEY = "qa-assistant-pos"; // remembers where the user parked the button
+type Pos = { left: number; top: number };
+
+const clampToViewport = (left: number, top: number, w: number, h: number): Pos => ({
+  left: Math.min(Math.max(8, left), (typeof window !== "undefined" ? window.innerWidth : 9999) - w - 8),
+  top: Math.min(Math.max(8, top), (typeof window !== "undefined" ? window.innerHeight : 9999) - h - 8),
+});
 
 const SUGGESTIONS = [
   "What were today's takings?",
@@ -35,6 +43,50 @@ export function AssistantPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Draggable, position-remembering FAB — so it never sits on top of pagination or other controls.
+  const [pos, setPos] = useState<Pos | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; moved: boolean; last: Pos } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const raw = localStorage.getItem(POS_KEY);
+      if (raw) { const p = JSON.parse(raw) as Pos; setPos(clampToViewport(p.left, p.top, 120, 52)); }
+    } catch { /* ignore */ }
+  }, []);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false, last: { left: r.left, top: r.top } };
+    btnRef.current.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current; if (!d || !btnRef.current) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return; // ignore micro-jitter → still a click
+    d.moved = true;
+    const r = btnRef.current.getBoundingClientRect();
+    d.last = clampToViewport(d.ox + dx, d.oy + dy, r.width, r.height);
+    setPos(d.last);
+  };
+  const endDrag = () => {
+    const d = drag.current; drag.current = null;
+    if (!d) return;
+    if (d.moved) { try { localStorage.setItem(POS_KEY, JSON.stringify(d.last)); } catch { /* ignore */ } }
+    else setOpen(true); // a real click (no drag) opens the panel
+  };
+
+  // Panel opens anchored to wherever the button was parked (clamped on-screen); default bottom-right.
+  const panelStyle: React.CSSProperties = (() => {
+    if (!pos || !mounted) return { right: 20, bottom: 20 };
+    const w = Math.min(384, window.innerWidth * 0.92), h = Math.min(512, window.innerHeight * 0.8);
+    const c = clampToViewport(pos.left, pos.top, w, h);
+    return { left: c.left, top: c.top };
+  })();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -71,16 +123,24 @@ export function AssistantPanel() {
     <>
       {!open && (
         <button
-          onClick={() => setOpen(true)}
-          aria-label="Open assistant"
-          className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full border border-gold/40 bg-ink-card px-4 py-3 text-sm text-gold shadow-2xl hover:border-gold hover:bg-gold/10"
+          ref={btnRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}
+          aria-label="Open assistant (drag to move)"
+          title="Click to ask · drag to move"
+          style={pos && mounted ? { left: pos.left, top: pos.top } : { right: 20, bottom: 20 }}
+          className="fixed z-[60] flex touch-none select-none items-center gap-1.5 rounded-full border border-gold/40 bg-ink-card px-4 py-3 text-sm text-gold shadow-2xl hover:border-gold hover:bg-gold/10 cursor-grab active:cursor-grabbing"
         >
+          <GripVertical size={14} className="opacity-40" />
           <Sparkles size={18} /> <span className="hidden sm:inline">Ask</span>
         </button>
       )}
 
       {open && (
-        <div className="fixed bottom-5 right-5 z-[60] flex h-[32rem] max-h-[80vh] w-96 max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-ink-line bg-ink shadow-2xl">
+        <div style={panelStyle} className="fixed z-[60] flex h-[32rem] max-h-[80vh] w-96 max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-ink-line bg-ink shadow-2xl">
           <div className="flex items-center justify-between border-b border-ink-line px-4 py-3">
             <span className="flex items-center gap-2 font-display text-cream"><Sparkles size={16} className="text-gold" /> Assistant</span>
             <button onClick={() => setOpen(false)} aria-label="Close" className="text-muted hover:text-cream"><X size={16} /></button>

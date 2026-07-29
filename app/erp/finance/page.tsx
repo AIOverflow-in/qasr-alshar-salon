@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { FileBarChart } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireRole, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
@@ -60,7 +62,12 @@ export default async function ErpFinance({ searchParams }: { searchParams: Promi
           <h1 className="font-display text-3xl text-cream">Finance &amp; Investor</h1>
           <p className="text-sm text-muted">{ok.role === "INVESTOR" ? "Investor view (read-only)" : "Owner / manager view"}</p>
         </div>
-        {canEdit && <SendDigestButton />}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/erp/finance/pl" className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-4 py-2 text-sm text-gold hover:bg-gold/10">
+            <FileBarChart size={15} /> P&amp;L report
+          </Link>
+          {canEdit && <SendDigestButton />}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">

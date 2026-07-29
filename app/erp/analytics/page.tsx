@@ -53,9 +53,9 @@ export default async function ErpAnalytics() {
 
           <div className="rounded-2xl border border-ink-line bg-ink-card p-5">
             <h2 className="font-display text-lg text-cream">Daily views</h2>
-            <div className="mt-4 flex h-32 items-end gap-1">
+            <div className="mt-4 flex h-32 items-stretch gap-1">
               {s.byDay.map((d) => (
-                <div key={d.day} className="group flex flex-1 flex-col justify-end" title={`${d.day}: ${d.views} views`}>
+                <div key={d.day} className="group flex h-full flex-1 flex-col justify-end" title={`${d.day}: ${d.views} views`}>
                   <div className="rounded-t bg-gold/70 group-hover:bg-gold" style={{ height: `${Math.max(2, Math.round((d.views / maxDay) * 100))}%` }} />
                 </div>
               ))}
