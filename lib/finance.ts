@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { monthStartUTC, dubaiDayRange, dubaiRangeForDate, salesRange, type DayRange } from "./finance-core";
+import { buildProfitAndLoss, type PLReport } from "./pl-core";
+import { TAX } from "./tax";
 
 // Pure date/range helpers now live in finance-core (unit-tested there); re-exported so existing
 // `@/lib/finance` importers (sales/erp/calendar/bookings pages, cron, digest, analytics) are unchanged.
@@ -96,4 +98,27 @@ export async function getRevenueByKind(range: DayRange): Promise<RevenueByKind> 
   }
   out.total = out.service + out.product;
   return out;
+}
+
+/**
+ * QuickBooks-style Profit & Loss for a window: income (service + retail) less operating expenses,
+ * grouped by category, with the VAT basis driven by lib/tax.ts. Revenue counts PAID orders by
+ * createdAt (matching the rest of finance); expenses count by incurredOn.
+ */
+export async function getProfitAndLoss(range: DayRange): Promise<PLReport> {
+  const [byKind, expenses] = await Promise.all([
+    getRevenueByKind(range),
+    prisma.expense.groupBy({
+      by: ["category"],
+      where: { incurredOn: { gte: range.start, lt: range.end } },
+      _sum: { amountAED: true },
+    }),
+  ]);
+  return buildProfitAndLoss({
+    vatRegistered: TAX.vatRegistered,
+    vatPct: TAX.vatPct,
+    serviceGrossAED: byKind.service,
+    productGrossAED: byKind.product,
+    expensesByCategory: expenses.map((e) => ({ category: e.category, amountAED: e._sum.amountAED ?? 0 })),
+  });
 }
