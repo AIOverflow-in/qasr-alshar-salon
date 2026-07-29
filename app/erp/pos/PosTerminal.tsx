@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2, Wallet } from "lucide-react";
+import { Search, Plus, Trash2, Printer, CheckCircle2, Loader2, X, UserPlus, CalendarCheck, Send, MessageCircle, Link2, Wallet, ReceiptText } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 import { vatFromInclusive, netFromInclusive, VAT_PCT } from "@/lib/vat-core";
 
@@ -337,8 +337,12 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         <p className="mt-2 text-sand">{lastInvoice.invoiceNo}</p>
         <p className="mt-1 text-2xl font-semibold text-gold">{aed(lastInvoice.totalAED)} <span className="text-sm font-normal text-muted">incl. VAT 5%</span></p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
+          {/* Primary action: every paying client goes home with a printed thermal receipt. */}
+          <a href={`/receipt/${lastInvoice.invoiceNo}`} target="_blank" className="inline-flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso">
+            <ReceiptText size={15} /> Print receipt
+          </a>
           <a href={invoiceUrl} target="_blank" className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-5 py-2.5 text-sm text-gold hover:bg-gold/10">
-            <Printer size={15} /> Print / PDF
+            <Printer size={15} /> A4 invoice (PDF)
           </a>
           {waUrl && (
             <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-green-600/50 px-5 py-2.5 text-sm text-green-700 hover:bg-green-50">

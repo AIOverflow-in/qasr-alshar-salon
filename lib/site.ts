@@ -14,6 +14,17 @@ export const SITE = {
   storefront: process.env.NEXT_PUBLIC_STOREFRONT_URL || "",
   locale: "en_AE",
 
+  // Legal entity + tax registration (trade licence / FTA certificates). Shown on receipts,
+  // invoices and the P&L. The VAT TRN lives in the env (VAT_TRN) — pending registration; when it's
+  // set, documents switch to full Tax-Invoice mode automatically (see lib/tax.ts).
+  legal: {
+    name: "QASER ALSHAR LADIES SALON L.L.C", // legal name (Corporate Tax certificate)
+    tradingName: "Qasr Alshar Salon",
+    ctTRN: "105503538800001",                // Corporate Tax registration number
+    licenseNo: "1584783",                    // Dubai Economy & Tourism
+    address: "Office 3, Dalmook Series, Al Murqabat, Dubai, UAE", // registered address
+  },
+
   // Bank-transfer payin details — shown on invoices/checkout only when the full IBAN is configured.
   pay: {
     iban: process.env.PAY_IBAN || "",

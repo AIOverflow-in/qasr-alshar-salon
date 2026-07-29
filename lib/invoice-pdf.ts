@@ -47,6 +47,12 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const reg = await pdf.embedFont(StandardFonts.Helvetica);
 
+  // A document may only be titled "TAX INVOICE" and show a VAT breakdown/TRN once the salon holds a
+  // VAT TRN (set via env). The uploaded Corporate-Tax TRN is NOT a VAT number, so until VAT_TRN is set
+  // this stays a plain "INVOICE": no TRN line, no VAT wording. Prices are unchanged either way.
+  const vatTRN = process.env.VAT_TRN?.trim();
+  const vatRegistered = !!vatTRN;
+
   let logo: PDFImage | null = null;
   try {
     const bytes = await fs.readFile(path.join(process.cwd(), "public", "brand", "crest.png"));
@@ -72,8 +78,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
     p.drawText("QASR ALSHAR SALON", { x: tx, y: hy - 14, size: 15, font: bold, color: INK });
     p.drawText("Dalmok Series Building, Exit 2, Union Metro, Deira, Dubai, UAE", { x: tx, y: hy - 28, size: 8, font: reg, color: GREY });
     p.drawText("+971 4 272 7616  ·  hello@qasralshar.ae  ·  @qasr.alshar", { x: tx, y: hy - 40, size: 8, font: reg, color: GREY });
-    const trn = process.env.VAT_TRN || "TRN — PENDING";
-    rt(p, `TRN: ${trn}`, RIGHT, hy - 14, 8.5, bold, GREY);
+    if (vatRegistered) rt(p, `VAT TRN: ${vatTRN}`, RIGHT, hy - 14, 8.5, bold, GREY);
     return hy - 60;
   }
 
@@ -90,7 +95,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   page.drawRectangle({ x: M, y, width: PAGE_W - 2 * M, height: 2, color: GOLD });
   y -= 24;
 
-  page.drawText("TAX INVOICE", { x: M, y, size: 20, font: bold, color: INK });
+  page.drawText(vatRegistered ? "TAX INVOICE" : "INVOICE", { x: M, y, size: 20, font: bold, color: INK });
   const metaTop = y + 2;
   const meta: [string, string][] = [
     ["Invoice", order.invoiceNo],
@@ -157,8 +162,8 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   page.drawText("TOTAL", { x: tLabelX, y: y + 4, size: 11, font: bold, color: WHITE });
   rt(page, money(order.totalAED), RIGHT - 8, y + 4, 11, bold, WHITE);
   y -= 18;
-  rt(page, `Includes all taxes (VAT ${order.vatPct}%)`, RIGHT - 8, y, 7.5, reg, GREY);
-  y -= 20;
+  if (vatRegistered) { rt(page, `Includes ${order.vatPct}% VAT`, RIGHT - 8, y, 7.5, reg, GREY); y -= 20; }
+  else y -= 6;
 
   // Split payment: show how the total was settled across methods.
   if (order.splitPayment) {
@@ -178,7 +183,9 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
 
   const site = SITE.url.replace(/^https?:\/\//, "");
   const terms = [
-    "Terms: All prices are inclusive of 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
+    vatRegistered
+      ? "Terms: All prices are inclusive of 5% VAT. A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes."
+      : "Terms: A 15-minute grace applies; lateness beyond it may incur AED 100 per 30 minutes.",
     "Cancellations within 24 hours and no-shows may be charged. Home-service bookings require prior confirmation.",
     `Full terms & conditions: ${site}/terms`,
   ];
@@ -191,6 +198,7 @@ export async function buildInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> 
   for (const t of terms) { page.drawText(t, { x: M, y: ty, size: 7, font: reg, color: GREY }); ty -= 8.5; }
   page.drawLine({ start: { x: M, y: 60 }, end: { x: RIGHT, y: 60 }, thickness: 1, color: GOLD });
   page.drawText("Thank you for choosing Qasr Alshar Salon — Dubai's Crown of Beauty.", { x: M, y: 44, size: 8.5, font: bold, color: INK });
+  rt(page, `${SITE.legal.name}  ·  Licence ${SITE.legal.licenseNo}`, RIGHT, 44, 7, reg, GREY);
   page.drawText("@qasr.alshar   ·   @qasralsharsalon   ·   hello@qasralshar.ae", { x: M, y: 31, size: 8, font: reg, color: GREY });
 
   return pdf.save();

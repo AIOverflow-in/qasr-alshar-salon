@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, Printer, Pencil, Clock, MapPin, Users, Scissors, UserCheck, CreditCard, Megaphone } from "lucide-react";
+import { X, Printer, Pencil, Clock, MapPin, Users, Scissors, UserCheck, CreditCard, Megaphone, ReceiptText } from "lucide-react";
 import { aed, cn } from "@/lib/utils";
 import type { SalesRow } from "@/components/erp/SalesTable";
 
@@ -104,7 +104,10 @@ export function BillDetailModal({ row, canEdit, onClose }: { row: SalesRow; canE
               <Pencil size={13} /> Edit bill
             </Link>
           )}
-          <a href={`/api/erp/invoice/${row.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs text-gold hover:bg-gold/10">
+          <a href={`/receipt/${row.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs text-gold hover:bg-gold/10">
+            <ReceiptText size={13} /> Reprint receipt
+          </a>
+          <a href={`/api/erp/invoice/${row.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">
             <Printer size={13} /> Invoice PDF
           </a>
         </div>
