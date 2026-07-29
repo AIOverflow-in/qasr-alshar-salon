@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Printer, Download, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
+import { Download, Receipt, Coins, CreditCard, ArrowLeftRight, Pencil } from "lucide-react";
 import { cn, aed } from "@/lib/utils";
 import { BillDetailModal } from "@/components/erp/BillDetailModal";
 import { SearchBox } from "@/components/erp/SearchBox";
@@ -277,13 +277,13 @@ export function SalesTable({
                         </Link>
                       )}
                       <a
-                        href={`/api/erp/invoice/${r.invoiceNo}`}
+                        href={`/receipt/${r.invoiceNo}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-gold/40 px-2.5 py-1.5 text-xs text-gold hover:bg-gold/10"
-                        title="View / print receipt"
+                        title="Print the thermal receipt (or choose Print A4 there)"
                       >
-                        <Printer size={13} /> PDF
+                        <Receipt size={13} /> Receipt
                       </a>
                     </div>
                   </td>
