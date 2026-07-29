@@ -1,8 +1,15 @@
 // Pure receipt assembly for the thermal (80mm) printout — no DB/env, so it's unit-tested and
-// reused by the receipt page. The VAT-registered flag is passed in (from lib/tax.ts) so this stays pure.
-import { aed } from "./utils";
+// reused by the receipt page. Mirrors the salon's established "Sale Receipt" layout: header info
+// (invoice/operator/date/client/salesman), items grouped by category, totals, and a payment
+// detail table. VAT is only broken out once the salon is VAT-registered (passed in).
 
-export type ReceiptLine = { description: string; qty: number; unitAED: number; lineAED: number; staffNames?: string[] };
+export type ReceiptLineInput = {
+  category?: string | null; // service/product category → section header (e.g. "Hair")
+  description: string;
+  qty: number;
+  unitAED: number;
+  lineAED: number;
+};
 
 export type ReceiptInput = {
   invoiceNo: string;
@@ -12,67 +19,76 @@ export type ReceiptInput = {
   cashAED?: number;
   cardAED?: number;
   transferAED?: number;
-  subtotalAED: number;
-  vatAED: number;
-  vatPct: number;
   totalAED: number;
-  lines: ReceiptLine[];
+  operatorName?: string | null; // cashier who rang up the bill
   clientName?: string | null;
+  salesMan?: string | null; // artist(s) / marketer
+  cardBank?: string; // acquiring bank shown against card/transfer payments
+  lines: ReceiptLineInput[];
 };
+
+export type ReceiptItem = { name: string; unitAED: number; qty: number; lineAED: number };
+export type ReceiptGroup = { category: string; items: ReceiptItem[] };
+export type ReceiptPayment = { mode: string; detail: string; amountAED: number };
 
 export type Receipt = {
   invoiceNo: string;
+  operatorName: string;
   dateLabel: string;
   clientName: string;
-  items: { name: string; qty: number; unitAED: number; lineAED: number; by?: string }[];
-  itemCount: number;
-  showVat: boolean; // VAT breakdown shown only once VAT-registered
-  subtotalAED: number;
-  vatAED: number;
-  vatPct: number;
+  salesMan: string;
+  groups: ReceiptGroup[];
+  totalItems: number;
+  totalQty: number;
+  netAmountAED: number;
+  payments: ReceiptPayment[];
   totalAED: number;
-  paymentLabel: string;
 };
 
-/** Dubai-local date + time for the receipt header. */
+const titleCase = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s);
+
+/** Dubai-local "Sun, 26 Apr 2026, 12:37 AM" for the receipt header. */
 export function receiptDateLabel(d: Date): string {
   return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Dubai", day: "2-digit", month: "short", year: "numeric",
+    timeZone: "Asia/Dubai", weekday: "short", day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", hour12: true,
   }).format(d);
 }
 
-/** Human payment label: a single method, or the split broken down by method + amount. */
-export function paymentLabel(o: Pick<ReceiptInput, "splitPayment" | "paymentMethod" | "cashAED" | "cardAED" | "transferAED">): string {
+/** Payment-detail rows: one per method with a non-zero amount (or the single method for the whole total). */
+export function paymentRows(o: Pick<ReceiptInput, "splitPayment" | "paymentMethod" | "cashAED" | "cardAED" | "transferAED" | "totalAED">, cardBank = ""): ReceiptPayment[] {
+  const modeLabel = (m: string) => (m === "CARD" ? "Credit Card" : titleCase(m));
+  const detailFor = (m: string) => (m === "CARD" || m === "TRANSFER" ? cardBank : "");
   if (o.splitPayment) {
-    const parts = ([["Cash", o.cashAED], ["Card", o.cardAED], ["Transfer", o.transferAED]] as const)
+    return ([["CASH", o.cashAED], ["CARD", o.cardAED], ["TRANSFER", o.transferAED]] as const)
       .filter(([, v]) => (v ?? 0) > 0)
-      .map(([k, v]) => `${k} ${aed(v as number)}`);
-    return parts.length ? `Split — ${parts.join(" · ")}` : "Split";
+      .map(([m, v]) => ({ mode: modeLabel(m), detail: detailFor(m), amountAED: v as number }));
   }
-  const m = (o.paymentMethod || "CASH").trim();
-  return m ? m.charAt(0).toUpperCase() + m.slice(1).toLowerCase() : "Cash";
+  const m = (o.paymentMethod || "CASH").toUpperCase();
+  return [{ mode: modeLabel(m), detail: detailFor(m), amountAED: o.totalAED }];
 }
 
-export function buildReceipt(o: ReceiptInput, vatRegistered: boolean): Receipt {
-  const items = o.lines.map((l) => ({
-    name: l.description,
-    qty: l.qty,
-    unitAED: l.unitAED,
-    lineAED: l.lineAED,
-    by: (l.staffNames ?? []).filter(Boolean).join(", ") || undefined,
-  }));
+export function buildReceipt(o: ReceiptInput, opts?: { cardBank?: string }): Receipt {
+  const cardBank = opts?.cardBank ?? o.cardBank ?? "";
+  // Group lines by category, preserving the order categories first appear.
+  const seen: string[] = [];
+  const byCat = new Map<string, ReceiptItem[]>();
+  for (const l of o.lines) {
+    const cat = (l.category ?? "").trim() || "Other";
+    if (!byCat.has(cat)) { byCat.set(cat, []); seen.push(cat); }
+    byCat.get(cat)!.push({ name: l.description, unitAED: l.unitAED, qty: l.qty, lineAED: l.lineAED });
+  }
   return {
     invoiceNo: o.invoiceNo,
+    operatorName: (o.operatorName ?? "").trim() || "—",
     dateLabel: receiptDateLabel(o.createdAt),
-    clientName: (o.clientName ?? "").trim() || "Walk-in customer",
-    items,
-    itemCount: items.reduce((s, i) => s + i.qty, 0),
-    showVat: vatRegistered,
-    subtotalAED: o.subtotalAED,
-    vatAED: o.vatAED,
-    vatPct: o.vatPct,
+    clientName: (o.clientName ?? "").trim() || "Walk-In",
+    salesMan: (o.salesMan ?? "").trim() || "—",
+    groups: seen.map((c) => ({ category: c, items: byCat.get(c)! })),
+    totalItems: o.lines.length,
+    totalQty: o.lines.reduce((s, l) => s + l.qty, 0),
+    netAmountAED: o.totalAED,
+    payments: paymentRows(o, cardBank),
     totalAED: o.totalAED,
-    paymentLabel: paymentLabel(o),
   };
 }

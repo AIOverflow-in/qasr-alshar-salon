@@ -105,10 +105,10 @@ export function BillDetailModal({ row, canEdit, onClose }: { row: SalesRow; canE
             </Link>
           )}
           <a href={`/receipt/${row.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs text-gold hover:bg-gold/10">
-            <ReceiptText size={13} /> Reprint receipt
+            <ReceiptText size={13} /> Print Receipt
           </a>
           <a href={`/api/erp/invoice/${row.invoiceNo}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">
-            <Printer size={13} /> Invoice PDF
+            <Printer size={13} /> Print A4
           </a>
         </div>
       </div>

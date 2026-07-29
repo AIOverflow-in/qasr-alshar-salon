@@ -339,10 +339,10 @@ export function PosTerminal({ services, staff, clients: initialClients, products
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {/* Primary action: every paying client goes home with a printed thermal receipt. */}
           <a href={`/receipt/${lastInvoice.invoiceNo}`} target="_blank" className="inline-flex items-center gap-2 rounded-full bg-gold-gradient px-5 py-2.5 text-sm font-semibold text-espresso">
-            <ReceiptText size={15} /> Print receipt
+            <ReceiptText size={15} /> Print Receipt
           </a>
           <a href={invoiceUrl} target="_blank" className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-5 py-2.5 text-sm text-gold hover:bg-gold/10">
-            <Printer size={15} /> A4 invoice (PDF)
+            <Printer size={15} /> Print A4
           </a>
           {waUrl && (
             <a href={waUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-green-600/50 px-5 py-2.5 text-sm text-green-700 hover:bg-green-50">
