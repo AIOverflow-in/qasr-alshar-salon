@@ -3,12 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, X, CalendarCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 type Booking = { id: string; customerName: string; serviceName: string; startAt: string; createdAt: string; serviceMode: string; source: string };
 
 const SEEN_KEY = "qa_notif_seen";
-const POLL_MS = 60000; // 60s — keeps DB/serverless load low with many admins open (re-polls on tab focus)
 
 function whenLabel(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
@@ -47,11 +45,12 @@ export function NotificationBell() {
   }, [router]);
 
   useEffect(() => {
-    poll();
-    const t = setInterval(poll, POLL_MS);
+    // Neon Free suspends after five idle minutes. A one-minute timer kept the
+    // database awake all day, so refresh when a backgrounded ERP becomes active
+    // and whenever the user opens the notification panel.
     const onVis = () => { if (document.visibilityState === "visible") poll(); };
     document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
+    return () => { document.removeEventListener("visibilitychange", onVis); };
   }, [poll]);
 
   const unread = bookings.filter((b) => new Date(b.createdAt).getTime() > seen).length;
@@ -59,6 +58,7 @@ export function NotificationBell() {
   function openPanel() {
     setOpen((v) => !v);
     if (!open) {
+      void poll();
       const now = Date.now();
       setSeen(now);
       try { window.localStorage.setItem(SEEN_KEY, String(now)); } catch { /* ignore */ }

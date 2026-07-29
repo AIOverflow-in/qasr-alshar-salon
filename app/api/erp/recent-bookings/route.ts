@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
@@ -14,25 +15,39 @@ export async function GET() {
 
   // Only the last few hours matter for "new booking" toasts — keeps the polled query cheap.
   const since = new Date(Date.now() - 6 * 60 * 60 * 1000);
-  const bookings = await prisma.booking.findMany({
-    where: { createdAt: { gte: since } },
-    orderBy: { createdAt: "desc" },
-    take: 15,
-    select: { id: true, customerName: true, serviceName: true, startAt: true, createdAt: true, serviceMode: true, source: true },
-  });
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: { id: true, customerName: true, serviceName: true, startAt: true, createdAt: true, serviceMode: true, source: true },
+    });
 
-  return NextResponse.json(
-    {
-      bookings: bookings.map((b) => ({
-        id: b.id,
-        customerName: b.customerName,
-        serviceName: b.serviceName,
-        startAt: b.startAt.toISOString(),
-        createdAt: b.createdAt.toISOString(),
-        serviceMode: b.serviceMode,
-        source: b.source,
-      })),
-    },
-    { headers: { "Cache-Control": "private, s-maxage=10, stale-while-revalidate=20" } }
-  );
+    return NextResponse.json(
+      {
+        bookings: bookings.map((b) => ({
+          id: b.id,
+          customerName: b.customerName,
+          serviceName: b.serviceName,
+          startAt: b.startAt.toISOString(),
+          createdAt: b.createdAt.toISOString(),
+          serviceMode: b.serviceMode,
+          source: b.source,
+        })),
+      },
+      { headers: { "Cache-Control": "private, s-maxage=10, stale-while-revalidate=20" } }
+    );
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientInitializationError ||
+      (error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === "P1001" || error.code === "P1002"))
+    ) {
+      return NextResponse.json(
+        { error: "Database temporarily unavailable" },
+        { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "60" } }
+      );
+    }
+    throw error;
+  }
 }
