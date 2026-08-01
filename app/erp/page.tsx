@@ -15,11 +15,14 @@ import { aed } from "@/lib/utils";
 import { getMonthlyRevenue, dubaiDayRange } from "@/lib/finance";
 import { getMonthlyAnalytics } from "@/lib/analytics";
 import { MonthlyAnalytics } from "@/components/erp/MonthlyAnalytics";
+import { getMonthClose, recentMonths } from "@/lib/month-close";
+import { MonthClose } from "@/components/erp/MonthClose";
 
 const REVENUE_TARGET = 100_000;
 
-export default async function ErpDashboard() {
+export default async function ErpDashboard({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const session = await getSession();
+  const { month: monthParam } = await searchParams;
   // Crown artists open straight into their calendar; reception into bookings — the dashboard is
   // owner/investor-only (per the meeting: block dashboards for the general team & reception).
   if (session?.role === "STYLIST") redirect("/erp/calendar");
@@ -49,6 +52,10 @@ export default async function ErpDashboard() {
 
   // Staff documents expiring within 30 days (or already expired) — managers only.
   const isManager = session?.role === "SUPER_ADMIN" || session?.role === "ADMIN";
+
+  // Month-close overview (sales + salaries + expenses for one month) — managers only, since it
+  // exposes the salary bill. Defaults to the current Dubai month; ?month=YYYY-MM to look back.
+  const monthClose = isManager ? await getMonthClose(monthParam) : null;
   const DOC_LABEL: Record<string, string> = { PASSPORT: "Passport", VISA: "Visa", LABOR_CARD: "Labour card", EMIRATES_ID: "Emirates ID", OTHER: "Document" };
   const expiringDocs = isManager
     ? await prisma.staffDocument.findMany({
@@ -73,6 +80,9 @@ export default async function ErpDashboard() {
         <h1 className="font-display text-3xl text-cream">Welcome back</h1>
         <p className="text-sm text-muted">Qasr Alshar control centre · {session?.email}</p>
       </div>
+
+      {/* Month close — the single month-scoped view of sales, salaries and expenses (managers). */}
+      {monthClose && <MonthClose data={monthClose} months={recentMonths(12)} />}
 
       {/* This-month money: super-admin gets the rich analytics hub; other finance roles keep the card. */}
       {isSuperAdmin && analytics ? (
