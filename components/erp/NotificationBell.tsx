@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Bell, X, CalendarCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,14 +9,17 @@ type Booking = { id: string; customerName: string; serviceName: string; startAt:
 
 const SEEN_KEY = "qa_notif_seen";
 /**
- * 3 min, and ONLY while the tab is visible.
+ * 10 min, and ONLY while the tab is visible.
  *
- * Neon bills compute time and only scales to zero after ~5 min idle, so a forever-ticking timer
- * keeps the database awake 24/7 — that (not the request rate) is what exhausted the quota on
- * 29 Jul 2026. Pausing while hidden means a forgotten ERP tab costs nothing overnight, and we
- * always poll immediately on returning to the tab so nothing is missed.
+ * Neon bills compute time and suspends the database after ~5 idle minutes. A shorter timer keeps
+ * waking it just before it sleeps, so the DB stays up all day — that (not the request rate) is
+ * what exhausted the quota on 29 Jul 2026. At 10 min it sleeps for ~5 min between checks, roughly
+ * halving compute, while automatic new-booking alerts still arrive on their own.
+ *
+ * In practice alerts are usually much faster than 10 min: we also re-check on every ERP page
+ * navigation, when the bell is opened, and when the tab regains focus (see below).
  */
-const POLL_MS = 180000;
+const POLL_MS = 600000;
 
 function whenLabel(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
@@ -24,6 +27,7 @@ function whenLabel(iso: string) {
 
 export function NotificationBell() {
   const router = useRouter();
+  const pathname = usePathname();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<Booking | null>(null);
@@ -69,11 +73,21 @@ export function NotificationBell() {
     return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
   }, [poll]);
 
+  // Re-check whenever the user moves around the ERP. The shell (and this bell) persist across
+  // client-side navigation, so without this the only trigger would be the slow timer. Moving
+  // between pages is the cheapest possible signal that someone is actually working.
+  const firstPath = useRef(true);
+  useEffect(() => {
+    if (firstPath.current) { firstPath.current = false; return; } // mount already polled above
+    poll();
+  }, [pathname, poll]);
+
   const unread = bookings.filter((b) => new Date(b.createdAt).getTime() > seen).length;
 
   function openPanel() {
     setOpen((v) => !v);
     if (!open) {
+      poll(); // opening the bell always shows the latest, however long ago the timer last ran
       const now = Date.now();
       setSeen(now);
       try { window.localStorage.setItem(SEEN_KEY, String(now)); } catch { /* ignore */ }
