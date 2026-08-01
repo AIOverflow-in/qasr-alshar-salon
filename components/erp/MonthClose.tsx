@@ -1,40 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, Users, FileBarChart, Receipt, Wallet } from "lucide-react";
+import { ArrowRight, Users, FileBarChart, CheckCircle2 } from "lucide-react";
 import { aed } from "@/lib/utils";
 import type { MonthClose as MonthCloseData } from "@/lib/month-close-core";
 import { MonthPicker } from "./MonthPicker";
 
-function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "gold" | "loss" }) {
-  const valueClass = tone === "gold" ? "text-gold-gradient" : tone === "loss" ? "text-red-400" : "text-cream";
+/** A row in the money waterfall: sales in, costs out, what's left. */
+function Line({ label, value, sub, strong, negative }: { label: string; value: string; sub?: string; strong?: boolean; negative?: boolean }) {
   return (
-    <div className="rounded-2xl border border-ink-line bg-ink-card p-4">
-      <div className="text-[0.65rem] uppercase tracking-wider text-muted">{label}</div>
-      <div className={`mt-1 font-display text-2xl ${valueClass}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
-    </div>
-  );
-}
-
-/** Single-series magnitude bars (weekly / monthly-trend). Gold, baseline-anchored, hover tooltip. */
-function Bars({ title, bars, highlight }: { title: string; bars: { label: string; grossAED: number }[]; highlight?: string }) {
-  const max = Math.max(1, ...bars.map((b) => b.grossAED));
-  return (
-    <div className="rounded-2xl border border-ink-line bg-ink-card p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">{title}</h3>
-      <div className="mt-3 flex h-28 items-stretch gap-1.5">
-        {bars.map((b, i) => (
-          <div key={i} className="group flex h-full flex-1 flex-col justify-end" title={`${b.label}: ${aed(b.grossAED)}`}>
-            <div
-              className={`rounded-t ${highlight && b.label === highlight ? "bg-gold" : "bg-gold/60 group-hover:bg-gold"}`}
-              style={{ height: `${Math.max(2, Math.round((b.grossAED / max) * 100))}%` }}
-            />
-          </div>
-        ))}
+    <div className={`flex items-baseline justify-between gap-4 ${strong ? "" : "py-2"}`}>
+      <div className="min-w-0">
+        <div className={strong ? "text-sm font-semibold text-cream" : "text-sm text-sand"}>{label}</div>
+        {sub && <div className="text-xs text-muted">{sub}</div>}
       </div>
-      <div className="mt-1.5 flex gap-1.5">
-        {bars.map((b, i) => (
-          <div key={i} className="flex-1 text-center text-[0.6rem] text-muted">{b.label}</div>
-        ))}
+      <div className={`shrink-0 tabular-nums ${strong ? "font-display text-xl text-cream" : negative ? "text-sand" : "text-cream"}`}>
+        {negative ? `− ${value}` : value}
       </div>
     </div>
   );
@@ -42,75 +21,122 @@ function Bars({ title, bars, highlight }: { title: string; bars: { label: string
 
 export function MonthClose({ data, months }: { data: MonthCloseData; months: string[] }) {
   const loss = data.netProfitAED < 0;
+  const settled = data.salaries.outstandingAED <= 0 && data.salaries.owedCount > 0;
   const maxSlice = Math.max(1, ...data.expenseSlices.map((s) => s.amountAED));
-  const staffPay = "/erp/staff?month=" + data.month;
+  const staffPay = `/erp/staff?month=${data.month}`;
   const [my, mm] = data.month.split("-").map(Number);
   const lastDay = String(new Date(Date.UTC(my, mm, 0)).getUTCDate()).padStart(2, "0");
   const plHref = `/erp/finance/pl?period=custom&from=${data.month}-01&to=${data.month}-${lastDay}`;
+  const trendMax = Math.max(1, ...data.trend.map((t) => t.grossAED));
 
   return (
-    <section className="surface space-y-6 rounded-2xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="surface overflow-hidden rounded-2xl">
+      {/* Header — what this is, and which month */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-line px-6 py-4">
         <div>
-          <h2 className="font-display text-xl text-cream">Month close</h2>
-          <p className="text-xs text-muted">Sales, salaries and expenses for {data.label}{data.isCurrent ? " (so far)" : ""}.</p>
+          <h2 className="font-display text-xl text-cream">Close the month</h2>
+          <p className="text-xs text-muted">Everything you need to pay staff and file — in one place.</p>
         </div>
         <MonthPicker months={months} current={data.month} />
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Tile label="Gross sales" value={aed(data.sales.grossAED)} sub={`${data.sales.orders} bills`} />
-        <Tile label="Net (ex-VAT)" value={aed(data.sales.netAED)} sub={`${aed(data.sales.vatAED)} VAT`} />
-        <Tile label="Salaries" value={aed(data.salaries.netAED)} sub={`${aed(data.salaries.outstandingAED)} to pay`} />
-        <Tile label="Other expenses" value={aed(data.otherExpensesAED)} />
-        <Tile label={loss ? "Net loss" : "Net profit"} value={aed(data.netProfitAED)} tone={loss ? "loss" : "gold"} sub="Net − salaries − expenses" />
-      </div>
+      <div className="grid gap-6 p-6 lg:grid-cols-[1.1fr_1fr]">
+        {/* LEFT — the answer + the money waterfall */}
+        <div>
+          <div className="text-[0.65rem] uppercase tracking-wider text-muted">
+            {loss ? "Net loss" : "Net profit"} · {data.label}{data.isCurrent ? " so far" : ""}
+          </div>
+          <div className={`font-display text-4xl ${loss ? "text-red-400" : "text-gold-gradient"}`}>{aed(data.netProfitAED)}</div>
 
-      {/* Salary close status */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
-        <div className="text-sm text-sand">
-          <Wallet size={15} className="mr-1.5 inline text-gold" />
-          Salaries: <span className="font-semibold text-cream">{data.salaries.paidCount} of {data.salaries.owedCount}</span> staff paid
-          {data.salaries.outstandingAED > 0
-            ? <> · <span className="font-semibold text-gold">{aed(data.salaries.outstandingAED)}</span> outstanding</>
-            : data.salaries.owedCount > 0 ? <> · <span className="text-green-500">all paid</span></> : null}
-        </div>
-        <Link href={staffPay} className="inline-flex items-center gap-1.5 rounded-full bg-gold-gradient px-4 py-1.5 text-sm font-semibold text-espresso">
-          <Users size={14} /> Close salaries
-        </Link>
-      </div>
+          <div className="mt-4 divide-y divide-ink-line/60 border-t border-ink-line/60">
+            <Line label="Sales (net of VAT)" value={aed(data.sales.netAED)} sub={`${data.sales.orders} bills · ${aed(data.sales.grossAED)} collected`} />
+            <Line label="Salaries & commissions" value={aed(data.salaries.netAED)} negative />
+            <Line label="Other expenses" value={aed(data.otherExpensesAED)} negative />
+          </div>
+          <div className="mt-3 border-t-2 border-ink-line pt-3">
+            <Line label={loss ? "Net loss" : "Net profit"} value={aed(data.netProfitAED)} strong />
+          </div>
 
-      {/* Trajectory */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <Bars title="Weekly sales" bars={data.weekly} />
-        <Bars title="Last 6 months" bars={data.trend.map((t) => ({ label: t.label, grossAED: t.grossAED }))} highlight={data.trend.find((t) => t.month === data.month)?.label} />
-      </div>
-
-      {/* Where it went */}
-      {data.expenseSlices.length > 0 && (
-        <div className="rounded-2xl border border-ink-line bg-ink-card p-4">
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Where the money went</h3>
-          <div className="space-y-2">
-            {data.expenseSlices.map((s) => (
-              <div key={s.label} className="flex items-center gap-3 text-sm">
-                <div className="w-40 shrink-0 truncate text-sand">{s.label}</div>
-                <div className="h-3 flex-1 overflow-hidden rounded-full bg-ink">
-                  <div className={`h-full rounded-full ${s.kind === "salaries" ? "bg-gold" : "bg-gold/50"}`} style={{ width: `${Math.max(3, Math.round((s.amountAED / maxSlice) * 100))}%` }} />
-                </div>
-                <div className="w-24 shrink-0 text-right tabular-nums text-cream">{aed(s.amountAED)}</div>
-              </div>
-            ))}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href={plHref} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">
+              <FileBarChart size={13} /> P&amp;L for {data.label}
+            </Link>
+            <Link href="/erp/finance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold">
+              Expenses <ArrowRight size={12} />
+            </Link>
           </div>
         </div>
-      )}
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        <Link href={staffPay} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold"><Users size={13} /> Payroll</Link>
-        <Link href={plHref} className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold"><FileBarChart size={13} /> P&amp;L report</Link>
-        <Link href="/erp/finance" className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold"><Wallet size={13} /> Finance</Link>
-        <Link href="/erp/sales" className="inline-flex items-center gap-1.5 rounded-lg border border-ink-line px-3 py-1.5 text-xs text-sand hover:text-gold"><Receipt size={13} /> Sales <ArrowRight size={12} /></Link>
+        {/* RIGHT — the action, then supporting detail */}
+        <div className="space-y-4">
+          {/* Primary action: pay the staff */}
+          <div className={`rounded-xl border p-4 ${settled ? "border-green-600/30 bg-green-500/5" : "border-gold/40 bg-gold/5"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[0.65rem] uppercase tracking-wider text-muted">Salaries</div>
+                {settled ? (
+                  <div className="mt-1 flex items-center gap-1.5 font-display text-xl text-green-600">
+                    <CheckCircle2 size={18} /> All paid
+                  </div>
+                ) : (
+                  <div className="mt-1 font-display text-2xl text-cream">{aed(data.salaries.outstandingAED)}</div>
+                )}
+                <div className="mt-0.5 text-xs text-muted">
+                  {settled ? `${data.salaries.owedCount} staff settled` : `still to pay · ${data.salaries.paidCount} of ${data.salaries.owedCount} staff done`}
+                </div>
+              </div>
+              <Link
+                href={staffPay}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ${settled ? "border border-ink-line text-sand hover:text-gold" : "bg-gold-gradient text-espresso"}`}
+              >
+                <Users size={14} /> {settled ? "View payroll" : "Pay staff"}
+              </Link>
+            </div>
+            {!settled && data.salaries.owedCount > 0 && (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink">
+                <div className="h-full rounded-full bg-gold" style={{ width: `${Math.round((data.salaries.paidCount / data.salaries.owedCount) * 100)}%` }} />
+              </div>
+            )}
+          </div>
+
+          {/* Where the money went */}
+          {data.expenseSlices.length > 0 && (
+            <div className="rounded-xl border border-ink-line p-4">
+              <h3 className="text-[0.65rem] uppercase tracking-wider text-muted">Where the money went</h3>
+              <div className="mt-2.5 space-y-1.5">
+                {data.expenseSlices.slice(0, 5).map((s) => (
+                  <div key={s.label} className="flex items-center gap-2.5 text-xs">
+                    <div className="w-28 shrink-0 truncate text-sand">{s.label}</div>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-ink">
+                      <div className={`h-full rounded-full ${s.kind === "salaries" ? "bg-gold" : "bg-gold/45"}`} style={{ width: `${Math.max(3, Math.round((s.amountAED / maxSlice) * 100))}%` }} />
+                    </div>
+                    <div className="w-20 shrink-0 text-right tabular-nums text-cream">{aed(s.amountAED)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6-month trajectory — the one thing "This Month" can't show */}
+          <div className="rounded-xl border border-ink-line p-4">
+            <h3 className="text-[0.65rem] uppercase tracking-wider text-muted">Sales trend · last 6 months</h3>
+            <div className="mt-2.5 flex h-16 items-stretch gap-1.5">
+              {data.trend.map((t) => (
+                <div key={t.month} className="group flex h-full flex-1 flex-col justify-end" title={`${t.label}: ${aed(t.grossAED)}`}>
+                  <div
+                    className={`rounded-t ${t.month === data.month ? "bg-gold" : "bg-gold/40 group-hover:bg-gold/70"}`}
+                    style={{ height: `${Math.max(3, Math.round((t.grossAED / trendMax) * 100))}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-1.5 flex gap-1.5">
+              {data.trend.map((t) => (
+                <div key={t.month} className={`flex-1 text-center text-[0.6rem] ${t.month === data.month ? "font-semibold text-gold" : "text-muted"}`}>{t.label}</div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
