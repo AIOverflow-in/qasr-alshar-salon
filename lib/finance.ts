@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { monthStartUTC, dubaiDayRange, dubaiRangeForDate, salesRange, type DayRange } from "./finance-core";
 import { buildProfitAndLoss, type PLReport } from "./pl-core";
+import { getPayrollMonth } from "./payroll";
 import { TAX } from "./tax";
 
 // Pure date/range helpers now live in finance-core (unit-tested there); re-exported so existing
@@ -106,19 +107,48 @@ export async function getRevenueByKind(range: DayRange): Promise<RevenueByKind> 
  * createdAt (matching the rest of finance); expenses count by incurredOn.
  */
 export async function getProfitAndLoss(range: DayRange): Promise<PLReport> {
-  const [byKind, expenses] = await Promise.all([
+  const [byKind, expenses, salariesAED] = await Promise.all([
     getRevenueByKind(range),
     prisma.expense.groupBy({
       by: ["category"],
       where: { incurredOn: { gte: range.start, lt: range.end } },
       _sum: { amountAED: true },
     }),
+    getSalaryCost(range),
   ]);
   return buildProfitAndLoss({
     vatRegistered: TAX.vatRegistered,
     vatPct: TAX.vatPct,
     serviceGrossAED: byKind.service,
     productGrossAED: byKind.product,
+    salariesAED,
     expensesByCategory: expenses.map((e) => ({ category: e.category, amountAED: e._sum.amountAED ?? 0 })),
   });
+}
+
+/**
+ * Total staff cost for a window. Payroll is calculated per Dubai month, so we sum every month the
+ * range touches — the P&L periods (this/last month, year, tax period, custom) are whole months in
+ * practice. Read-only: this never changes how pay is computed.
+ */
+async function getSalaryCost(range: DayRange): Promise<number> {
+  const months = dubaiMonthsInRange(range);
+  const results = await Promise.all(months.map((m) => getPayrollMonth(m)));
+  return results.reduce((sum, p) => sum + p.totals.net, 0);
+}
+
+/** Every Dubai month "YYYY-MM" that overlaps the range (start inclusive, end exclusive). */
+function dubaiMonthsInRange(range: DayRange): string[] {
+  const key = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit" }).format(d);
+  const out: string[] = [];
+  // Step month by month from the range start until we pass the last day of the window.
+  const last = key(new Date(range.end.getTime() - 1));
+  const [sy, sm] = key(range.start).split("-").map(Number);
+  for (let i = 0; i < 240; i++) {
+    const d = new Date(Date.UTC(sy, sm - 1 + i, 1));
+    const m = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    out.push(m);
+    if (m >= last) break;
+  }
+  return out;
 }
