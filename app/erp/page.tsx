@@ -5,7 +5,6 @@ import {
   Users,
   Package,
   Scissors,
-  AlertTriangle,
   TrendingUp,
   ArrowRight,
 } from "lucide-react";
@@ -31,14 +30,13 @@ export default async function ErpDashboard({ searchParams }: { searchParams: Pro
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();
 
-  const [todayCount, upcoming, clients, products, staffCount, lowStock] =
+  const [todayCount, upcoming, clients, products, staffCount] =
     await Promise.all([
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: todayStart, lt: todayEnd } } }),
       prisma.booking.count({ where: { status: "CONFIRMED", startAt: { gte: now } } }),
       prisma.client.count(),
       prisma.product.count({ where: { active: true } }),
       prisma.staff.count({ where: { active: true } }),
-      prisma.product.findMany({ where: { active: true, qty: { lte: 3 } }, take: 8, orderBy: { qty: "asc" } }),
     ]);
 
   // Revenue/finance is only loaded + shown for finance roles (not RECEPTION/STYLIST).
@@ -71,7 +69,6 @@ export default async function ErpDashboard({ searchParams }: { searchParams: Pro
     { label: "Clients", value: clients, icon: Users, href: "/erp/clients" },
     { label: "Crown Artists", value: staffCount, icon: Scissors, href: "/erp/staff" },
     { label: "Products", value: products, icon: Package, href: "/erp/inventory" },
-    { label: "Low Stock", value: lowStock.length, icon: AlertTriangle, href: "/erp/inventory" },
   ];
 
   return (
@@ -80,9 +77,6 @@ export default async function ErpDashboard({ searchParams }: { searchParams: Pro
         <h1 className="font-display text-3xl text-cream">Welcome back</h1>
         <p className="text-sm text-muted">Qasr Alshar control centre · {session?.email}</p>
       </div>
-
-      {/* Month close — the single month-scoped view of sales, salaries and expenses (managers). */}
-      {monthClose && <MonthClose data={monthClose} months={recentMonths(12)} />}
 
       {/* This-month money: super-admin gets the rich analytics hub; other finance roles keep the card. */}
       {isSuperAdmin && analytics ? (
@@ -116,33 +110,8 @@ export default async function ErpDashboard({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
-      {lowStock.length > 0 && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-xl text-cream">Low Stock</h2>
-            <Link href="/erp/inventory" className="inline-flex items-center gap-1 text-sm text-gold hover:underline">
-              Manage inventory <ArrowRight size={14} />
-            </Link>
-          </div>
-          <div className="surface overflow-hidden rounded-2xl">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-ink-line/60">
-                {lowStock.map((p) => (
-                  <tr key={p.id}>
-                    <td className="p-4 text-sand">{p.name}</td>
-                    <td className="p-4 text-xs text-muted">{p.category}</td>
-                    <td className="p-4 text-right">
-                      <span className={`rounded-full border px-2.5 py-1 text-xs ${p.qty === 0 ? "border-red-500/40 text-red-600" : "border-gold/40 text-gold"}`}>
-                        {p.qty} left
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Month close — month-scoped sales + salaries + expenses (managers), below this-month. */}
+      {monthClose && <MonthClose data={monthClose} months={recentMonths(12)} />}
 
       {isManager && expiringDocs.length > 0 && (
         <div>
