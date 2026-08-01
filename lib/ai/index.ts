@@ -17,6 +17,21 @@ export function getTextProvider(): TextProvider | null {
   }
 }
 
+/**
+ * Text provider for the ERP assistant. Deliberately does NOT read the blog's model vars —
+ * tuning the blog for quality must never silently multiply the assistant's bill. Defaults to a
+ * cheap small model; text-to-SQL over ~17 tables does not need the flagship.
+ */
+export function getAssistantProvider(): TextProvider | null {
+  const which = pickProvider(process.env.TEXT_PROVIDER, SUPPORTED_TEXT_PROVIDERS);
+  const model = process.env.ASSISTANT_TEXT_MODEL?.trim() || "gpt-4.1-mini";
+  switch (which) {
+    case "openai":
+    default:
+      return openaiTextProvider(model);
+  }
+}
+
 export function getImageProvider(): ImageProvider | null {
   const which = pickProvider(process.env.IMAGE_PROVIDER, SUPPORTED_IMAGE_PROVIDERS);
   switch (which) {

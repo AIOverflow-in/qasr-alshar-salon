@@ -1208,7 +1208,26 @@ try {
     const aJunkJ = await aJunk.json().catch(() => ({}));
     ok(aJunk.status === 200 && aJunkJ.intent === null && typeof aJunkJ.answer === "string" && aJunkJ.answer.length > 0,
       `assistant: off-catalogue intent is refused, never runs → clarify (intent=${aJunkJ.intent})`);
+
+    // Free-form tier: SQL must be unreachable over HTTP — only a model-written plan may produce it.
+    const aSqlInject = await apost(aAdmin, { intent: "sql", params: { sql: 'SELECT 1 FROM "Client"' } });
+    const aSqlInjectJ = await aSqlInject.json().catch(() => ({}));
+    ok(aSqlInject.status === 200 && aSqlInjectJ.intent === null,
+      `assistant: client-supplied SQL is refused (intent=${aSqlInjectJ.intent})`);
+
+    // A natural-language question must stay fail-soft even with no AI key configured.
+    const aFree = await apost(aAdmin, { question: "how many clients came back more than twice in June?" });
+    const aFreeJ = await aFree.json().catch(() => ({}));
+    ok(aFree.status === 200 && typeof aFreeJ.answer === "string" && aFreeJ.answer.length > 0,
+      "assistant: free-form question → 200 with an answer (never 5xx)");
+
+    // The rate limiter must degrade to a friendly 200, never a 429/500.
+    const burst = await Promise.all(Array.from({ length: 30 }, () => apost(aAdmin, { intent: "low_stock" })));
+    ok(burst.every((r) => r.status === 200), "assistant: 30-request burst stays 200 (rate limit is fail-soft)");
   }
+
+  // (The SQL guard itself — hostile-query battery, secret columns, row cap — is covered
+  //  exhaustively by lib/erp-assistant/sql-guard.test.ts, which runs in the same pre-push gate.)
 
   // ── Inventory: reception can now ADD + EDIT products (RBAC fix) ─────────────
   section("Inventory: reception can create/edit products (was manager-only → 'Could not save')");
