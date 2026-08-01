@@ -16,8 +16,9 @@ const clampToViewport = (left: number, top: number, w: number, h: number): Pos =
 const SUGGESTIONS = [
   "What were today's takings?",
   "Top 5 services this month",
-  "Which products are low on stock?",
-  "Who was my best stylist this month?",
+  "How many clients came back more than twice this year?",
+  "Which artist earns the most per client?",
+  "What did I spend on rent in the last 3 months?",
 ];
 
 /** Render the assistant's lightweight markdown (**bold** + line breaks) safely — no HTML injection. */
@@ -149,7 +150,7 @@ export function AssistantPanel() {
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.length === 0 && (
               <div className="space-y-3">
-                <p className="text-sm text-muted">Ask about your salon in plain English — takings, top services, staff, stock, expenses, bookings.</p>
+                <p className="text-sm text-muted">Ask anything about your salon in plain English — sales, clients, staff, stock, expenses, bookings. I only ever read your data, never change it.</p>
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button key={s} onClick={() => ask(s)} className="rounded-full border border-ink-line px-3 py-1.5 text-xs text-sand hover:border-gold/50 hover:text-gold">{s}</button>

@@ -10,20 +10,20 @@ datasource db {
 }
 
 model Service {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  category    String
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  category     String
   categorySlug String
-  priceAED    Int
-  durationMin Int      @default(60)
-  description String?
-  active      Boolean  @default(true)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  priceAED     Int
+  durationMin  Int      @default(60)
+  description  String?
+  active       Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  bookings    Booking[]
+  bookings Booking[]
 
   @@index([categorySlug])
 }
@@ -36,48 +36,48 @@ enum BookingStatus {
 }
 
 model Booking {
-  id           String        @id @default(cuid())
+  id          String  @id @default(cuid())
   // denormalized service info (survives service edits/deletes)
-  serviceId    String?
-  serviceName  String
-  priceAED     Int
-  durationMin  Int
+  serviceId   String?
+  serviceName String
+  priceAED    Int
+  durationMin Int
 
   customerName String
   email        String
   phone        String
   notes        String?
 
-  startAt      DateTime
-  endAt        DateTime
-  status       BookingStatus @default(CONFIRMED)
+  startAt DateTime
+  endAt   DateTime
+  status  BookingStatus @default(CONFIRMED)
 
-  locale       String        @default("en")
+  locale         String    @default("en")
   // ERP: which Crown Artist + how the booking came in
-  staffId      String?
-  marketerId   String?       // Staff who brought the lead (carries to the bill's referral %)
-  clientId     String?       // links the booking to a CRM Client (auto-created on booking)
-  createdById  String?       // AdminUser who entered this booking (accountability)
-  source       String        @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP
+  staffId        String?
+  marketerId     String? // Staff who brought the lead (carries to the bill's referral %)
+  clientId       String? // links the booking to a CRM Client (auto-created on booking)
+  createdById    String? // AdminUser who entered this booking (accountability)
+  source         String    @default("ONLINE") // ONLINE | WALKIN | PHONE | WHATSAPP
   // service delivery: at the salon vs. home/clinic visit (needs salon confirmation)
-  serviceMode   String       @default("SALON") // SALON | HOME
-  address       String?      // home-service address (when serviceMode = HOME)
-  customRequest String?      // free-text request when the client can't find a service
-  feedbackSentAt DateTime?   // post-service feedback email sent (dedupe for the follow-ups cron)
-  rebookSentAt   DateTime?   // rebook reminder email sent (dedupe)
+  serviceMode    String    @default("SALON") // SALON | HOME
+  address        String? // home-service address (when serviceMode = HOME)
+  customRequest  String? // free-text request when the client can't find a service
+  feedbackSentAt DateTime? // post-service feedback email sent (dedupe for the follow-ups cron)
+  rebookSentAt   DateTime? // rebook reminder email sent (dedupe)
   // Deposit to secure the booking (bank transfer). depositAED = amount requested (0 = none);
   // depositPaidAt is set by reception once the transfer is confirmed received (null = pending).
-  depositAED     Int         @default(0)
+  depositAED     Int       @default(0)
   depositPaidAt  DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  staff        Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  createdBy    AdminUser?    @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  salesOrders  SalesOrder[]
-  items        BookingItem[]
+  service     Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  staff       Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy   AdminUser?    @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  salesOrders SalesOrder[]
+  items       BookingItem[]
 
   @@index([startAt])
   @@index([status])
@@ -96,10 +96,10 @@ model WorkingHours {
 
 /// Admin-defined blocked windows (holidays, days off, private events).
 model BlockedSlot {
-  id      String   @id @default(cuid())
-  startAt DateTime
-  endAt   DateTime
-  reason  String?
+  id        String   @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  reason    String?
   createdAt DateTime @default(now())
 
   @@index([startAt])
@@ -107,12 +107,12 @@ model BlockedSlot {
 
 /// Singleton settings row (id = "singleton").
 model SalonSettings {
-  id              String @id @default("singleton")
-  capacity        Int    @default(3)  // concurrent appointments (stations)
-  slotMinutes     Int    @default(30) // granularity of bookable slots
-  leadTimeMinutes Int    @default(60) // min notice before a booking
-  maxAdvanceDays  Int    @default(60) // how far ahead booking is allowed
-  depositAED      Int    @default(0)  // deposit requested on online bookings to secure the slot (0 = off)
+  id              String   @id @default("singleton")
+  capacity        Int      @default(3) // concurrent appointments (stations)
+  slotMinutes     Int      @default(30) // granularity of bookable slots
+  leadTimeMinutes Int      @default(60) // min notice before a booking
+  maxAdvanceDays  Int      @default(60) // how far ahead booking is allowed
+  depositAED      Int      @default(0) // deposit requested on online bookings to secure the slot (0 = off)
   updatedAt       DateTime @updatedAt
 }
 
@@ -137,8 +137,8 @@ model BlogPost {
   heroImage       String?
   category        String     @default("Beauty Tips")
   readingMinutes  Int        @default(4)
-  faq             Json?      // [{ q, a }] — rendered as FAQPage JSON-LD for "People also ask"
-  targetKeyword   String?    // the primary SEO keyword this post was written for
+  faq             Json? // [{ q, a }] — rendered as FAQPage JSON-LD for "People also ask"
+  targetKeyword   String? // the primary SEO keyword this post was written for
   status          PostStatus @default(PUBLISHED)
   source          PostSource @default(AI)
   publishedAt     DateTime   @default(now())
@@ -190,7 +190,7 @@ model AdminUser {
   passwordHash String
   name         String   @default("Admin")
   role         Role     @default(SUPER_ADMIN)
-  staffId      String?  // optional link to a Staff record (for STYLIST logins)
+  staffId      String? // optional link to a Staff record (for STYLIST logins)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
@@ -201,33 +201,33 @@ model AdminUser {
 
 /// Salon team member ("Crown Artist", reception, etc.). Seeded from STAFF INFORMATION.xlsx.
 model Staff {
-  id         String     @id @default(cuid())
-  name       String
-  role       String     @default("Crown Artist")
-  hours      String     @default("10:00AM - 10:00PM")
-  offDay     String?    // e.g. "Mondays"
-  phone      String?    // for WhatsApp booking reminders
+  id                    String    @id @default(cuid())
+  name                  String
+  role                  String    @default("Crown Artist")
+  hours                 String    @default("10:00AM - 10:00PM")
+  offDay                String? // e.g. "Mondays"
+  phone                 String? // for WhatsApp booking reminders
   // pay config
-  salaryAED     Int     @default(0)  // base monthly salary (0 = commission-only)
-  commissionPct Int     @default(40) // stylist sales split %
-  referralPct   Int     @default(5)
-  joinedOn   DateTime?  // hire date — drives annual leave entitlement
-  biometricPin String?  @unique // this staff's user ID on the ZKTeco attendance terminal
+  salaryAED             Int       @default(0) // base monthly salary (0 = commission-only)
+  commissionPct         Int       @default(40) // stylist sales split %
+  referralPct           Int       @default(5)
+  joinedOn              DateTime? // hire date — drives annual leave entitlement
+  biometricPin          String?   @unique // this staff's user ID on the ZKTeco attendance terminal
   // HR / compliance IDs (sensitive — Super Admin only). Dates kept as free text
   // because the source (STAFF INFO.xlsx) is inconsistent ("22ND JANUARY 2035", "N/A").
-  passportNumber       String?
-  passportExpiry       String?
-  emiratesId           String?
-  emiratesIdExpiry     String?
-  labourPermitNumber   String?
-  labourCardNumber     String?
-  emergencyContact     String?  // next-of-kin phone number
+  passportNumber        String?
+  passportExpiry        String?
+  emiratesId            String?
+  emiratesIdExpiry      String?
+  labourPermitNumber    String?
+  labourCardNumber      String?
+  emergencyContact      String? // next-of-kin phone number
   emergencyRelationship String? // e.g. "Sister", "Mother"
-  passportPicLink      String?  // external link to the passport scan
-  active     Boolean    @default(true)
-  order      Int        @default(0)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  passportPicLink       String? // external link to the passport scan
+  active                Boolean   @default(true)
+  order                 Int       @default(0)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   bookings        Booking[]
   salesOrders     SalesOrder[]
@@ -246,12 +246,12 @@ model Staff {
 model AttendancePunch {
   id         String   @id @default(cuid())
   deviceSn   String
-  pin        String   // device user ID
-  staffId    String?  // resolved from Staff.biometricPin at ingest
+  pin        String // device user ID
+  staffId    String? // resolved from Staff.biometricPin at ingest
   punchedAt  DateTime
-  status     String?  // device state code (check-in/out etc., raw)
-  verifyMode String?  // 1=fingerprint, 0=password, 2=card… (raw)
-  raw        String?  // original tab-separated record (device-quirk debugging)
+  status     String? // device state code (check-in/out etc., raw)
+  verifyMode String? // 1=fingerprint, 0=password, 2=card… (raw)
+  raw        String? // original tab-separated record (device-quirk debugging)
   createdAt  DateTime @default(now())
 
   staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
@@ -266,9 +266,9 @@ model StaffDocument {
   id         String    @id @default(cuid())
   staffId    String
   staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  type       String    // PASSPORT | VISA | LABOR_CARD | EMIRATES_ID | OTHER
-  fileUrl    String    // Vercel Blob URL
-  pathname   String    // Blob pathname, for deletion
+  type       String // PASSPORT | VISA | LABOR_CARD | EMIRATES_ID | OTHER
+  fileUrl    String // Vercel Blob URL
+  pathname   String // Blob pathname, for deletion
   expiry     DateTime? // for the "expiring soon" alerts
   uploadedAt DateTime  @default(now())
 
@@ -293,17 +293,17 @@ model StaffLeave {
 
 /// Salon client / CRM record.
 model Client {
-  id        String   @id @default(cuid())
-  name      String
-  phone     String?
-  email     String?
-  hairType  String?  // e.g. 4C, low-porosity
-  notes     String?
-  visits    Int      @default(0)
-  totalSpentAED Int   @default(0)
-  consentMarketing Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  phone            String?
+  email            String?
+  hairType         String? // e.g. 4C, low-porosity
+  notes            String?
+  visits           Int      @default(0)
+  totalSpentAED    Int      @default(0)
+  consentMarketing Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   salesOrders SalesOrder[]
   bookings    Booking[]
@@ -314,21 +314,21 @@ model Client {
 
 /// Inventory product (barcoded) + retail/aftercare item. Seeded from inventory sheets.
 model Product {
-  id        String   @id @default(cuid())
-  barcode   String?
-  name      String
-  category  String   @default("Retail / Aftercare")
-  qty       Int      @default(0)
-  reorderAt Int      @default(3)
-  costAED   Int?
-  saleAED   Int?
-  retail    Boolean  @default(false) // published to the customer storefront (e-commerce/aftercare)
+  id          String   @id @default(cuid())
+  barcode     String?
+  name        String
+  category    String   @default("Retail / Aftercare")
+  qty         Int      @default(0)
+  reorderAt   Int      @default(3)
+  costAED     Int?
+  saleAED     Int?
+  retail      Boolean  @default(false) // published to the customer storefront (e-commerce/aftercare)
   description String? // storefront product description
-  imageUrl  String?  // storefront product image (Vercel Blob)
-  slug      String?  @unique // clean storefront URL: /shop/<slug>
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  imageUrl    String? // storefront product image (Vercel Blob)
+  slug        String?  @unique // clean storefront URL: /shop/<slug>
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   orderLines     OrderLine[]
   stockMovements StockMovement[]
@@ -358,37 +358,37 @@ model SalesOrder {
 
   // split payment: when splitPayment, the total is paid partly across methods (cash + card + transfer).
   // For single-method bills these stay 0 and paymentMethod holds the method (back-compatible).
-  splitPayment  Boolean       @default(false)
-  cashAED       Int           @default(0)
-  cardAED       Int           @default(0)
-  transferAED   Int           @default(0)
+  splitPayment Boolean @default(false)
+  cashAED      Int     @default(0)
+  cardAED      Int     @default(0)
+  transferAED  Int     @default(0)
 
   // optional links
-  bookingId     String?
-  clientId      String?
-  staffId       String?
-  marketerId    String?       // Staff who referred this client (gets a referral %)
-  marketerPct   Int           @default(5)
+  bookingId   String?
+  clientId    String?
+  staffId     String?
+  marketerId  String? // Staff who referred this client (gets a referral %)
+  marketerPct Int     @default(5)
 
   // idempotency: one cart submit = one order, even if the request is retried
-  clientRequestId String?     @unique
-  createdById   String?       // AdminUser who rang up this bill (accountability)
+  clientRequestId String? @unique
+  createdById     String? // AdminUser who rang up this bill (accountability)
 
-  subtotalAED   Int           @default(0)
-  vatPct        Int           @default(5)
-  vatAED        Int           @default(0)
-  totalAED      Int           @default(0)
-  notes         String?
+  subtotalAED Int     @default(0)
+  vatPct      Int     @default(5)
+  vatAED      Int     @default(0)
+  totalAED    Int     @default(0)
+  notes       String?
 
-  paidAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  lines         OrderLine[]
-  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  client        Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  staff         Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  createdBy     AdminUser?    @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lines     OrderLine[]
+  booking   Booking?    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client    Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  staff     Staff?      @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdBy AdminUser?  @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([staffId])
@@ -406,28 +406,28 @@ model BookingItem {
   serviceName String
   priceAED    Int
   durationMin Int
-  staffId     String?  // preferred artist for this specific service
+  staffId     String? // preferred artist for this specific service
   createdAt   DateTime @default(now())
 
-  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
 }
 
 model OrderLine {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   orderId     String
-  kind        String     @default("SERVICE") // SERVICE | PRODUCT
+  kind        String   @default("SERVICE") // SERVICE | PRODUCT
   description String
-  qty         Int        @default(1)
+  qty         Int      @default(1)
   unitAED     Int
   lineAED     Int
-  staffId     String?    // legacy single artist (kept for back-compat)
-  staffIds    String[]   @default([]) // Crown Artists who performed THIS line (commission splits equally)
+  staffId     String? // legacy single artist (kept for back-compat)
+  staffIds    String[] @default([]) // Crown Artists who performed THIS line (commission splits equally)
 
-  productId   String?
-  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  order       SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order     SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 enum MovementKind {
@@ -442,12 +442,12 @@ model StockMovement {
   id        String       @id @default(cuid())
   productId String
   kind      MovementKind
-  qty       Int          // positive = in, negative = out
+  qty       Int // positive = in, negative = out
   note      String?
   staffId   String?
   createdAt DateTime     @default(now())
 
-  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([createdAt])
@@ -455,16 +455,16 @@ model StockMovement {
 
 /// Commission record per stylist per sales order.
 model Commission {
-  id          String   @id @default(cuid())
-  staffId     String
-  orderId     String
-  type        String   @default("SALES_SPLIT") // SALES_SPLIT | REFERRAL | INCENTIVE
-  baseAED     Int
-  pct         Int
-  amountAED   Int
-  paid        Boolean  @default(false)
-  paidAt      DateTime?
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  staffId   String
+  orderId   String
+  type      String    @default("SALES_SPLIT") // SALES_SPLIT | REFERRAL | INCENTIVE
+  baseAED   Int
+  pct       Int
+  amountAED Int
+  paid      Boolean   @default(false)
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([staffId])
   @@index([orderId])
@@ -476,8 +476,8 @@ model PayAdjustment {
   id        String   @id @default(cuid())
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  month     String   // Dubai payroll month "YYYY-MM"
-  type      String   // BONUS | ADVANCE | DEDUCTION
+  month     String // Dubai payroll month "YYYY-MM"
+  type      String // BONUS | ADVANCE | DEDUCTION
   amountAED Int
   note      String?
   createdAt DateTime @default(now())
@@ -490,7 +490,7 @@ model PayrollPayment {
   id            String   @id @default(cuid())
   staffId       String
   staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  month         String   // Dubai payroll month "YYYY-MM"
+  month         String // Dubai payroll month "YYYY-MM"
   salaryAED     Int
   commissionAED Int
   bonusAED      Int
@@ -514,21 +514,21 @@ enum ExpenseCategory {
 
 /// Operating expense entry — feeds the finance P&L + dividend calculation.
 model Expense {
-  id          String          @id @default(cuid())
-  category    ExpenseCategory @default(OTHER)
-  description String
-  amountAED   Int
-  incurredOn  DateTime        @default(now())
-  recurring   Boolean         @default(false) // monthly recurring (rent, salaries)
-  notes       String?
-  invoiceNo   String?         // supplier invoice / reference number
-  receiptUrl  String?         // legacy single receipt (kept in sync = receiptUrls[0])
-  receiptPath String?         // legacy single Blob pathname
-  receiptUrls  String[]       @default([]) // all receipts (Vercel Blob URLs)
-  receiptPaths String[]       @default([]) // matching Blob pathnames, for deletion
-  createdById String?         // AdminUser who logged it (accountability — esp. reception)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  category     ExpenseCategory @default(OTHER)
+  description  String
+  amountAED    Int
+  incurredOn   DateTime        @default(now())
+  recurring    Boolean         @default(false) // monthly recurring (rent, salaries)
+  notes        String?
+  invoiceNo    String? // supplier invoice / reference number
+  receiptUrl   String? // legacy single receipt (kept in sync = receiptUrls[0])
+  receiptPath  String? // legacy single Blob pathname
+  receiptUrls  String[]        @default([]) // all receipts (Vercel Blob URLs)
+  receiptPaths String[]        @default([]) // matching Blob pathnames, for deletion
+  createdById  String? // AdminUser who logged it (accountability — esp. reception)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([incurredOn])
   @@index([category])
@@ -562,12 +562,12 @@ model ScheduledPayment {
   dueDate          DateTime
   payee            String?
   method           String          @default("CHEQUE") // CHEQUE | CASH | TRANSFER
-  reference        String?         // cheque number / reference
+  reference        String? // cheque number / reference
   status           PaymentStatus   @default(PENDING)
   paidAt           DateTime?
   remindDaysBefore Int             @default(7)
-  reminderSentAt   DateTime?       // "due soon" reminder sent (dedupe)
-  expenseId        String?         // Expense created when marked paid (removed if un-marked)
+  reminderSentAt   DateTime? // "due soon" reminder sent (dedupe)
+  expenseId        String? // Expense created when marked paid (removed if un-marked)
   notes            String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -595,7 +595,7 @@ model ShopOrder {
   email           String?
   address         String
   emirate         String?
-  items           Json            // [{ productId, name, priceAED, qty, lineAED }]
+  items           Json // [{ productId, name, priceAED, qty, lineAED }]
   itemCount       Int
   totalAED        Int
   paymentMethod   String          @default("COD")
@@ -642,12 +642,32 @@ model CompanyDocument {
 /// (each visit capped) so avg time-on-page = engagedSec / views.
 model PageStat {
   id         String   @id @default(cuid())
-  day        String   // Dubai calendar day "YYYY-MM-DD"
-  path       String   // normalized public pathname, e.g. "/services/braiding-styles"
+  day        String // Dubai calendar day "YYYY-MM-DD"
+  path       String // normalized public pathname, e.g. "/services/braiding-styles"
   views      Int      @default(0)
   engagedSec Int      @default(0)
   updatedAt  DateTime @updatedAt
 
   @@unique([day, path])
   @@index([day])
+}
+
+/// Remembered answers for the ERP assistant's free-form tier. One row per distinct question:
+/// the generated SQL is cached so a repeat question costs no AI tokens, while the query itself
+/// still re-runs for fresh numbers. Bounded rows (distinct questions, LRU-pruned), and it doubles
+/// as the feature's analytics — `hits` is the cache rate, and status='CLARIFY' rows are exactly
+/// the questions the owner wanted answered and didn't get.
+model AssistantQuery {
+  id          String   @id @default(cuid())
+  hash        String   @unique // sha256 of the normalized question + prompt version
+  question    String // first raw phrasing seen, for reading
+  status      String   @default("SQL") // SQL | CLARIFY
+  sql         String? // validated SELECT, re-executed on each hit
+  title       String?
+  hits        Int      @default(0)
+  lastAskedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([lastAskedAt])
+  @@index([status, hits])
 }

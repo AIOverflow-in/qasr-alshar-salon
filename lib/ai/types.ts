@@ -6,10 +6,17 @@
 
 export type ChatMessage = { role: "system" | "user"; content: string };
 
-/** Generates a JSON blog document from a system+user prompt. Returns the raw JSON string. */
+/**
+ * Generates a JSON document from a system+user prompt. Returns the raw JSON string.
+ * `maxTokens` / `timeoutMs` are optional so existing callers (the blog) are unchanged;
+ * the ERP assistant passes both so a single question can never run unbounded.
+ */
 export interface TextProvider {
   readonly name: string;
-  generateJSON(messages: ChatMessage[], opts?: { temperature?: number }): Promise<string>;
+  generateJSON(
+    messages: ChatMessage[],
+    opts?: { temperature?: number; maxTokens?: number; timeoutMs?: number },
+  ): Promise<string>;
 }
 
 /** Generates a hero image. Returns raw PNG bytes, or null on any failure (caller falls back). */
