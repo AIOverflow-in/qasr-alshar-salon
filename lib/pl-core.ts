@@ -30,6 +30,12 @@ export type PLInput = {
   vatPct?: number;
   serviceGrossAED: number; // gross service takings (incl. VAT) for the window
   productGrossAED: number; // gross retail takings (incl. VAT) for the window
+  /**
+   * Staff cost for the window, from PAYROLL (base salary floor + commissions + bonuses − deductions).
+   * Salaries never live in the Expense table, so without this the P&L overstates profit by the whole
+   * wage bill. Any SALARIES-category Expense rows are dropped below so nothing is counted twice.
+   */
+  salariesAED: number;
   expensesByCategory: { category: string; amountAED: number }[];
 };
 
@@ -61,8 +67,13 @@ export function buildProfitAndLoss(input: PLInput): PLReport {
   if (prod) income.push({ label: "Retail / product revenue", amountAED: prod });
   const totalIncome = svc + prod;
 
-  const expenses = input.expensesByCategory
-    .map((e) => ({ label: EXPENSE_LABELS[e.category] ?? e.category, amountAED: e.amountAED }))
+  const expenses = [
+    // Payroll is the source of truth for staff cost; SALARIES expense rows are ignored (no double count).
+    { label: "Salaries & commissions", amountAED: input.salariesAED },
+    ...input.expensesByCategory
+      .filter((e) => e.category !== "SALARIES")
+      .map((e) => ({ label: EXPENSE_LABELS[e.category] ?? e.category, amountAED: e.amountAED })),
+  ]
     .filter((e) => e.amountAED !== 0)
     .sort((a, b) => b.amountAED - a.amountAED);
   const totalExpenses = expenses.reduce((s, e) => s + e.amountAED, 0);

@@ -4,23 +4,46 @@ import { buildProfitAndLoss, resolvePLRange, buildPLCsv, dubaiTodayISO, CT_PERIO
 
 test("buildProfitAndLoss: not VAT-registered → income is gross, no VAT separated", () => {
   const r = buildProfitAndLoss({
-    vatRegistered: false,
+    vatRegistered: false, salariesAED: 3000,
     serviceGrossAED: 10000, productGrossAED: 2000,
-    expensesByCategory: [{ category: "RENT", amountAED: 5000 }, { category: "SALARIES", amountAED: 3000 }],
+    expensesByCategory: [{ category: "RENT", amountAED: 5000 }],
   });
   assert.equal(r.incomeBasis, "gross");
   assert.equal(r.totalIncome, 12000);
   assert.equal(r.vatCollected, 0);
   assert.equal(r.income[0].label, "Service revenue");
   assert.equal(r.income[0].amountAED, 10000);
-  assert.equal(r.totalExpenses, 8000);
+  assert.equal(r.totalExpenses, 8000); // 3000 salaries + 5000 rent
   assert.equal(r.netProfit, 4000);
   assert.equal(r.netMarginPct, 33.3); // 4000/12000
 });
 
+test("salaries come from payroll and appear as an expense line", () => {
+  const r = buildProfitAndLoss({
+    vatRegistered: false, salariesAED: 22670,
+    serviceGrossAED: 62149, productGrossAED: 3585,
+    expensesByCategory: [{ category: "SUPPLIES", amountAED: 19925 }],
+  });
+  const sal = r.expenses.find((e) => e.label === "Salaries & commissions");
+  assert.ok(sal, "salaries line present");
+  assert.equal(sal!.amountAED, 22670);
+  assert.equal(r.totalExpenses, 22670 + 19925);
+  assert.equal(r.netProfit, 65734 - 42595); // profit no longer overstated
+});
+
+test("SALARIES expense rows are ignored so staff cost is never double counted", () => {
+  const r = buildProfitAndLoss({
+    vatRegistered: false, salariesAED: 5000,
+    serviceGrossAED: 20000, productGrossAED: 0,
+    expensesByCategory: [{ category: "SALARIES", amountAED: 5000 }, { category: "RENT", amountAED: 1000 }],
+  });
+  assert.equal(r.expenses.filter((e) => e.label === "Salaries & commissions").length, 1);
+  assert.equal(r.totalExpenses, 6000); // 5000 payroll + 1000 rent — NOT 11000
+});
+
 test("buildProfitAndLoss: VAT-registered → income net of VAT, VAT excluded and reported", () => {
   const r = buildProfitAndLoss({
-    vatRegistered: true, vatPct: 5,
+    vatRegistered: true, vatPct: 5, salariesAED: 0,
     serviceGrossAED: 10500, productGrossAED: 0,
     expensesByCategory: [{ category: "RENT", amountAED: 5000 }],
   });
@@ -33,7 +56,7 @@ test("buildProfitAndLoss: VAT-registered → income net of VAT, VAT excluded and
 
 test("buildProfitAndLoss: expenses labelled, zero rows dropped, largest first", () => {
   const r = buildProfitAndLoss({
-    vatRegistered: false, serviceGrossAED: 1000, productGrossAED: 0,
+    vatRegistered: false, salariesAED: 0, serviceGrossAED: 1000, productGrossAED: 0,
     expensesByCategory: [
       { category: "MARKETING", amountAED: 100 },
       { category: "RENT", amountAED: 900 },
@@ -47,7 +70,7 @@ test("buildProfitAndLoss: expenses labelled, zero rows dropped, largest first", 
 });
 
 test("buildProfitAndLoss: no income → margin is 0 (no divide-by-zero)", () => {
-  const r = buildProfitAndLoss({ vatRegistered: false, serviceGrossAED: 0, productGrossAED: 0, expensesByCategory: [{ category: "RENT", amountAED: 500 }] });
+  const r = buildProfitAndLoss({ vatRegistered: false, salariesAED: 0, serviceGrossAED: 0, productGrossAED: 0, expensesByCategory: [{ category: "RENT", amountAED: 500 }] });
   assert.equal(r.totalIncome, 0);
   assert.equal(r.netMarginPct, 0);
   assert.equal(r.netProfit, -500);
@@ -96,7 +119,7 @@ test("resolvePLRange: custom range, and reversed dates are normalised", () => {
 
 test("buildPLCsv: has header, both sections, and net profit", () => {
   const r: PLReport = buildProfitAndLoss({
-    vatRegistered: false, serviceGrossAED: 1000, productGrossAED: 0,
+    vatRegistered: false, salariesAED: 0, serviceGrossAED: 1000, productGrossAED: 0,
     expensesByCategory: [{ category: "RENT", amountAED: 300 }],
   });
   const csv = buildPLCsv(r, { label: "July 2026", from: "2026-07-01", to: "2026-07-31" });
