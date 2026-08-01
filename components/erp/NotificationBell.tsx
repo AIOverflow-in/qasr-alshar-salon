@@ -8,7 +8,15 @@ import { cn } from "@/lib/utils";
 type Booking = { id: string; customerName: string; serviceName: string; startAt: string; createdAt: string; serviceMode: string; source: string };
 
 const SEEN_KEY = "qa_notif_seen";
-const POLL_MS = 60000; // 60s — keeps DB/serverless load low with many admins open (re-polls on tab focus)
+/**
+ * 3 min, and ONLY while the tab is visible.
+ *
+ * Neon bills compute time and only scales to zero after ~5 min idle, so a forever-ticking timer
+ * keeps the database awake 24/7 — that (not the request rate) is what exhausted the quota on
+ * 29 Jul 2026. Pausing while hidden means a forgotten ERP tab costs nothing overnight, and we
+ * always poll immediately on returning to the tab so nothing is missed.
+ */
+const POLL_MS = 180000;
 
 function whenLabel(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dubai", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
@@ -47,11 +55,18 @@ export function NotificationBell() {
   }, [router]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => { if (timer === null) timer = setInterval(poll, POLL_MS); };
+    const stop = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+    // Returning to the tab polls straight away, so a paused tab never shows stale notifications.
+    const onVis = () => {
+      if (document.visibilityState === "visible") { poll(); start(); } else stop();
+    };
+
     poll();
-    const t = setInterval(poll, POLL_MS);
-    const onVis = () => { if (document.visibilityState === "visible") poll(); };
+    if (document.visibilityState === "visible") start();
     document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); };
+    return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
   }, [poll]);
 
   const unread = bookings.filter((b) => new Date(b.createdAt).getTime() > seen).length;
