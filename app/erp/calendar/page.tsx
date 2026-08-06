@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { dubaiRangeForDate } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarStaffFilter } from "@/components/erp/CalendarStaffFilter";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ function addDaysISO(dateISO: string, days: number): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.UTC(y, m - 1, d + days)));
 }
 
-export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ week?: string; staff?: string }> }) {
   const session = await getSession();
   if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"].includes(session.role)) redirect("/erp");
 
@@ -43,6 +44,18 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   }
 
   const sp = await searchParams;
+
+  // Managers can narrow the whole-salon view to one artist. Never offered to a STYLIST — their
+  // view is already locked to themselves, and letting them pass ?staff= would leak the salon.
+  const isManager = session.role === "SUPER_ADMIN" || session.role === "ADMIN";
+  const staffList = isManager
+    ? await prisma.staff.findMany({ where: { active: true }, orderBy: { order: "asc" }, select: { id: true, name: true } })
+    : [];
+  // Validate against the real list so an arbitrary ?staff= can't be injected.
+  const pickedStaff = isManager && sp.staff && staffList.some((s) => s.id === sp.staff) ? sp.staff : "";
+  const pickedName = staffList.find((s) => s.id === pickedStaff)?.name ?? "";
+  // The filter reuses the artist's own attribution rules below.
+  const filterStaffId = onlyStaffId ?? (pickedStaff || null);
   const ref = sp.week && /^\d{4}-\d{2}-\d{2}$/.test(sp.week) ? sp.week : todayISO();
   const monday = mondayOf(ref);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -61,13 +74,13 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     startAt: { gte: weekStart, lt: weekEnd },
     ...(stylistUnlinked
       ? { id: "__none__" } // unlinked crown artist → no results, never the whole salon
-      : onlyStaffId
+      : filterStaffId
       ? {
           OR: [
-            { staffId: onlyStaffId },
-            { marketerId: onlyStaffId },
-            { items: { some: { staffId: onlyStaffId } } },
-            { salesOrders: { some: { lines: { some: { staffIds: { has: onlyStaffId } } } } } },
+            { staffId: filterStaffId },
+            { marketerId: filterStaffId },
+            { items: { some: { staffId: filterStaffId } } },
+            { salesOrders: { some: { lines: { some: { staffIds: { has: filterStaffId } } } } } },
           ],
         }
       : {}),
@@ -85,30 +98,36 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   for (const b of bookings) {
     const day = days.find((d) => b.startAt >= d.range.start && b.startAt < d.range.end);
     if (!day) continue;
-    // For a crown artist, show the service(s) THEY performed on this booking (so they see their part).
+    // When the view is scoped to one artist — their own calendar, or a manager filtering by them —
+    // show the service(s) THAT artist performed on the booking rather than the booking headline.
     let service = b.serviceName;
-    if (onlyStaffId) {
-      const mine = b.items.filter((it) => it.staffId === onlyStaffId).map((it) => it.serviceName);
+    if (filterStaffId) {
+      const mine = b.items.filter((it) => it.staffId === filterStaffId).map((it) => it.serviceName);
       if (mine.length) service = mine.join(", ");
-      else if (b.marketerId === onlyStaffId && b.staffId !== onlyStaffId) service = `${b.serviceName} · referred`;
+      else if (b.marketerId === filterStaffId && b.staffId !== filterStaffId) service = `${b.serviceName} · referred`;
     }
     day.bookings.push({ time: timeFmt.format(b.startAt), artist: b.staff?.name ?? "Any artist", service, client: b.customerName, done: b.status === "COMPLETED" });
   }
 
   const prev = addDaysISO(monday, -7), next = addDaysISO(monday, 7);
   const rangeLabel = `${dayNum(monday)} – ${dayNum(addDaysISO(monday, 6))}`;
+  // Week navigation keeps whichever artist is selected.
+  const staffQ = pickedStaff ? `&staff=${pickedStaff}` : "";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl text-cream">{onlyStaffId ? "My Calendar" : "Calendar"}</h1>
-          <p className="text-sm text-muted">{onlyStaffId ? "Your appointments this week" : "Who’s busy this week"} — {rangeLabel}.</p>
+          <h1 className="font-display text-3xl text-cream">{onlyStaffId ? "My Calendar" : pickedName || "Calendar"}</h1>
+          <p className="text-sm text-muted">
+            {onlyStaffId ? "Your appointments this week" : pickedName ? `${pickedName}’s appointments this week` : "Who’s busy this week"} — {rangeLabel}.
+          </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Link href={`/erp/calendar?week=${prev}`} className="grid h-9 w-9 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50" aria-label="Previous week"><ChevronLeft size={16} /></Link>
-          <Link href="/erp/calendar" className="rounded-lg border border-ink-line px-3 py-2 text-xs text-sand hover:border-gold/50">This week</Link>
-          <Link href={`/erp/calendar?week=${next}`} className="grid h-9 w-9 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50" aria-label="Next week"><ChevronRight size={16} /></Link>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isManager && <CalendarStaffFilter staff={staffList} selected={pickedStaff} week={sp.week} />}
+          <Link href={`/erp/calendar?week=${prev}${staffQ}`} className="grid h-9 w-9 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50" aria-label="Previous week"><ChevronLeft size={16} /></Link>
+          <Link href={pickedStaff ? `/erp/calendar?staff=${pickedStaff}` : "/erp/calendar"} className="rounded-lg border border-ink-line px-3 py-2 text-xs text-sand hover:border-gold/50">This week</Link>
+          <Link href={`/erp/calendar?week=${next}${staffQ}`} className="grid h-9 w-9 place-items-center rounded-lg border border-ink-line text-sand hover:border-gold/50" aria-label="Next week"><ChevronRight size={16} /></Link>
         </div>
       </div>
 
