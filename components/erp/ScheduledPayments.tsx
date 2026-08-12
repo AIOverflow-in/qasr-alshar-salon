@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { Plus, Trash2, Loader2, CalendarClock, Check, Undo2 } from "lucide-react";
 import { addScheduledPayment, deleteScheduledPayment, setScheduledPaymentPaid } from "@/lib/actions/finance";
 import { aed } from "@/lib/utils";
+import { EXPENSE_CATEGORIES, expenseCategoryLabel } from "@/lib/expense-filter";
 
 type Payment = {
   id: string; label: string; category: string; amountAED: number; dueDate: string;
   payee: string | null; method: string; reference: string | null; status: string; paidAt: string | null; remindDaysBefore: number;
 };
 
-const CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"];
+const CATEGORIES: readonly string[] = EXPENSE_CATEGORIES; // shared list, so new categories appear here automatically
 const METHODS = ["CHEQUE", "CASH", "TRANSFER"];
 
 function fmtDate(iso: string) {
@@ -85,7 +86,7 @@ export function ScheduledPayments({ payments, canEdit }: { payments: Payment[]; 
             <div className="grid grid-cols-1 gap-2 rounded-xl border border-ink-line/60 p-3 sm:grid-cols-3">
               <input value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} placeholder="Label (e.g. Shop rent — cheque #8)" className={`${input} sm:col-span-3`} />
               <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} className={input}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c[0] + c.slice(1).toLowerCase()}</option>)}
+                {CATEGORIES.map((c) => <option key={c} value={c}>{expenseCategoryLabel(c)}</option>)}
               </select>
               <input type="number" value={form.amountAED} onChange={(e) => setForm((p) => ({ ...p, amountAED: e.target.value }))} placeholder="Amount AED" className={input} />
               <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* native icon still works */ } }} className={input} />

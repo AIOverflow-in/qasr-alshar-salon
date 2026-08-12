@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-export const EXPENSE_CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"] as const;
+export const EXPENSE_CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "FOOD", "PARKING", "CEO_ALLOWANCE", "OTHER"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 /**
@@ -8,7 +8,20 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
  * day-to-day items. The full set (rent, utilities, salaries, …) lives in the
  * Finance tab, which is owner-only. Both write to the same ExpenseCategory enum.
  */
-export const EXPENSE_TAB_CATEGORIES = ["MAINTENANCE", "SUPPLIES", "OTHER"] as const;
+/**
+ * Screen labels for the category enum. Without this, CEO_ALLOWANCE renders as "Ceo_allowance".
+ * (The P&L uses its own, more formal wording in lib/pl-core.ts — a report, not a form.)
+ */
+const CATEGORY_LABELS: Record<string, string> = {
+  CEO_ALLOWANCE: "CEO allowance",
+  PARKING: "Parking & Salik",
+  FOOD: "Food",
+};
+export function expenseCategoryLabel(c: string): string {
+  return CATEGORY_LABELS[c] ?? c.charAt(0) + c.slice(1).toLowerCase().replace(/_/g, " ");
+}
+
+export const EXPENSE_TAB_CATEGORIES = ["MAINTENANCE", "SUPPLIES", "FOOD", "OTHER"] as const;
 
 export function isExpenseCategory(c: string | null | undefined): c is ExpenseCategory {
   return !!c && (EXPENSE_CATEGORIES as readonly string[]).includes(c);

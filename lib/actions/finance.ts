@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-filter";
 import { del } from "@vercel/blob";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +26,8 @@ async function requireExpenseWriter() {
   return session;
 }
 
-const CATEGORIES = ["RENT", "UTILITIES", "SALARIES", "VISA", "SUPPLIES", "MARKETING", "MAINTENANCE", "OTHER"] as const;
+// Single source of truth — lib/expense-filter.ts. Keeps this in step with the schema enum.
+const CATEGORIES = EXPENSE_CATEGORIES;
 
 /** Owner/manager can send the daily takings digest on demand (to NOTIFY_EMAILS). */
 export async function emailDailyDigestNow() {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { expenseWhere, isExpenseCategory } from "./expense-filter.ts";
+import { expenseCategoryLabel, expenseWhere, isExpenseCategory } from "./expense-filter.ts";
 
 const start = new Date("2026-07-01T00:00:00Z");
 const end = new Date("2026-08-01T00:00:00Z");
@@ -42,4 +42,12 @@ test("category + q filters compose", () => {
   assert.ok(and.some((c) => c.category === "SUPPLIES"));
   const orClause = and.find((c) => c.OR);
   assert.ok(orClause && orClause.OR.length === 2, "searches description + invoiceNo");
+});
+
+test("new budget categories exist and read properly on screen", () => {
+  for (const c of ["FOOD", "PARKING", "CEO_ALLOWANCE"]) assert.ok(isExpenseCategory(c), `${c} must be a valid category`);
+  assert.equal(expenseCategoryLabel("CEO_ALLOWANCE"), "CEO allowance"); // not "Ceo_allowance"
+  assert.equal(expenseCategoryLabel("PARKING"), "Parking & Salik");
+  assert.equal(expenseCategoryLabel("FOOD"), "Food");
+  assert.equal(expenseCategoryLabel("RENT"), "Rent"); // untouched categories still fine
 });

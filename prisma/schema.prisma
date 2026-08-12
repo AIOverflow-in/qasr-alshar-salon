@@ -509,6 +509,9 @@ enum ExpenseCategory {
   SUPPLIES
   MARKETING
   MAINTENANCE
+  FOOD
+  PARKING
+  CEO_ALLOWANCE
   OTHER
 }
 
