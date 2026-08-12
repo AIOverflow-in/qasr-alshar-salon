@@ -2,14 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Printer, BadgeCheck, X, Wallet } from "lucide-react";
+import { Loader2, Plus, Printer, BadgeCheck, X, Wallet, Trash2 } from "lucide-react";
 import { aed, cn } from "@/lib/utils";
-import { addPayAdjustment, payStaffMonth } from "@/lib/actions/admin";
+import { addPayAdjustment, deletePayAdjustment, payStaffMonth } from "@/lib/actions/admin";
 
 export type PayrollRow = {
   staffId: string; name: string; role: string; clientsServed: number; servicesAED: number; grossAED: number;
   salary: number; salesCommission: number; referral: number; commission: number;
   bonus: number; deductions: number; net: number; paid: boolean; paidAt: string | null;
+  adjustments: { id: string; type: string; amountAED: number; note: string | null }[];
 };
 export type PayrollTotals = { services: number; salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
 
@@ -180,6 +181,46 @@ function AdjustModal({ row, month, onClose, onDone }: { row: PayrollRow; month: 
           <button onClick={submit} disabled={pending} className="w-full rounded-lg bg-gold-gradient py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {pending ? "Saving…" : "Add adjustment"}
           </button>
+
+          {/* Existing entries — without this, a mistaken adjustment could never be undone. */}
+          {row.adjustments.length > 0 && (
+            <div className="border-t border-ink-line pt-3">
+              <div className="mb-1.5 text-[0.65rem] uppercase tracking-wider text-muted">This month&apos;s adjustments</div>
+              <ul className="space-y-1.5">
+                {row.adjustments.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-2 rounded-lg border border-ink-line px-2.5 py-1.5">
+                    <div className="min-w-0">
+                      <span className={cn("text-xs font-semibold", a.type === "BONUS" ? "text-green-600" : "text-red-600")}>
+                        {a.type === "BONUS" ? "+" : "−"} {aed(a.amountAED)}
+                      </span>
+                      <span className="ml-1.5 text-[0.65rem] capitalize text-muted">{a.type.toLowerCase()}</span>
+                      {a.note && <div className="truncate text-[0.65rem] text-muted" title={a.note}>{a.note}</div>}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!confirm(`Remove this ${a.type.toLowerCase()} of ${aed(a.amountAED)} from ${row.name}'s ${month} pay?`)) return;
+                        setError(null);
+                        start(async () => {
+                          try { await deletePayAdjustment(a.id); onDone(); }
+                          catch (e) { setError(e instanceof Error ? e.message : "Could not remove."); }
+                        });
+                      }}
+                      disabled={pending}
+                      className="shrink-0 rounded-md border border-ink-line p-1 text-muted hover:border-red-400/60 hover:text-red-600 disabled:opacity-50"
+                      aria-label="Remove adjustment"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {row.paid && (
+                <p className="mt-2 text-[0.65rem] text-gold">
+                  Already marked paid — after changing an adjustment, click Pay again so the payslip updates.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
