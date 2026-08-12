@@ -113,7 +113,12 @@ export const SCHEMA_TABLES: readonly TableSpec[] = [
     c("amountAED", "aed"), c("note"),
   ], ["createdAt", "updatedAt"]),
 
-  T("StaffLeave", "Staff leave record.", [
+  T("StaffLoan", "Loan/advance given to a staff member, repaid over later months. Outstanding = amountAED - repaidAED; closedAt set when cleared.", [
+    c("id"), c("staffId"), c("amountAED", "aed"), c("repaidAED", "aed"), c("note"),
+    c("issuedOn", "date"), c("closedAt", "date"),
+  ], ["createdAt", "updatedAt"]),
+
+  T("StaffLeave", "Staff leave record. type is ANNUAL | SICK | UNPAID (only UNPAID is deducted).", [
     c("id"), c("staffId"), c("startDate", "date"), c("endDate", "date"), c("days", "int"), c("type"), c("note"), c("createdAt", "date"),
   ]),
 ];

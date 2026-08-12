@@ -294,6 +294,31 @@ export async function payStaffMonth(staffId: string, month: string) {
     }),
     prisma.commission.updateMany({ where: { staffId, paid: false, createdAt: { gte: start, lt: end } }, data: { paid: true, paidAt: new Date() } }),
   ]);
+
+  // Email the payslip to the staff member (11 Aug meeting: "once we click pay they should receive
+  // a payslip"). Staff has no email of its own, so this uses their linked ERP login. Entirely
+  // best-effort — a mail failure must never undo a payment that has already been recorded.
+  try {
+    const login = await prisma.adminUser.findFirst({ where: { staffId, active: true }, select: { email: true } });
+    if (login?.email) {
+      const [{ buildPayslipPdf }, { sendPayslipEmail }] = await Promise.all([
+        import("@/lib/payslip-pdf"),
+        import("@/lib/email"),
+      ]);
+      const [y, m] = month.split("-").map(Number);
+      const monthLabel = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+      const pdf = await buildPayslipPdf({
+        staffName: row.name, role: row.role, month, clientsServed: row.clientsServed,
+        grossAED: row.grossAED, netSaleAED: row.servicesAED, salary: row.salary,
+        salesCommission: row.salesCommission, referral: row.referral, bonus: row.bonus,
+        deductions: row.deductions, net: row.net, paidAt: new Date().toISOString(),
+      });
+      await sendPayslipEmail({ staffName: row.name, email: login.email, monthLabel, netAED: row.net, pdf });
+    }
+  } catch (e) {
+    console.error("[payroll] payslip email failed (payment still recorded):", e);
+  }
+
   revalidatePath("/erp/staff");
 }
 
@@ -529,4 +554,64 @@ export async function setStaffBiometricPin(staffId: string, pin: string) {
   });
   revalidatePath("/erp/attendance");
   revalidatePath(`/erp/staff/${staffId}`);
+}
+
+// ── Staff loans (11 Aug meeting: "who is owing what", deducted monthly) ──────
+
+/** Record a loan / advance given to a staff member. */
+export async function addStaffLoan(staffId: string, amountAED: number, note?: string | null) {
+  await requireManager();
+  const amt = Math.max(0, Math.round(amountAED));
+  if (!amt) throw new Error("Amount must be greater than 0");
+  await prisma.staffLoan.create({ data: { staffId, amountAED: amt, note: note?.trim() || null } });
+  revalidatePath("/erp/staff");
+}
+
+/** Remove a loan entirely (mistaken entry). Repayments already deducted are not reversed. */
+export async function deleteStaffLoan(id: string) {
+  await requireManager();
+  await prisma.staffLoan.delete({ where: { id } });
+  revalidatePath("/erp/staff");
+}
+
+/**
+ * Take a repayment out of a month's pay: creates the DEDUCTION adjustment AND credits the loan in
+ * ONE transaction, so the balance and the payslip can never disagree. Closes the loan when cleared.
+ */
+export async function repayStaffLoan(loanId: string, month: string, amountAED: number) {
+  await requireManager();
+  if (!MONTH_RE.test(month)) throw new Error("Invalid month");
+  const loan = await prisma.staffLoan.findUnique({ where: { id: loanId } });
+  if (!loan) throw new Error("Loan not found");
+
+  const outstanding = Math.max(0, loan.amountAED - loan.repaidAED);
+  const amt = Math.min(Math.max(0, Math.round(amountAED)), outstanding);
+  if (!amt) throw new Error("Nothing left to repay");
+
+  const repaid = loan.repaidAED + amt;
+  await prisma.$transaction([
+    prisma.payAdjustment.create({
+      data: { staffId: loan.staffId, month, type: "DEDUCTION", amountAED: amt, note: `Loan repayment${loan.note ? ` — ${loan.note}` : ""}` },
+    }),
+    prisma.staffLoan.update({
+      where: { id: loanId },
+      data: { repaidAED: repaid, closedAt: repaid >= loan.amountAED ? new Date() : null },
+    }),
+  ]);
+  revalidatePath("/erp/staff");
+}
+
+/**
+ * Apply the unpaid-leave deduction for a month as an ordinary DEDUCTION, so it's visible and
+ * removable like any other adjustment rather than silently altering the pay formula.
+ */
+export async function applyUnpaidLeaveDeduction(staffId: string, month: string, amountAED: number, days: number) {
+  await requireManager();
+  if (!MONTH_RE.test(month)) throw new Error("Invalid month");
+  const amt = Math.max(0, Math.round(amountAED));
+  if (!amt) throw new Error("Nothing to deduct");
+  await prisma.payAdjustment.create({
+    data: { staffId, month, type: "DEDUCTION", amountAED: amt, note: `Unpaid leave — ${days} day${days === 1 ? "" : "s"}` },
+  });
+  revalidatePath("/erp/staff");
 }

@@ -378,3 +378,36 @@ export async function sendRebookEmail(to: string, d: { customerName: string; ser
   try { await resend.emails.send({ from: FROM, to, subject: "Ready for your next visit? — Qasr Alshar Salon", html }); return true; }
   catch (e) { console.error("[email] rebook send failed:", e); return false; }
 }
+
+type PayslipEmail = { staffName: string; email: string; monthLabel: string; netAED: number; pdf: Uint8Array };
+
+/**
+ * Send a staff member their payslip when the month is marked paid.
+ * Best-effort: a mail failure must never block or undo the payroll payment.
+ */
+export async function sendPayslipEmail(p: PayslipEmail) {
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not set — skipping payslip email");
+    return;
+  }
+  const html = shell(
+    "Your payslip 💛",
+    `<p style="line-height:1.7;color:#cabfa6;">Dear ${esc(p.staffName)}, your payslip for <b style="color:#f6f0e2;">${esc(p.monthLabel)}</b> is attached.</p>
+     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+       <tr><td style="padding:8px 0;color:#8c8267;width:38%;">Period</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">${esc(p.monthLabel)}</td></tr>
+       <tr><td style="padding:8px 0;color:#8c8267;">Net pay</td><td style="padding:8px 0;color:#f6f0e2;font-weight:bold;">AED ${p.netAED.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+     </table>
+     <p style="margin-top:18px;font-size:13px;color:#8c8267;">Thank you for your work this month. If anything looks wrong, please speak to the salon manager.</p>`
+  );
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: p.email,
+      subject: `Your Qasr Alshar payslip — ${p.monthLabel}`,
+      html,
+      attachments: [{ filename: `payslip-${p.monthLabel.replace(/\s+/g, "-").toLowerCase()}.pdf`, content: Buffer.from(p.pdf) }],
+    });
+  } catch (e) {
+    console.error("[email] payslip send failed:", e);
+  }
+}

@@ -4,13 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Printer, BadgeCheck, X, Wallet, Trash2 } from "lucide-react";
 import { aed, cn } from "@/lib/utils";
-import { addPayAdjustment, deletePayAdjustment, payStaffMonth } from "@/lib/actions/admin";
+import { addPayAdjustment, deletePayAdjustment, payStaffMonth, addStaffLoan, repayStaffLoan, applyUnpaidLeaveDeduction } from "@/lib/actions/admin";
 
 export type PayrollRow = {
   staffId: string; name: string; role: string; clientsServed: number; servicesAED: number; grossAED: number;
   salary: number; salesCommission: number; referral: number; commission: number;
   bonus: number; deductions: number; net: number; paid: boolean; paidAt: string | null;
   adjustments: { id: string; type: string; amountAED: number; note: string | null }[];
+  loans: { id: string; amountAED: number; repaidAED: number; outstandingAED: number; note: string | null }[];
+  loanOutstandingAED: number;
+  unpaidLeaveDays: number;
+  suggestedLeaveDeductionAED: number;
 };
 export type PayrollTotals = { services: number; salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
 
@@ -181,6 +185,73 @@ function AdjustModal({ row, month, onClose, onDone }: { row: PayrollRow; month: 
           <button onClick={submit} disabled={pending} className="w-full rounded-lg bg-gold-gradient py-2 text-sm font-semibold text-espresso disabled:opacity-50">
             {pending ? "Saving…" : "Add adjustment"}
           </button>
+
+          {/* Unpaid leave — suggested, never applied automatically. */}
+          {row.suggestedLeaveDeductionAED > 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="text-xs text-cream">
+                {row.unpaidLeaveDays} day{row.unpaidLeaveDays === 1 ? "" : "s"} unpaid leave this month
+                <span className="block text-[0.65rem] text-muted">= {aed(row.suggestedLeaveDeductionAED)} at {aed(Math.round(row.salary / 30))}/day</span>
+              </div>
+              <button
+                onClick={() => { setError(null); start(async () => {
+                  try { await applyUnpaidLeaveDeduction(row.staffId, month, row.suggestedLeaveDeductionAED, row.unpaidLeaveDays); onDone(); }
+                  catch (e) { setError(e instanceof Error ? e.message : "Could not apply."); }
+                }); }}
+                disabled={pending}
+                className="mt-2 w-full rounded-lg border border-amber-500/50 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/10 disabled:opacity-50"
+              >
+                Apply this deduction
+              </button>
+            </div>
+          )}
+
+          {/* Loans — outstanding balance and a repayment taken from this month's pay. */}
+          <div className="rounded-lg border border-ink-line p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted">Loans outstanding</span>
+              <span className="text-xs font-semibold text-cream">{row.loanOutstandingAED ? aed(row.loanOutstandingAED) : "none"}</span>
+            </div>
+            {row.loans.map((l) => (
+              <div key={l.id} className="mt-2 flex items-center justify-between gap-2 border-t border-ink-line/60 pt-2">
+                <div className="min-w-0 text-[0.65rem] text-muted">
+                  <span className="text-cream">{aed(l.outstandingAED)}</span> left of {aed(l.amountAED)}
+                  {l.note && <div className="truncate" title={l.note}>{l.note}</div>}
+                </div>
+                <button
+                  onClick={() => {
+                    const raw = window.prompt(`Deduct how much from ${row.name}'s ${month} pay?`, String(Math.min(l.outstandingAED, Math.max(0, row.net))));
+                    if (!raw) return;
+                    setError(null);
+                    start(async () => {
+                      try { await repayStaffLoan(l.id, month, parseInt(raw) || 0); onDone(); }
+                      catch (e) { setError(e instanceof Error ? e.message : "Could not record repayment."); }
+                    });
+                  }}
+                  disabled={pending}
+                  className="shrink-0 rounded-md border border-ink-line px-2 py-1 text-[0.65rem] text-sand hover:border-gold/50 hover:text-gold disabled:opacity-50"
+                >
+                  Deduct
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => {
+                const raw = window.prompt(`New loan for ${row.name} — amount in AED?`);
+                if (!raw) return;
+                const note = window.prompt("Note (optional)") || null;
+                setError(null);
+                start(async () => {
+                  try { await addStaffLoan(row.staffId, parseInt(raw) || 0, note); onDone(); }
+                  catch (e) { setError(e instanceof Error ? e.message : "Could not add loan."); }
+                });
+              }}
+              disabled={pending}
+              className="mt-2 w-full rounded-lg border border-ink-line py-1.5 text-[0.65rem] text-sand hover:border-gold/50 hover:text-gold disabled:opacity-50"
+            >
+              + Record a loan
+            </button>
+          </div>
 
           {/* Existing entries — without this, a mistaken adjustment could never be undone. */}
           {row.adjustments.length > 0 && (

@@ -99,6 +99,31 @@ async function main() {
     console.log(`  "CategoryBudget" — CREATED`);
   }
 
+  // ── 4. StaffLoan table (loans repaid over months) ─────────────────────────
+  const lt = await prisma.$queryRawUnsafe<{ n: bigint }[]>(
+    `SELECT count(*) AS n FROM information_schema.tables WHERE table_schema='public' AND table_name='StaffLoan'`,
+  );
+  if (Number(lt[0]?.n ?? 0) > 0) {
+    console.log(`  "StaffLoan" — already present`);
+  } else if (!APPLY) {
+    console.log(`  "StaffLoan" — MISSING (would create)`);
+  } else {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "StaffLoan" (
+        "id"        TEXT PRIMARY KEY,
+        "staffId"   TEXT NOT NULL REFERENCES "Staff"("id") ON DELETE CASCADE,
+        "amountAED" INTEGER NOT NULL,
+        "repaidAED" INTEGER NOT NULL DEFAULT 0,
+        "note"      TEXT,
+        "issuedOn"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "closedAt"  TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StaffLoan_staffId_idx" ON "StaffLoan"("staffId")`);
+    console.log(`  "StaffLoan" — CREATED`);
+  }
+
   console.log(APPLY ? "\nDone." : "\nDry run complete — re-run with --apply to make these changes.");
 }
 

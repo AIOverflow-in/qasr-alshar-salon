@@ -3,12 +3,14 @@ import { prisma } from "./prisma";
 import { lineArtistIds } from "./artists";
 import { netFromInclusive } from "./vat-core";
 import { currentDubaiMonth, dubaiMonthRange, recentMonths, netPay } from "./payroll-core";
+import { unpaidDaysOf, unpaidLeaveDeduction, loanOutstanding } from "./payroll-extras-core";
 
 // Pure helpers now live in payroll-core (unit-tested there); re-exported so existing
 // `@/lib/payroll` importers (expenses/staff pages, exports) are unchanged.
 export { currentDubaiMonth, dubaiMonthRange, recentMonths };
 
 export type PayAdjustmentRow = { id: string; type: string; amountAED: number; note: string | null };
+export type LoanRow = { id: string; amountAED: number; repaidAED: number; outstandingAED: number; note: string | null };
 
 export type PayrollRow = {
   staffId: string;
@@ -28,6 +30,10 @@ export type PayrollRow = {
   paid: boolean;
   paidAt: string | null;
   adjustments: PayAdjustmentRow[]; // the individual bonus/advance/deduction entries, so a mistake can be removed
+  loans: LoanRow[];               // open loans, so the manager can take a repayment from this month
+  loanOutstandingAED: number;
+  unpaidLeaveDays: number;        // UNPAID leave days recorded in this month
+  suggestedLeaveDeductionAED: number; // what those days cost — applied by the manager, never automatic
 };
 
 export type PayrollMonth = {
@@ -46,12 +52,14 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
   const month = monthISO && /^\d{4}-\d{2}$/.test(monthISO) ? monthISO : currentDubaiMonth();
   const { start, end } = dubaiMonthRange(month);
 
-  const [staff, commByType, adjByType, payments, serviceLines] = await Promise.all([
+  const [staff, commByType, adjByType, payments, leaves, loans, serviceLines] = await Promise.all([
     prisma.staff.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true, role: true, active: true, salaryAED: true } }),
     prisma.commission.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { createdAt: { gte: start, lt: end } } }),
     // The individual rows (not a groupBy) so the UI can list and remove a mistaken entry.
     prisma.payAdjustment.findMany({ where: { month }, orderBy: { createdAt: "asc" }, select: { id: true, staffId: true, type: true, amountAED: true, note: true } }),
     prisma.payrollPayment.findMany({ where: { month } }),
+    prisma.staffLeave.findMany({ where: { startDate: { lt: end }, endDate: { gte: start } }, select: { staffId: true, type: true, days: true } }),
+    prisma.staffLoan.findMany({ where: { closedAt: null }, orderBy: { issuedOn: "asc" }, select: { id: true, staffId: true, amountAED: true, repaidAED: true, note: true } }),
     // Per-artist service revenue ("Services" column) — same attribution the commission engine uses.
     prisma.orderLine.findMany({
       where: { kind: "SERVICE", order: { status: "PAID", createdAt: { gte: start, lt: end } } },
@@ -95,6 +103,13 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
     adjRows.set(g.staffId, list);
   }
   const paidMap = new Map(payments.map((p) => [p.staffId, p]));
+  const leavesByStaff = new Map<string, { type: string; days: number }[]>();
+  for (const l of leaves) leavesByStaff.set(l.staffId, [...(leavesByStaff.get(l.staffId) ?? []), { type: l.type, days: l.days }]);
+  const loansByStaff = new Map<string, LoanRow[]>();
+  for (const l of loans) {
+    const row = { id: l.id, amountAED: l.amountAED, repaidAED: l.repaidAED, outstandingAED: loanOutstanding(l), note: l.note };
+    if (row.outstandingAED > 0) loansByStaff.set(l.staffId, [...(loansByStaff.get(l.staffId) ?? []), row]);
+  }
 
   const rows: PayrollRow[] = staff.map((s) => {
     const c = comm.get(s.id) ?? { sales: 0, referral: 0 };
@@ -113,6 +128,10 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       bonus: a.bonus, deductions: a.deductions, net,
       paid: !!pay, paidAt: pay?.paidAt.toISOString() ?? null,
       adjustments: adjRows.get(s.id) ?? [],
+      loans: loansByStaff.get(s.id) ?? [],
+      loanOutstandingAED: (loansByStaff.get(s.id) ?? []).reduce((t, l) => t + l.outstandingAED, 0),
+      unpaidLeaveDays: unpaidDaysOf(leavesByStaff.get(s.id) ?? []),
+      suggestedLeaveDeductionAED: unpaidLeaveDeduction(s.salaryAED, unpaidDaysOf(leavesByStaff.get(s.id) ?? [])),
     };
   });
 
