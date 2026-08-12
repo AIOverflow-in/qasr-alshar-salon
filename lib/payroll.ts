@@ -8,6 +8,8 @@ import { currentDubaiMonth, dubaiMonthRange, recentMonths, netPay } from "./payr
 // `@/lib/payroll` importers (expenses/staff pages, exports) are unchanged.
 export { currentDubaiMonth, dubaiMonthRange, recentMonths };
 
+export type PayAdjustmentRow = { id: string; type: string; amountAED: number; note: string | null };
+
 export type PayrollRow = {
   staffId: string;
   name: string;
@@ -25,6 +27,7 @@ export type PayrollRow = {
   net: number;             // max(salesCommission, salary) + referral + bonus − deductions
   paid: boolean;
   paidAt: string | null;
+  adjustments: PayAdjustmentRow[]; // the individual bonus/advance/deduction entries, so a mistake can be removed
 };
 
 export type PayrollMonth = {
@@ -46,7 +49,8 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
   const [staff, commByType, adjByType, payments, serviceLines] = await Promise.all([
     prisma.staff.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true, role: true, active: true, salaryAED: true } }),
     prisma.commission.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { createdAt: { gte: start, lt: end } } }),
-    prisma.payAdjustment.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { month } }),
+    // The individual rows (not a groupBy) so the UI can list and remove a mistaken entry.
+    prisma.payAdjustment.findMany({ where: { month }, orderBy: { createdAt: "asc" }, select: { id: true, staffId: true, type: true, amountAED: true, note: true } }),
     prisma.payrollPayment.findMany({ where: { month } }),
     // Per-artist service revenue ("Services" column) — same attribution the commission engine uses.
     prisma.orderLine.findMany({
@@ -81,11 +85,14 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
     comm.set(g.staffId, e);
   }
   const adj = new Map<string, { bonus: number; deductions: number }>();
+  const adjRows = new Map<string, PayAdjustmentRow[]>();
   for (const g of adjByType) {
     const e = adj.get(g.staffId) ?? { bonus: 0, deductions: 0 };
-    const amt = g._sum.amountAED ?? 0;
-    if (g.type === "BONUS") e.bonus += amt; else e.deductions += amt; // ADVANCE | DEDUCTION
+    if (g.type === "BONUS") e.bonus += g.amountAED; else e.deductions += g.amountAED; // ADVANCE | DEDUCTION
     adj.set(g.staffId, e);
+    const list = adjRows.get(g.staffId) ?? [];
+    list.push({ id: g.id, type: g.type, amountAED: g.amountAED, note: g.note });
+    adjRows.set(g.staffId, list);
   }
   const paidMap = new Map(payments.map((p) => [p.staffId, p]));
 
@@ -105,6 +112,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       salary: s.salaryAED, salesCommission: c.sales, referral: c.referral, commission,
       bonus: a.bonus, deductions: a.deductions, net,
       paid: !!pay, paidAt: pay?.paidAt.toISOString() ?? null,
+      adjustments: adjRows.get(s.id) ?? [],
     };
   });
 
