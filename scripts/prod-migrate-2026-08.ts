@@ -20,6 +20,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
 const NEW_CATEGORIES = ["FOOD", "PARKING", "CEO_ALLOWANCE"];
+const NEW_ROLES = ["BOOKING"]; // bookings-only staff role
 
 async function main() {
   console.log(APPLY ? "APPLYING to production\n" : "DRY RUN — nothing will change (pass --apply to run)\n");
@@ -37,6 +38,18 @@ async function main() {
     // IF NOT EXISTS makes this idempotent; ADD VALUE cannot run inside a transaction block.
     await prisma.$executeRawUnsafe(`ALTER TYPE "ExpenseCategory" ADD VALUE IF NOT EXISTS '${value}'`);
     console.log(`  ExpenseCategory.${value} — ADDED`);
+  }
+
+  // ── 1b. Role enum: BOOKING ────────────────────────────────────────────────
+  const roleLabels = await prisma.$queryRawUnsafe<{ enumlabel: string }[]>(
+    `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'Role'`,
+  );
+  const haveRoles = new Set(roleLabels.map((r) => r.enumlabel));
+  for (const value of NEW_ROLES) {
+    if (haveRoles.has(value)) { console.log(`  Role.${value} — already present`); continue; }
+    if (!APPLY) { console.log(`  Role.${value} — MISSING (would add)`); continue; }
+    await prisma.$executeRawUnsafe(`ALTER TYPE "Role" ADD VALUE IF NOT EXISTS '${value}'`);
+    console.log(`  Role.${value} — ADDED`);
   }
 
   // ── 2. AssistantQuery table ───────────────────────────────────────────────

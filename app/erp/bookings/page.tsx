@@ -41,8 +41,9 @@ export default async function ErpBookings({
   if (session?.role === "STYLIST") redirect("/erp/calendar");
   // Operational page — reception + admins only. INVESTOR (read-only finance) must not reach the
   // client PII here even by typed URL; the nav already hides it, this enforces it server-side.
-  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session.role)) redirect("/erp");
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING"].includes(session.role)) redirect("/erp");
   // Reception + admins can amend bills (stylists cannot).
+  // Deliberately excludes BOOKING: that role schedules appointments, it never edits bills.
   const canEditBill = ["SUPER_ADMIN", "ADMIN", "RECEPTION"].includes(session?.role ?? "");
 
   const sp = await searchParams;

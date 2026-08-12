@@ -9,8 +9,8 @@ import type { Role } from "@prisma/client";
 
 type User = { id: string; name: string; email: string; role: Role; active: boolean; staffId: string | null; staffName: string | null };
 type StaffOpt = { id: string; name: string; role: string };
-const ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
-const ROLE_LABEL: Record<Role, string> = { SUPER_ADMIN: "Super Admin", ADMIN: "Manager", RECEPTION: "Reception", STYLIST: "Crown Artist", INVESTOR: "Investor" };
+const ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING", "STYLIST", "INVESTOR"];
+const ROLE_LABEL: Record<Role, string> = { SUPER_ADMIN: "Super Admin", ADMIN: "Manager", RECEPTION: "Reception", BOOKING: "Bookings only", STYLIST: "Crown Artist", INVESTOR: "Investor" };
 
 export function UsersManager({ users, staff, unlinked, currentUserId }: { users: User[]; staff: StaffOpt[]; unlinked: { id: string; name: string; email: string }[]; currentUserId: string }) {
   const router = useRouter();

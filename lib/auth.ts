@@ -7,7 +7,10 @@ import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "qa_admin";
 
-const VALID_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
+// Deliberately explicit, not derived from the Prisma enum: a session whose role isn't listed here
+// gets NO access at all. Adding a role to the schema without adding it here fails closed, which is
+// the behaviour we want. Add new roles here consciously.
+const VALID_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING", "STYLIST", "INVESTOR"];
 
 function getSecret() {
   const s = process.env.AUTH_SECRET;
