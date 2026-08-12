@@ -630,9 +630,8 @@ export async function bulkSetProductPrice(ids: string[], saleAED: number) {
 
   const res = await prisma.product.updateMany({ where: { id: { in: clean } }, data: { saleAED: price } });
   // The storefront caches product reads; without this the new prices appear only after 5 minutes.
-  const { revalidateTag } = await import("next/cache");
-  const { SHOP_TAG } = await import("@/lib/shop");
-  revalidateTag(SHOP_TAG, "max");
+  const { revalidateShopEverywhere } = await import("@/lib/revalidate-shop");
+  await revalidateShopEverywhere();
   revalidatePath("/erp/products");
   return { updated: res.count };
 }

@@ -56,7 +56,7 @@ async function unitsSoldByProduct(ids: string[]): Promise<Map<string, number>> {
 
 /**
  * Published, buyable products for the public storefront, ordered best-selling first. FRUGAL: bounded
- * (retail+active only) and cached in the Next.js Data Cache (5-min revalidate) so the high-traffic
+ * (retail+active only) and cached in the Next.js Data Cache (60s revalidate + tag purge) so the high-traffic
  * homepage / shop page don't re-query the DB on every visit. Only truly sellable items (priced +
  * imaged + in stock) are returned; ranking + labels come from lib/shop-rank.
  */
@@ -88,7 +88,7 @@ export function getPublishedProducts(): Promise<ShopCard[]> {
       return assignBadges(rankProducts(cards));
     },
     ["shop-products"],
-    { revalidate: 300, tags: [SHOP_TAG] },
+    { revalidate: 60, tags: [SHOP_TAG] },
   )();
 }
 
@@ -104,7 +104,7 @@ export function getProductBySlug(slug: string): Promise<ShopCard | null> {
       return { id: p.id, slug: p.slug ?? p.id, name: p.name, category: p.category, priceAED: p.saleAED ?? 0, stock: p.qty, imageUrl: p.imageUrl!, description: p.description, unitsSold: 0, badge: null };
     },
     ["shop-product", slug],
-    { revalidate: 300, tags: [SHOP_TAG] },
+    { revalidate: 60, tags: [SHOP_TAG] },
   )();
 }
 
@@ -125,7 +125,7 @@ export function getProductForPage(slug: string): Promise<ShopCard | null> {
       return { id: p.id, slug: p.slug ?? p.id, name: p.name, category: p.category, priceAED: p.saleAED ?? 0, stock: p.qty, imageUrl: p.imageUrl, description: p.description, unitsSold: 0, badge: null };
     },
     ["shop-product-page", slug],
-    { revalidate: 300, tags: [SHOP_TAG] },
+    { revalidate: 60, tags: [SHOP_TAG] },
   )();
 }
 
