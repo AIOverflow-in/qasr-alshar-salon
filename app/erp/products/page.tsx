@@ -5,6 +5,7 @@ import { CatalogManager } from "@/components/erp/CatalogManager";
 import { Pagination } from "@/components/erp/Pagination";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
 import { ProductSearch } from "@/components/erp/ProductSearch";
+import { BulkPriceEditor } from "@/components/erp/BulkPriceEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function ErpProducts({ searchParams }: { searchParams: Prom
         </p>
       </div>
       <ProductSearch initial={q} total={total} />
+      <BulkPriceEditor products={products.map((p) => ({ id: p.id, name: p.name, category: p.category, saleAED: p.saleAED }))} />
       <CatalogManager products={products} />
       <Pagination total={win.total} page={win.page} size={win.size} />
     </div>

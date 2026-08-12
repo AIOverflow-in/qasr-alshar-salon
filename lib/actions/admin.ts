@@ -615,3 +615,24 @@ export async function applyUnpaidLeaveDeduction(staffId: string, month: string, 
   });
   revalidatePath("/erp/staff");
 }
+
+/**
+ * Set the same sale price on several products at once (11 Aug meeting: storefront bulk operations).
+ * Managers only. Returns how many rows actually changed so the UI can report it honestly.
+ */
+export async function bulkSetProductPrice(ids: string[], saleAED: number) {
+  await requireManager();
+  const price = Math.max(0, Math.round(saleAED));
+  if (!price) throw new Error("Enter a price greater than 0");
+  const clean = [...new Set(ids)].filter(Boolean);
+  if (!clean.length) throw new Error("Select at least one product");
+  if (clean.length > 200) throw new Error("Too many products at once — narrow the selection");
+
+  const res = await prisma.product.updateMany({ where: { id: { in: clean } }, data: { saleAED: price } });
+  // The storefront caches product reads; without this the new prices appear only after 5 minutes.
+  const { revalidateTag } = await import("next/cache");
+  const { SHOP_TAG } = await import("@/lib/shop");
+  revalidateTag(SHOP_TAG, "max");
+  revalidatePath("/erp/products");
+  return { updated: res.count };
+}
