@@ -37,8 +37,8 @@ const NAV = [
   { href: "/erp", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ADMIN", "INVESTOR"] },
   { href: "/erp/pos", label: "POS Checkout", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/sales", label: "Sales", icon: Receipt, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
-  { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
-  { href: "/erp/calendar", label: "Calendar", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"] },
+  { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING"] },
+  { href: "/erp/calendar", label: "Calendar", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "BOOKING"] },
   { href: "/erp/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/expenses", label: "Expenses", icon: Banknote, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
@@ -60,6 +60,7 @@ const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Manager",
   RECEPTION: "Reception",
+  BOOKING: "Bookings only",
   STYLIST: "Crown Artist",
   INVESTOR: "Investor",
 };

@@ -1233,6 +1233,27 @@ try {
   // (The SQL guard itself — hostile-query battery, secret columns, row cap — is covered
   //  exhaustively by lib/erp-assistant/sql-guard.test.ts, which runs in the same pre-push gate.)
 
+  // ── BOOKING role: bookings + calendar ONLY ─────────────────────────────────
+  section("Booking-only role sees bookings + calendar and nothing else");
+  {
+    const bt = await tok("BOOKING");
+    ok((await codeTok("/erp/bookings", bt)) === "200", "booking role: bookings page 200");
+    ok((await codeTok("/erp/calendar", bt)) === "200", "booking role: calendar 200");
+
+    // Every money/staff surface must stay closed — this is the whole point of the role.
+    const shut = ["/erp", "/erp/sales", "/erp/pos", "/erp/finance", "/erp/finance/pl", "/erp/expenses",
+                  "/erp/staff", "/erp/inventory", "/erp/products", "/erp/clients", "/erp/users",
+                  "/erp/documents", "/erp/analytics", "/erp/attendance"];
+    const leaks = [];
+    for (const path of shut) if ((await codeTok(path, bt)) === "200") leaks.push(path);
+    ok(leaks.length === 0, `booking role: ${shut.length} sensitive pages blocked${leaks.length ? ` (LEAKED: ${leaks.join(", ")})` : ""}`);
+
+    const posted = await fetch(BASE + "/api/erp/pos", { method: "POST", headers: { "Content-Type": "application/json", cookie: `qa_admin=${bt}` }, body: JSON.stringify({ lines: [] }) });
+    ok(posted.status === 403, `booking role: POS API forbidden (got ${posted.status})`);
+    const exp = await fetch(BASE + "/api/erp/sales/export", { headers: { cookie: `qa_admin=${bt}` } });
+    ok(exp.status === 403, `booking role: sales export forbidden (got ${exp.status})`);
+  }
+
   // ── Finance: budget panel + RBAC ───────────────────────────────────────────
   section("Finance: budget vs actual (managers set it, investor is read-only)");
   {

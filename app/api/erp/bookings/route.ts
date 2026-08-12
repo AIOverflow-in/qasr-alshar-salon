@@ -44,7 +44,7 @@ function dubaiLabel(d: Date) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const allowed = ["SUPER_ADMIN", "ADMIN", "RECEPTION"];
+  const allowed = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING"];
   if (!allowed.includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: unknown;

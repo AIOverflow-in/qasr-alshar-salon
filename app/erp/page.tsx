@@ -26,6 +26,7 @@ export default async function ErpDashboard({ searchParams }: { searchParams: Pro
   // owner/investor-only (per the meeting: block dashboards for the general team & reception).
   if (session?.role === "STYLIST") redirect("/erp/calendar");
   if (session?.role === "RECEPTION") redirect("/erp/bookings");
+  if (session?.role === "BOOKING") redirect("/erp/bookings"); // booking-only staff never see the dashboard
   const canSeeFinance = !!session && FINANCE_ROLES.includes(session.role);
   const { start: todayStart, end: todayEnd } = dubaiDayRange(0);
   const now = new Date();

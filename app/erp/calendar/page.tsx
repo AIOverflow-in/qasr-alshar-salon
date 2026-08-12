@@ -32,7 +32,7 @@ function addDaysISO(dateISO: string, days: number): string {
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ week?: string; staff?: string }> }) {
   const session = await getSession();
-  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST"].includes(session.role)) redirect("/erp");
+  if (!session || !["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "BOOKING"].includes(session.role)) redirect("/erp");
 
   // A Crown artist sees their own schedule; managers/reception see the whole salon.
   let onlyStaffId: string | null = null;

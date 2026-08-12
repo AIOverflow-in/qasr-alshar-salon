@@ -180,6 +180,9 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   RECEPTION
+  /// Bookings + calendar ONLY — no POS, sales, finance, expenses or staff data.
+  /// Every other screen uses an allowlist, so this role is denied by default.
+  BOOKING
   STYLIST
   INVESTOR
 }
