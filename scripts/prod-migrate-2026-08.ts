@@ -65,6 +65,27 @@ async function main() {
     console.log(`  "AssistantQuery" — CREATED`);
   }
 
+  // ── 3. CategoryBudget table (budgeting tool) ──────────────────────────────
+  const bt = await prisma.$queryRawUnsafe<{ n: bigint }[]>(
+    `SELECT count(*) AS n FROM information_schema.tables WHERE table_schema='public' AND table_name='CategoryBudget'`,
+  );
+  if (Number(bt[0]?.n ?? 0) > 0) {
+    console.log(`  "CategoryBudget" — already present`);
+  } else if (!APPLY) {
+    console.log(`  "CategoryBudget" — MISSING (would create)`);
+  } else {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "CategoryBudget" (
+        "id"        TEXT PRIMARY KEY,
+        "category"  "ExpenseCategory" NOT NULL UNIQUE,
+        "amountAED" INTEGER NOT NULL,
+        "note"      TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+    console.log(`  "CategoryBudget" — CREATED`);
+  }
+
   console.log(APPLY ? "\nDone." : "\nDry run complete — re-run with --apply to make these changes.");
 }
 

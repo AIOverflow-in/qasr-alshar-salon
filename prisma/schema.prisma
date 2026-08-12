@@ -674,3 +674,15 @@ model AssistantQuery {
   @@index([lastAskedAt])
   @@index([status, hits])
 }
+
+/// Monthly spending budget per expense category. One row per category (the amount carries forward
+/// every month — a salon's rent/allowances are stable), so Finance can show spent-vs-budget and
+/// flag overspend without anyone re-entering figures each month.
+model CategoryBudget {
+  id        String          @id @default(cuid())
+  category  ExpenseCategory @unique
+  amountAED Int
+  note      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}

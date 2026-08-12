@@ -108,6 +108,11 @@ export const SCHEMA_TABLES: readonly TableSpec[] = [
     c("paymentMethod"), c("status", "enum", "PENDING|CONFIRMED|SHIPPED|DELIVERED|CANCELLED"), c("createdAt", "date"),
   ], ["clientRequestId", "phone", "email", "address", "items", "notes", "updatedAt"]),
 
+  T("CategoryBudget", "Monthly spending budget per expense category (carries over each month).", [
+    c("id"), c("category", "enum", "RENT|UTILITIES|SALARIES|VISA|SUPPLIES|MARKETING|MAINTENANCE|FOOD|PARKING|CEO_ALLOWANCE|OTHER"),
+    c("amountAED", "aed"), c("note"),
+  ], ["createdAt", "updatedAt"]),
+
   T("StaffLeave", "Staff leave record.", [
     c("id"), c("staffId"), c("startDate", "date"), c("endDate", "date"), c("days", "int"), c("type"), c("note"), c("createdAt", "date"),
   ]),

@@ -264,3 +264,27 @@ export async function setScheduledPaymentPaid(id: string, paid: boolean) {
   });
   revalidatePath("/erp/finance");
 }
+
+/**
+ * Set (or clear) the monthly budget for an expense category. Amount 0 removes the budget.
+ * Managers only — budgets are owner-level financial planning, not day-to-day expense logging.
+ */
+export async function setCategoryBudget(category: string, amountAED: number, note?: string | null) {
+  const session = await getSession();
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes(session.role)) throw new Error("Not allowed");
+  if (!CATEGORIES.includes(category as ExpenseCategory)) throw new Error("Unknown category");
+  const amt = Math.max(0, Math.round(amountAED || 0));
+  const cat = category as ExpenseCategory;
+
+  if (amt === 0) {
+    await prisma.categoryBudget.deleteMany({ where: { category: cat } });
+  } else {
+    await prisma.categoryBudget.upsert({
+      where: { category: cat },
+      create: { category: cat, amountAED: amt, note: note?.trim() || null },
+      update: { amountAED: amt, note: note?.trim() || null },
+    });
+  }
+  revalidatePath("/erp/finance");
+  revalidatePath("/erp");
+}

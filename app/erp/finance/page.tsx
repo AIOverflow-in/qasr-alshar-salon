@@ -6,6 +6,9 @@ import { requireRole, FINANCE_ROLES } from "@/lib/auth";
 import { aed } from "@/lib/utils";
 import { getMonthlyRevenue, monthStartUTC } from "@/lib/finance";
 import { FinanceManager } from "@/components/erp/FinanceManager";
+import { BudgetPanel } from "@/components/erp/BudgetPanel";
+import { buildBudgetSummary } from "@/lib/budget-core";
+import { getPayrollMonth, currentDubaiMonth } from "@/lib/payroll";
 import { ScheduledPayments } from "@/components/erp/ScheduledPayments";
 import { Pagination } from "@/components/erp/Pagination";
 import { SendDigestButton } from "@/components/erp/SendDigestButton";
@@ -33,14 +36,25 @@ export default async function ErpFinance({ searchParams }: { searchParams: Promi
   const capWin = pageWindow(capTotal, parsePage(qp.cp));
   const schWin = pageWindow(schTotal, parsePage(qp.sp));
 
-  const [revenue, monthExpenseAgg, expenses, capital, capitalAgg, scheduled] = await Promise.all([
+  const [revenue, monthExpenseAgg, expenses, capital, capitalAgg, scheduled, budgets, spendByCat, payrollNow] = await Promise.all([
     getMonthlyRevenue(),
     prisma.expense.aggregate({ _sum: { amountAED: true }, where: { incurredOn: { gte: monthStart } } }),
     prisma.expense.findMany({ orderBy: { incurredOn: "desc" }, skip: expWin.skip, take: expWin.take }),
     prisma.capitalEntry.findMany({ orderBy: { contributedOn: "desc" }, skip: capWin.skip, take: capWin.take }),
     prisma.capitalEntry.aggregate({ _sum: { amountAED: true } }),
     prisma.scheduledPayment.findMany({ orderBy: { dueDate: "asc" }, skip: schWin.skip, take: schWin.take }),
+    prisma.categoryBudget.findMany({ select: { category: true, amountAED: true } }),
+    prisma.expense.groupBy({ by: ["category"], where: { incurredOn: { gte: monthStart } }, _sum: { amountAED: true } }),
+    getPayrollMonth(currentDubaiMonth()),
   ]);
+
+  // Budget vs actual for the current month (salaries come from payroll, not the Expense table).
+  const budget = buildBudgetSummary({
+    budgets: budgets.map((b) => ({ category: b.category, amountAED: b.amountAED })),
+    spendByCategory: spendByCat.map((e) => ({ category: e.category, amountAED: e._sum.amountAED ?? 0 })),
+    salariesAED: payrollNow.totals.net,
+  });
+  const thisMonthLabel = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "Asia/Dubai" });
 
   const monthExpenses = monthExpenseAgg._sum.amountAED ?? 0;
   const capitalTotal = capitalAgg._sum.amountAED ?? 0;
@@ -90,6 +104,8 @@ export default async function ErpFinance({ searchParams }: { searchParams: Promi
         />
         <Pagination total={schWin.total} page={schWin.page} size={schWin.size} param="sp" />
       </div>
+
+      <BudgetPanel data={budget} canEdit={canEdit} monthLabel={thisMonthLabel} />
 
       <FinanceManager
         canEdit={canEdit}

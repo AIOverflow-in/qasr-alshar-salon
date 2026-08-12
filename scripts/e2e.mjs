@@ -1233,6 +1233,18 @@ try {
   // (The SQL guard itself — hostile-query battery, secret columns, row cap — is covered
   //  exhaustively by lib/erp-assistant/sql-guard.test.ts, which runs in the same pre-push gate.)
 
+  // ── Finance: budget panel + RBAC ───────────────────────────────────────────
+  section("Finance: budget vs actual (managers set it, investor is read-only)");
+  {
+    const fin = await body("/erp/finance", "SUPER_ADMIN");
+    ok(fin.status === 200 && /Budget/.test(fin.text), "finance: budget panel renders for the owner");
+    ok(/What you planned to spend/.test(fin.text), "finance: budget panel explains itself");
+
+    const inv = await body("/erp/finance", "INVESTOR");
+    ok(inv.status === 200, "finance: investor can view");
+    ok(!/Set a budget/.test(inv.text), "finance: investor cannot set budgets (read-only)");
+  }
+
   // ── Inventory: reception can now ADD + EDIT products (RBAC fix) ─────────────
   section("Inventory: reception can create/edit products (was manager-only → 'Could not save')");
   {
