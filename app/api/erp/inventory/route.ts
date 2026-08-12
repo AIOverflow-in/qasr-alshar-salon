@@ -6,6 +6,21 @@ import { slugify } from "@/lib/shop-core";
 import { revalidateTag } from "next/cache";
 import { SHOP_TAG } from "@/lib/shop";
 
+/**
+ * Product images are stored EITHER as a full URL (Vercel Blob) or as a site-relative path such as
+ * "/products/cb-sunlit-muse.jpg". Requiring z.string().url() rejected the relative form, so editing
+ * any of the ~84 products with a local image failed with "Invalid input" and neither the price nor
+ * the description could be saved. Accept both; reject anything that isn't one of the two.
+ */
+const imageUrlField = z
+  .string()
+  .max(1000)
+  .refine((v) => v === "" || v.startsWith("/") || /^https?:\/\//.test(v), {
+    message: "Must be a URL or a site path starting with /",
+  })
+  .optional()
+  .nullable();
+
 export const dynamic = "force-dynamic";
 
 /** A storefront slug that's unique across products (appends -2, -3… on collision). */
@@ -106,7 +121,7 @@ const createSchema = z.object({
   reorderAt: z.number().int().nonnegative().default(3),
   retail: z.boolean().optional(),
   description: z.string().max(2000).optional().nullable(),
-  imageUrl: z.string().url().max(1000).optional().nullable(),
+  imageUrl: imageUrlField,
 });
 
 // PUT /api/erp/inventory — create a new product
@@ -156,7 +171,7 @@ const editSchema = z.object({
   retail: z.boolean().optional(),
   active: z.boolean().optional(),
   description: z.string().max(2000).optional().nullable(),
-  imageUrl: z.string().url().max(1000).optional().nullable(),
+  imageUrl: imageUrlField,
 });
 
 // PATCH /api/erp/inventory — update product fields (not qty; use POST for stock)

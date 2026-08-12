@@ -1233,6 +1233,23 @@ try {
   // (The SQL guard itself — hostile-query battery, secret columns, row cap — is covered
   //  exhaustively by lib/erp-assistant/sql-guard.test.ts, which runs in the same pre-push gate.)
 
+  // ── Storefront edit: relative image paths must not block price/description edits ──
+  section("Storefront: products with a local image path are still editable");
+  {
+    const hdr = { "Content-Type": "application/json", cookie: `qa_admin=${await tok("ADMIN")}` };
+    const made = await prisma.product.create({ data: { name: `${TAG}IMGPATH`, category: "Wigs", saleAED: 900, qty: 3, retail: true, active: true, imageUrl: "/products/local-file.jpg" } });
+
+    const okRes = await fetch(BASE + "/api/erp/inventory", { method: "PATCH", headers: hdr, body: JSON.stringify({ id: made.id, saleAED: 4500, description: "edited", imageUrl: "/products/local-file.jpg" }) });
+    const saved = await prisma.product.findUnique({ where: { id: made.id }, select: { saleAED: true, description: true } });
+    ok(okRes.status === 200 && saved?.saleAED === 4500 && saved?.description === "edited",
+      `storefront: a site-relative image path still allows editing price + description (${okRes.status})`);
+
+    const bad = await fetch(BASE + "/api/erp/inventory", { method: "PATCH", headers: hdr, body: JSON.stringify({ id: made.id, imageUrl: "javascript:alert(1)" }) });
+    ok(bad.status === 400, `storefront: a javascript: image URL is still rejected (${bad.status})`);
+
+    await prisma.product.delete({ where: { id: made.id } });
+  }
+
   // ── BOOKING role: bookings + calendar ONLY ─────────────────────────────────
   section("Booking-only role sees bookings + calendar and nothing else");
   {
