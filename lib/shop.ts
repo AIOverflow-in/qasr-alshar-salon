@@ -1,5 +1,9 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+
+/** Cache tag for every storefront read. Editing a product in the ERP revalidates this, so a
+ *  price/stock change shows on /shop immediately instead of after the 5-minute window. */
+export const SHOP_TAG = "shop";
 import { prisma } from "./prisma";
 import { isSellable } from "./shop-core";
 import { rankProducts, assignBadges, type ShopBadge } from "./shop-rank";
@@ -62,7 +66,9 @@ export function getPublishedProducts(): Promise<ShopCard[]> {
       const products = await prisma.product.findMany({
         where: { retail: true, active: true },
         orderBy: { name: "asc" },
-        take: 200,
+        // Search + pagination on /shop are client-side over this set, so anything beyond the cap
+        // is invisible AND unsearchable. Was 200 while 238 products were live — 38 never showed.
+        take: 500,
         select: { id: true, slug: true, name: true, category: true, saleAED: true, qty: true, retail: true, active: true, imageUrl: true, description: true },
       });
       const sellable = products.filter((p) => isSellable(p));
@@ -82,7 +88,7 @@ export function getPublishedProducts(): Promise<ShopCard[]> {
       return assignBadges(rankProducts(cards));
     },
     ["shop-products"],
-    { revalidate: 300 },
+    { revalidate: 300, tags: [SHOP_TAG] },
   )();
 }
 
@@ -98,7 +104,7 @@ export function getProductBySlug(slug: string): Promise<ShopCard | null> {
       return { id: p.id, slug: p.slug ?? p.id, name: p.name, category: p.category, priceAED: p.saleAED ?? 0, stock: p.qty, imageUrl: p.imageUrl!, description: p.description, unitsSold: 0, badge: null };
     },
     ["shop-product", slug],
-    { revalidate: 300 },
+    { revalidate: 300, tags: [SHOP_TAG] },
   )();
 }
 
@@ -119,7 +125,7 @@ export function getProductForPage(slug: string): Promise<ShopCard | null> {
       return { id: p.id, slug: p.slug ?? p.id, name: p.name, category: p.category, priceAED: p.saleAED ?? 0, stock: p.qty, imageUrl: p.imageUrl, description: p.description, unitsSold: 0, badge: null };
     },
     ["shop-product-page", slug],
-    { revalidate: 300 },
+    { revalidate: 300, tags: [SHOP_TAG] },
   )();
 }
 
