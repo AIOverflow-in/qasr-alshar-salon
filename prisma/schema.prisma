@@ -238,6 +238,7 @@ model Staff {
   payrollPayments PayrollPayment[]
   documents       StaffDocument[]
   leaves          StaffLeave[]
+  loans           StaffLoan[]
   punches         AttendancePunch[]
 
   @@index([active])
@@ -688,4 +689,22 @@ model CategoryBudget {
   note      String?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+}
+
+/// A loan or salary advance the salon has given a staff member, repaid over later months.
+/// Distinct from PayAdjustment.ADVANCE (which is settled inside a single month): this carries a
+/// balance forward until it's cleared, so Jacqueline can see who owes what without a spreadsheet.
+model StaffLoan {
+  id        String    @id @default(cuid())
+  staffId   String
+  staff     Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  amountAED Int // original principal
+  repaidAED Int       @default(0) // running total repaid via payroll deductions
+  note      String?
+  issuedOn  DateTime  @default(now())
+  closedAt  DateTime? // set when fully repaid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([staffId])
 }
