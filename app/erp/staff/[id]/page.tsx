@@ -10,6 +10,8 @@ import { netFromInclusive } from "@/lib/vat-core";
 import { leaveSummary } from "@/lib/leave";
 import { inlineKind } from "@/lib/file-preview-core";
 import { StaffAdmin } from "@/components/erp/StaffAdmin";
+import { StaffPerformance } from "@/components/erp/StaffPerformance";
+import { buildStaffMetrics, type MetricLine } from "@/lib/staff-metrics-core";
 import { StaffIdCard } from "@/components/erp/StaffIdCard";
 import { ArrowLeft, Printer, Users } from "lucide-react";
 
@@ -89,6 +91,28 @@ export default async function ArtistPerformance({
   });
 
   const revenueShare = mine.reduce((s, m) => s + m.share, 0);
+
+  // 6-month performance window — one bounded query, separate from the month being viewed.
+  const perfMonths = recentMonths(6).slice().reverse(); // oldest -> newest for the chart
+  const perfStart = dubaiMonthRange(perfMonths[0]).start;
+  const perfEnd = dubaiMonthRange(perfMonths[perfMonths.length - 1]).end;
+  const perfLines = await prisma.orderLine.findMany({
+    where: { kind: "SERVICE", order: { status: "PAID", createdAt: { gte: perfStart, lt: perfEnd } } },
+    select: { description: true, lineAED: true, staffId: true, staffIds: true, order: { select: { createdAt: true, staffId: true, clientId: true, id: true } } },
+    take: LINE_CAP * 6,
+  });
+  const metricLines: MetricLine[] = perfLines.flatMap((l) => {
+    const ids = lineArtistIds(l, l.order.staffId);
+    if (!ids.includes(id)) return [];
+    return [{
+      lineAED: l.lineAED,
+      artistCount: ids.length,
+      createdAt: l.order.createdAt,
+      clientKey: l.order.clientId ?? `order:${l.order.id}`, // a walk-in counts once per bill
+      description: l.description,
+    }];
+  });
+  const metrics = buildStaffMetrics(metricLines, perfMonths);
 
   // Commission splits by kind: sales-split (earned as an artist) vs referral (earned as a marketer).
   const referralComms = comms.filter((c) => c.type === "REFERRAL");
@@ -175,6 +199,8 @@ export default async function ArtistPerformance({
           <div className="mt-1 text-xs text-muted">matches payroll · {commissionLabel}</div>
         </div>
       </div>
+
+      <StaffPerformance m={metrics} />
 
       {/* services table — only when this person performed services */}
       {mine.length > 0 && (
