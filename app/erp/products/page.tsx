@@ -4,16 +4,32 @@ import { requireRole } from "@/lib/auth";
 import { CatalogManager } from "@/components/erp/CatalogManager";
 import { Pagination } from "@/components/erp/Pagination";
 import { parsePage, pageWindow } from "@/lib/pagination-core";
+import { ProductSearch } from "@/components/erp/ProductSearch";
 
 export const dynamic = "force-dynamic";
 
-export default async function ErpProducts({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function ErpProducts({ searchParams }: { searchParams: Promise<{ page?: string; q?: string }> }) {
   if (!(await requireRole(["SUPER_ADMIN", "ADMIN"]))) redirect("/erp");
 
-  const total = await prisma.product.count({ where: { active: true } });
-  const win = pageWindow(total, parsePage((await searchParams).page));
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  // Search runs in the DB so it covers the whole catalogue, not just the page being viewed.
+  const where = {
+    active: true,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { category: { contains: q, mode: "insensitive" as const } },
+            { barcode: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+  const total = await prisma.product.count({ where });
+  const win = pageWindow(total, parsePage(sp.page));
   const products = await prisma.product.findMany({
-    where: { active: true },
+    where,
     orderBy: [{ retail: "desc" }, { name: "asc" }],
     skip: win.skip,
     take: win.take,
@@ -33,6 +49,7 @@ export default async function ErpProducts({ searchParams }: { searchParams: Prom
           {" "}· a product appears once it has a price, an image, stock, and is Published.
         </p>
       </div>
+      <ProductSearch initial={q} total={total} />
       <CatalogManager products={products} />
       <Pagination total={win.total} page={win.page} size={win.size} />
     </div>

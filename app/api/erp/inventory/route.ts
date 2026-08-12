@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { slugify } from "@/lib/shop-core";
+import { revalidateTag } from "next/cache";
+import { SHOP_TAG } from "@/lib/shop";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +76,7 @@ export async function POST(req: Request) {
       const p = await tx.product.findUnique({ where: { id: productId }, select: { qty: true, name: true } });
       return p!;
     }, { isolationLevel: "Serializable" });
+    revalidateTag(SHOP_TAG, "max"); // stock changes affect what the storefront shows as in/out of stock
     return NextResponse.json({ ok: true, newQty: updated.qty, productName: updated.name });
   } catch (e) {
     if (e instanceof Error && e.message === "NOT_FOUND") return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -173,6 +176,7 @@ export async function PATCH(req: Request) {
     if (!current) return NextResponse.json({ error: "Product not found." }, { status: 404 });
     const slug = !current.slug ? await uniqueSlug(data.name || current.name, id) : undefined;
     const product = await prisma.product.update({ where: { id }, data: { ...data, ...(slug ? { slug } : {}) } });
+    revalidateTag(SHOP_TAG, "max"); // otherwise the storefront serves the old price/stock for up to 5 min
     return NextResponse.json({ ok: true, product });
   } catch (e) {
     console.error("[inventory] update failed:", e);
