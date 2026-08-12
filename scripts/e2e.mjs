@@ -1221,9 +1221,13 @@ try {
     ok(aFree.status === 200 && typeof aFreeJ.answer === "string" && aFreeJ.answer.length > 0,
       "assistant: free-form question → 200 with an answer (never 5xx)");
 
-    // The rate limiter must degrade to a friendly 200, never a 429/500.
+    // The rate limiter must degrade to a friendly 200, never a 429/500. It also must NOT throttle
+    // the structured path (no LLM = no cost), or repeated runs would start failing.
     const burst = await Promise.all(Array.from({ length: 30 }, () => apost(aAdmin, { intent: "low_stock" })));
     ok(burst.every((r) => r.status === 200), "assistant: 30-request burst stays 200 (rate limit is fail-soft)");
+    const afterBurst = await apost(aAdmin, { intent: "takings", params: { range: "today" } });
+    const afterBurstJ = await afterBurst.json().catch(() => ({}));
+    ok(afterBurstJ.intent === "takings", "assistant: structured queries are not rate-limited (suite stays repeatable)");
   }
 
   // (The SQL guard itself — hostile-query battery, secret columns, row cap — is covered

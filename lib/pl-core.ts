@@ -19,6 +19,9 @@ export const EXPENSE_LABELS: Record<string, string> = {
   SUPPLIES: "Supplies & stock",
   MARKETING: "Marketing & advertising",
   MAINTENANCE: "Repairs & maintenance",
+  FOOD: "Food & refreshments",
+  PARKING: "Parking & Salik",
+  CEO_ALLOWANCE: "CEO allowance",
   OTHER: "Other operating expenses",
 };
 

@@ -42,8 +42,11 @@ export async function POST(req: Request) {
 
   if (!input) return NextResponse.json({ error: "Ask a question." }, { status: 400 });
 
+  // Throttle only the free-form path: that's the one that can spend money on the model. Structured
+  // {intent, params} calls never reach the LLM, so counting them would throttle the cheap path and
+  // make repeated automated runs fail for no reason.
   // Fail soft (200), not 429 — the panel shows any 200 answer and only special-cases 401/403.
-  if (overLimit(session.sub ?? session.email ?? "admin")) {
+  if (question && overLimit(session.sub ?? session.email ?? "admin")) {
     return NextResponse.json({ answer: "That's a lot of questions at once — give me a minute and try again.", intent: null });
   }
 

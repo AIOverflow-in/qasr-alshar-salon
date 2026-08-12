@@ -88,13 +88,13 @@ export const SCHEMA_TABLES: readonly TableSpec[] = [
   ]),
 
   T("Expense", "Operating expense, counted by incurredOn (NOT createdAt).", [
-    c("id"), c("category", "enum", "RENT|UTILITIES|SALARIES|VISA|SUPPLIES|MARKETING|MAINTENANCE|OTHER"),
+    c("id"), c("category", "enum", "RENT|UTILITIES|SALARIES|VISA|SUPPLIES|MARKETING|MAINTENANCE|FOOD|PARKING|CEO_ALLOWANCE|OTHER"),
     c("description"), c("amountAED", "aed"), c("incurredOn", "date"), c("recurring", "bool"),
     c("notes"), c("invoiceNo"),
   ], ["receiptUrl", "receiptPath", "receiptUrls", "receiptPaths", "createdById", "createdAt", "updatedAt"]),
 
   T("ScheduledPayment", "Upcoming bill (rent, cheques). Creates an Expense when marked paid.", [
-    c("id"), c("label"), c("category", "enum", "RENT|UTILITIES|SALARIES|VISA|SUPPLIES|MARKETING|MAINTENANCE|OTHER"),
+    c("id"), c("label"), c("category", "enum", "RENT|UTILITIES|SALARIES|VISA|SUPPLIES|MARKETING|MAINTENANCE|FOOD|PARKING|CEO_ALLOWANCE|OTHER"),
     c("amountAED", "aed"), c("dueDate", "date"), c("payee"), c("method"),
     c("status", "enum", "PENDING|PAID"), c("paidAt", "date"),
   ], ["reference", "remindDaysBefore", "reminderSentAt", "expenseId", "notes", "createdAt", "updatedAt"]),

@@ -6,6 +6,7 @@ import { deleteExpense, addCapital, deleteCapital } from "@/lib/actions/finance"
 import { AddExpenseForm } from "./AddExpenseForm";
 import { Pagination } from "./Pagination";
 import { ExpenseReceipts } from "./ExpenseReceipts";
+import { expenseCategoryLabel } from "@/lib/expense-filter";
 import { aed } from "@/lib/utils";
 
 type Expense = { id: string; category: string; description: string; amountAED: number; incurredOn: string; recurring: boolean; invoiceNo?: string | null; receiptUrl?: string | null; receiptUrls?: string[] };
@@ -50,7 +51,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
               <div className="min-w-0">
                 <div className="truncate text-cream">{e.description} {e.recurring && <span className="text-[0.6rem] text-gold">· recurring</span>}</div>
                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                  <span>{e.category[0] + e.category.slice(1).toLowerCase()} · {fmtDate(e.incurredOn)}</span>
+                  <span>{expenseCategoryLabel(e.category)} · {fmtDate(e.incurredOn)}</span>
                   {e.invoiceNo && <span>· inv {e.invoiceNo}</span>}
                   <ExpenseReceipts
                     expenseId={e.id}
@@ -58,7 +59,7 @@ export function FinanceManager({ expenses, capital, canEdit, expenseWin, capital
                     title={e.description}
                     details={[
                       { label: "Description", value: e.description },
-                      { label: "Category", value: e.category[0] + e.category.slice(1).toLowerCase() },
+                      { label: "Category", value: expenseCategoryLabel(e.category) },
                       { label: "Date", value: fmtDate(e.incurredOn) },
                       { label: "Amount", value: aed(e.amountAED), strong: true },
                       ...(e.invoiceNo ? [{ label: "Invoice #", value: e.invoiceNo }] : []),
