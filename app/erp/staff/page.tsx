@@ -5,6 +5,8 @@ import { TableSearch } from "@/components/erp/TableSearch";
 import { StaffEditRow } from "@/components/erp/StaffEditRow";
 import { AddStaffForm } from "@/components/erp/AddStaffForm";
 import { PayrollTable } from "@/components/erp/PayrollTable";
+import { TeamPerformance } from "@/components/erp/TeamPerformance";
+import { buildPerformance } from "@/lib/performance-core";
 import { getPayrollMonth, recentMonths, dubaiMonthRange } from "@/lib/payroll";
 import { getSalesBreakdown } from "@/lib/finance";
 
@@ -27,6 +29,9 @@ export default async function ErpStaff({
   // Month sales for the P&L summary — ex-VAT (the salon's actual revenue; VAT is held for the FTA,
   // and it matches the charged-price basis of Jacqueline's sheet). Gross Profit = sales − net payroll.
   const totalSales = (await getSalesBreakdown(dubaiMonthRange(payroll.month))).net;
+  const performance = buildPerformance(payroll.rows);
+  const [py, pm] = payroll.month.split("-").map(Number);
+  const monthLabel = new Date(Date.UTC(py, pm - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
   return (
     <div className="space-y-8">
@@ -80,6 +85,9 @@ export default async function ErpStaff({
         </TableSearch>
         <p className="text-xs text-muted">Salary 0 = commission-only. Commission = sales split % · referral %. These feed the payroll below.</p>
       </div>
+
+      {/* Ranked team performance — derived from the payroll rows, so no extra queries. */}
+      <TeamPerformance data={performance} monthLabel={monthLabel} />
 
       {/* Monthly payroll */}
       <PayrollTable month={payroll.month} months={recentMonths(12)} rows={payroll.rows} totals={payroll.totals} totalSales={totalSales} />
