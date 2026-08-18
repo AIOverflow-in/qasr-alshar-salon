@@ -7,8 +7,7 @@ import {
   getSession,
   createSession,
   destroySession,
-  verifyCredentials,
-} from "@/lib/auth";
+  verifyCredentials, ALL_ROLES } from "@/lib/auth";
 import { generateBlogPost } from "@/lib/openai";
 import { sendAftercareEmail } from "@/lib/email";
 import { inclusiveDays } from "@/lib/leave";
@@ -441,7 +440,10 @@ async function requireSuperAdmin() {
   return session;
 }
 
-const VALID_ROLES = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"];
+// Single source of truth — lib/auth.ts. This used to be a second hardcoded copy, so adding the
+// BOOKING role left "Bookings only" rejected with "Invalid role." even though the role existed
+// everywhere else. Import it so a new role can never be half-added again.
+const VALID_ROLES: readonly string[] = ALL_ROLES;
 
 export async function createUser(data: { name: string; email: string; role: Role; password: string; staffId?: string | null }) {
   await requireSuperAdmin();
