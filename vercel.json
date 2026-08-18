@@ -3,11 +3,11 @@
   "crons": [
     {
       "path": "/api/cron/harvest-keywords",
-      "schedule": "0 3 * * *"
+      "schedule": "8 2 * * *"
     },
     {
       "path": "/api/cron/generate-blog",
-      "schedule": "0 6 * * *"
+      "schedule": "16 2 * * *"
     },
     {
       "path": "/api/cron/daily-summary",
@@ -15,11 +15,11 @@
     },
     {
       "path": "/api/cron/client-followups",
-      "schedule": "0 4 * * *"
+      "schedule": "26 2 * * *"
     },
     {
       "path": "/api/cron/payment-reminders",
-      "schedule": "0 5 * * *"
+      "schedule": "34 2 * * *"
     }
   ]
 }
