@@ -463,9 +463,14 @@ export async function PATCH(req: Request) {
           await tx.client.update({ where: { id: clientId }, data: { visits: { increment: 1 }, totalSpentAED: { increment: total } } });
         }
         // 6. Keep the linked booking in sync with the edited bill (services, price, artist, marketer).
-        //    Editing an existing bill doesn't change the booking's status.
+        //    A PAID bill means the appointment happened, so a booking still sitting at CONFIRMED is
+        //    closed off here — attaching a bill to a booking used to leave it open forever, which is
+        //    why past appointments lingered as "upcoming". Only moves CONFIRMED -> COMPLETED: an
+        //    edit never un-completes, and never touches CANCELLED or NO_SHOW.
         if (existing.bookingId) {
-          await syncBookingToBill(tx, existing.bookingId, lines.filter((x) => x.kind === "SERVICE"), data.staffId ?? null, data.marketerId ?? null, false);
+          const bk = await tx.booking.findUnique({ where: { id: existing.bookingId }, select: { status: true } });
+          const closeIt = bk?.status === "CONFIRMED";
+          await syncBookingToBill(tx, existing.bookingId, lines.filter((x) => x.kind === "SERVICE"), data.staffId ?? null, data.marketerId ?? null, closeIt);
         }
         // 7. Recompute commissions (per-artist split + marketer referral), keeping them dated to
         //    the sale's effective date (new date if re-dated, else the bill's existing date) so an
