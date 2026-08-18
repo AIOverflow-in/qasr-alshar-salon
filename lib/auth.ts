@@ -10,7 +10,7 @@ const SESSION_COOKIE = "qa_admin";
 // Deliberately explicit, not derived from the Prisma enum: a session whose role isn't listed here
 // gets NO access at all. Adding a role to the schema without adding it here fails closed, which is
 // the behaviour we want. Add new roles here consciously.
-const VALID_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING", "STYLIST", "INVESTOR"];
+export const ALL_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING", "STYLIST", "INVESTOR"];
 
 function getSecret() {
   const s = process.env.AUTH_SECRET;
@@ -55,7 +55,7 @@ export async function getSession(): Promise<Session | null> {
     // Reject a token whose role claim is missing or not a known role — never
     // silently grant elevated access on a malformed/legacy token.
     const role = payload.role as Role | undefined;
-    if (!role || !VALID_ROLES.includes(role)) return null;
+    if (!role || !ALL_ROLES.includes(role)) return null;
     const sub = String(payload.sub);
     // Immediate revocation on offboarding: a deactivated account's 7-day token would otherwise stay
     // valid. Re-check the DB each request. A DB hiccup must not lock everyone out, so on error (or an
