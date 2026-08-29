@@ -3,14 +3,14 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { ALL_ROLES } from "./auth-roles";
 import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "qa_admin";
 
-// Deliberately explicit, not derived from the Prisma enum: a session whose role isn't listed here
-// gets NO access at all. Adding a role to the schema without adding it here fails closed, which is
-// the behaviour we want. Add new roles here consciously.
-export const ALL_ROLES: Role[] = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING", "STYLIST", "INVESTOR"];
+// The list itself lives in ./auth-roles (pure, so scripts can import it too). Re-exported here so
+// every existing `from "@/lib/auth"` import keeps working.
+export { ALL_ROLES } from "./auth-roles";
 
 function getSecret() {
   const s = process.env.AUTH_SECRET;

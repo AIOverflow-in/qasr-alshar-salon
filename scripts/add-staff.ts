@@ -9,13 +9,16 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import { normalizeNewStaff } from "../lib/staff-core";
+import { ALL_ROLES } from "../lib/auth-roles";
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
 const NAME = (process.env.STAFF_NAME || "").trim();
 const EMAIL = (process.env.STAFF_EMAIL || "").trim().toLowerCase();
 const ROLE = (process.env.STAFF_ROLE || "STYLIST").trim().toUpperCase();
-const VALID = ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "INVESTOR"] as const;
+// Single source of truth — a second hardcoded copy here is what once made a valid role
+// look invalid. Adding a role to lib/auth.ts must be enough.
+const VALID = ALL_ROLES;
 
 // Strong, readable password (no ambiguous chars like O/0/I/l/1).
 function genPassword(len = 14): string {
