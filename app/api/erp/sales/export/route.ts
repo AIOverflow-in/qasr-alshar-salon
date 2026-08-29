@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { salesRange } from "@/lib/finance";
-import { csvCell as csv } from "@/lib/csv-core";
+import { csvCell as csv, csvFile } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +46,10 @@ export async function GET(req: Request) {
 
   // Totals row
   const totals = orders.reduce((a, o) => ({ net: a.net + o.subtotalAED, vat: a.vat + o.vatAED, total: a.total + o.totalAED }), { net: 0, vat: 0, total: 0 });
-  lines.push(["", "", "", "", "", "TOTAL", totals.net, totals.vat, totals.total].map(csv).join(","));
+  // TOTAL in the first column, like every other export — in the Payment column it read as a payment method.
+  lines.push(["TOTAL", "", "", "", "", "", totals.net, totals.vat, totals.total].map(csv).join(","));
 
-  const body = [header.join(","), ...lines].join("\n");
+  const body = csvFile([header.join(","), ...lines]);
   const label = date ? date : range ?? "today";
 
   return new Response(body, {

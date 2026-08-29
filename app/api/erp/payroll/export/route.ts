@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getPayrollMonth } from "@/lib/payroll";
-import { csvCell as cell } from "@/lib/csv-core";
+import { csvCell as cell, csvFile } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   const t = payroll.totals;
   rows.push(["TOTAL", "", t.services, t.salary, "", t.salesCommission, t.referral, t.bonus, t.deductions, t.net, "", ""].map(cell).join(","));
 
-  return new Response(rows.join("\n"), {
+  return new Response(csvFile(rows), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="qasr-payroll-${payroll.month}.csv"`,

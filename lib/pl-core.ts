@@ -171,7 +171,9 @@ export function buildPLCsv(r: PLReport, period: { label: string; from: string; t
   rows.push([]);
   rows.push(["Result", "Net profit", r.netProfit]);
   rows.push(["Result", "Net margin (%)", r.netMarginPct]);
-  return rows.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  // Leading BOM so Excel reads this as UTF-8 — the title line contains an em-dash, which arrives
+  // as mojibake without it.
+  return "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
 
 export type { DayRange };

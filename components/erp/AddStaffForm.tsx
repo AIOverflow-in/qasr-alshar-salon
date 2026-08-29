@@ -76,6 +76,10 @@ export function AddStaffForm() {
             {pending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />} {pending ? "Adding…" : "Create staff"}
           </button>
           <p className="mt-2 text-xs text-muted">Defaults: Crown Artist · 40% commission · 5% referral · salary 0 (commission-only). Edit any of these in the table below after adding.</p>
+          <p className="mt-1.5 text-xs text-gold">
+            Salary is a floor, not an addition: they are paid the higher of salary or commission.
+            Setting commission to 0% means they can only ever earn their salary.
+          </p>
         </div>
       )}
     </div>

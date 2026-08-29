@@ -66,10 +66,10 @@ export function StaffEditRow({
       <td className="p-3"><input value={off} onChange={(e) => setOff(e.target.value)} placeholder="—" className={cn(input, "w-24 text-sm")} /></td>
       <td className="p-3"><input type="date" value={joined} onChange={(e) => setJoined(e.target.value)} className={cn(input, "w-36 text-xs")} title="Joining date — drives leave entitlement" /></td>
       <td className="p-3"><input value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+9715…" className={cn(input, "w-32 text-sm")} title="Phone for WhatsApp booking reminders" /></td>
-      <td className="p-3"><input type="number" value={sal} min={0} step={100} onChange={(e) => setSal(Number(e.target.value))} className={cn(input, "w-24 text-right text-sm")} title="Base monthly salary (0 = commission-only)" /></td>
+      <td className="p-3"><input type="number" value={sal} min={0} step={100} onChange={(e) => setSal(Number(e.target.value))} className={cn(input, "w-24 text-right text-sm")} title="Base monthly salary — a FLOOR, not an addition. They are paid the higher of this or their sales commission. 0 = commission-only." /></td>
       <td className="p-3">
         <div className="flex items-center gap-1 text-xs text-muted">
-          <input type="number" value={comm} min={0} max={100} onChange={(e) => setComm(Number(e.target.value))} className={cn(input, "w-14 text-center")} />%
+          <input type="number" value={comm} min={0} max={100} onChange={(e) => setComm(Number(e.target.value))} className={cn(input, "w-14 text-center")} title="Share of the ex-VAT service value. Paid only when it beats the base salary. Setting this to 0 means this person can only ever earn their salary." />%
           <span className="mx-1 text-ink-line">·</span>
           <input type="number" value={ref} min={0} max={100} onChange={(e) => setRef(Number(e.target.value))} className={cn(input, "w-12 text-center")} />% ref
         </div>

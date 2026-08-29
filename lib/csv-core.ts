@@ -20,3 +20,15 @@ export function csvCell(v: string | number | null | undefined): string {
   const safe = FORMULA_LEAD.test(raw) ? `'${raw}` : raw;
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
+
+/**
+ * Excel on Windows assumes the system codepage, not UTF-8, unless the file opens with a byte-order
+ * mark. Without it, a name like "Jonté" or any Arabic text arrives as mojibake in the salon's own
+ * spreadsheets. Every export goes through here so they all behave the same.
+ *
+ * Safe for the inventory round-trip: the importer lowercases and trim()s each header, and JS treats
+ * U+FEFF as whitespace, so a re-uploaded file still matches its columns.
+ */
+export function csvFile(headerAndRows: string[]): string {
+  return "\uFEFF" + headerAndRows.join("\n");
+}

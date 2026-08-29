@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { dubaiMonthRange, currentDubaiMonth } from "@/lib/payroll";
 import { expenseWhere } from "@/lib/expense-filter";
-import { csvCell as csv } from "@/lib/csv-core";
+import { csvCell as csv, csvFile } from "@/lib/csv-core";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +42,10 @@ export async function GET(req: Request) {
     e.receiptUrls?.length ? e.receiptUrls.join(" | ") : (e.receiptUrl ?? ""),
   ].map(csv).join(","));
   const total = expenses.reduce((s, e) => s + e.amountAED, 0);
-  rows.push(["", "", "", "TOTAL", total, "", ""].map(csv).join(","));
+  // TOTAL in the first column — sitting in "Invoice #" it looked like an invoice number.
+  rows.push(["TOTAL", "", "", "", total, "", ""].map(csv).join(","));
 
-  return new Response([header.join(","), ...rows].join("\n"), {
+  return new Response(csvFile([header.join(","), ...rows]), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="expenses-${month}.csv"`,
