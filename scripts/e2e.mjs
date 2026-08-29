@@ -357,6 +357,18 @@ try {
     await prisma.product.delete({ where: { id: prod.id } });
   }
 
+  // Read a payroll-CSV cell BY COLUMN NAME. Positional indexes silently read the wrong column when
+  // a column is added (adding "Commission %" and "Basis" made these read Advances and "Salary floor"),
+  // and a wrong-column read can pass by luck, which is worse than failing.
+  const payCell = (text, name, colName) => {
+    const lines = text.split("\n");
+    const cols = lines[0].split(",").map((c) => c.replace(/^"|"$/g, ""));
+    const i = cols.indexOf(colName);
+    if (i < 0) return null;
+    const row = lines.find((l) => l.startsWith(`${name},`) || l.startsWith(`"${name}"`));
+    return row ? row.split(",")[i] : null;
+  };
+
   section("Payroll net-pay math (self-cleaning)");
   {
     const s = await prisma.staff.findFirst({ orderBy: { order: "asc" }, select: { id: true, name: true, salaryAED: true } });
@@ -370,8 +382,8 @@ try {
     const salesComm = commByType.filter((g) => g.type !== "REFERRAL").reduce((x, g) => x + (g._sum.amountAED ?? 0), 0);
     const referral = commByType.filter((g) => g.type === "REFERRAL").reduce((x, g) => x + (g._sum.amountAED ?? 0), 0);
     const { text } = await body(`/api/erp/payroll/export?month=${month}`, "ADMIN");
-    const row = text.split("\n").find((l) => l.startsWith(s.name) || l.includes(`"${s.name}"`));
-    const net = row ? Number(row.split(",").slice(-2, -1)[0]) : NaN;
+    const netCell = payCell(text, s.name, "Net pay AED");
+    const net = netCell === null ? NaN : Number(netCell);
     const expected = Math.max(salesComm, 5000) + referral + 500 - 200;
     ok(net === expected, `net ${net} == max(${salesComm} comm, 5000 base) + ${referral} ref + 500 − 200 = ${expected}`);
     await prisma.payAdjustment.deleteMany({ where: { id: { in: [b.id, a.id] } } });
@@ -891,14 +903,12 @@ try {
       const month = dubaiMonth();
       const net = await poll(async () => {
         const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
-        const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
-        return line ? line.split(",")[8] : null;
+        return payCell(t, `${TAG}Payroll`, "Net pay AED");
       }, "1000");
       ok(net === "1000", `net = max(200 comm, 1000 base) = 1000, not additive 1200 (got ${net})`);
       const services = await poll(async () => {
         const t = await (await fetch(`${BASE}/api/erp/payroll/export?month=${month}`, { headers: hdr })).text();
-        const line = t.split("\n").find((l) => l.startsWith(`${TAG}Payroll,`));
-        return line ? line.split(",")[2] : null;
+        return payCell(t, `${TAG}Payroll`, "Services AED (ex-VAT)");
       }, String(netFromInclusive(500)));
       ok(services === String(netFromInclusive(500)), `per-person Services column (net, ex-VAT) = ${netFromInclusive(500)} (got ${services})`);
     }

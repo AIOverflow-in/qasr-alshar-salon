@@ -21,6 +21,7 @@ export type PayrollRow = {
   servicesAED: number;     // total service revenue this person generated, NET/ex-VAT (their "sales")
   grossAED: number;        // servicesAED including 5% VAT (the gross clients paid)
   salary: number;          // base salary — a guaranteed FLOOR
+  commissionPct: number;   // the artist's sales split %; 0 means they earn NO sales commission
   salesCommission: number; // SALES_SPLIT (+ any INCENTIVE) commission
   referral: number;        // REFERRAL commission (marketer) — always added on top
   commission: number;      // salesCommission + referral (for display)
@@ -39,7 +40,7 @@ export type PayrollRow = {
 export type PayrollMonth = {
   month: string;
   rows: PayrollRow[];
-  totals: { services: number; salary: number; commission: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
+  totals: { services: number; salary: number; commission: number; salesCommission: number; referral: number; bonus: number; deductions: number; net: number; paidNet: number; outstandingNet: number };
 };
 
 /**
@@ -53,7 +54,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
   const { start, end } = dubaiMonthRange(month);
 
   const [staff, commByType, adjByType, payments, leaves, loans, serviceLines] = await Promise.all([
-    prisma.staff.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true, role: true, active: true, salaryAED: true } }),
+    prisma.staff.findMany({ orderBy: { order: "asc" }, select: { id: true, name: true, role: true, active: true, salaryAED: true, commissionPct: true } }),
     prisma.commission.groupBy({ by: ["staffId", "type"], _sum: { amountAED: true }, where: { createdAt: { gte: start, lt: end } } }),
     // The individual rows (not a groupBy) so the UI can list and remove a mistaken entry.
     prisma.payAdjustment.findMany({ where: { month }, orderBy: { createdAt: "asc" }, select: { id: true, staffId: true, type: true, amountAED: true, note: true } }),
@@ -124,7 +125,7 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       clientsServed: servedClients.get(s.id)?.size ?? 0,
       servicesAED,
       grossAED: Math.round(grossServices.get(s.id) ?? 0), // exact VAT-inclusive amount the client paid
-      salary: s.salaryAED, salesCommission: c.sales, referral: c.referral, commission,
+      salary: s.salaryAED, commissionPct: s.commissionPct, salesCommission: c.sales, referral: c.referral, commission,
       bonus: a.bonus, deductions: a.deductions, net,
       paid: !!pay, paidAt: pay?.paidAt.toISOString() ?? null,
       adjustments: adjRows.get(s.id) ?? [],
@@ -140,13 +141,15 @@ export async function getPayrollMonth(monthISO?: string): Promise<PayrollMonth> 
       services: t.services + r.servicesAED,
       salary: t.salary + r.salary,
       commission: t.commission + r.commission,
+      salesCommission: t.salesCommission + r.salesCommission,
+      referral: t.referral + r.referral,
       bonus: t.bonus + r.bonus,
       deductions: t.deductions + r.deductions,
       net: t.net + r.net,
       paidNet: t.paidNet + (r.paid ? r.net : 0),
       outstandingNet: t.outstandingNet + (r.paid ? 0 : r.net),
     }),
-    { services: 0, salary: 0, commission: 0, bonus: 0, deductions: 0, net: 0, paidNet: 0, outstandingNet: 0 }
+    { services: 0, salary: 0, commission: 0, salesCommission: 0, referral: 0, bonus: 0, deductions: 0, net: 0, paidNet: 0, outstandingNet: 0 }
   );
 
   return { month, rows, totals };
