@@ -13,9 +13,9 @@ test("every role in the Prisma enum is accepted by auth", () => {
   const schema = read("../prisma/schema.prisma");
   const enumBlock = schema.match(/enum Role \{([\s\S]*?)\}/)![1];
   const roles = enumBlock.split("\n").map((l) => l.trim()).filter((l) => /^[A-Z_]+$/.test(l));
-  const allRoles = read("./auth.ts").match(/export const ALL_ROLES[^=]*=\s*\[([^\]]*)\]/)![1];
+  const allRoles = read("./auth-roles.ts").match(/export const ALL_ROLES[^=]*=\s*\[([^\]]*)\]/)![1];
   for (const r of roles) {
-    assert.ok(allRoles.includes(`"${r}"`), `Role.${r} is in schema.prisma but missing from ALL_ROLES in lib/auth.ts`);
+    assert.ok(allRoles.includes(`"${r}"`), `Role.${r} is in schema.prisma but missing from ALL_ROLES in lib/auth-roles.ts`);
   }
 });
 
@@ -28,6 +28,6 @@ test("admin actions validate against the shared list, not a private copy", () =>
 
 test("BOOKING is a real role everywhere it matters", () => {
   assert.ok(read("../prisma/schema.prisma").includes("BOOKING"), "schema");
-  assert.ok(read("./auth.ts").includes('"BOOKING"'), "auth ALL_ROLES");
+  assert.ok(read("./auth-roles.ts").includes('"BOOKING"'), "auth ALL_ROLES");
   assert.ok(read("../components/erp/UsersManager.tsx").includes('"BOOKING"'), "the role picker");
 });
