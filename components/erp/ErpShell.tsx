@@ -25,6 +25,7 @@ import {
   Fingerprint,
   Banknote,
   LineChart,
+  MessageCircle,
 } from "lucide-react";
 import { Emblem } from "@/components/Logo";
 import { NotificationBell } from "@/components/erp/NotificationBell";
@@ -38,6 +39,7 @@ const NAV = [
   { href: "/erp/pos", label: "POS Checkout", icon: ShoppingCart, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/sales", label: "Sales", icon: Receipt, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "BOOKING"] },
+  { href: "/erp/messages", label: "Messages", icon: MessageCircle, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/calendar", label: "Calendar", icon: CalendarDays, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION", "STYLIST", "BOOKING"] },
   { href: "/erp/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },
   { href: "/erp/inventory", label: "Inventory", icon: Package, roles: ["SUPER_ADMIN", "ADMIN", "RECEPTION"] },

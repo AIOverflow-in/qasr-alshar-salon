@@ -115,7 +115,7 @@ export function BookingWizard({
 
   const [form, setForm] = useState({
     name: "", email: "", phone: "", notes: "",
-    serviceMode: "SALON" as "SALON" | "HOME",
+    serviceMode: "SALON" as "SALON" | "HOME", whatsappConsent: false,
     address: "", customRequest: "", agreed: false,
   });
   const [submitting, setSubmitting] = useState(false);
@@ -185,6 +185,7 @@ export function BookingWizard({
           serviceMode: form.serviceMode,
           address: form.serviceMode === "HOME" ? form.address : null,
           customRequest: form.customRequest || null,
+          whatsappConsent: form.whatsappConsent,
         }),
       });
       const data = await res.json();
@@ -630,6 +631,18 @@ export function BookingWizard({
                   Terms &amp; Conditions
                 </Link>
                 : a 15-minute grace period applies, after which lateness may incur AED 100 per 30 minutes. Cancellations within 24 hours and no-shows may be charged. Prices are inclusive of 5% VAT. Home/clinic visits are confirmed by the salon before they are final.
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3 rounded-xl border border-ink-line bg-ink-card/50 p-3.5">
+              <input
+                type="checkbox"
+                checked={form.whatsappConsent}
+                onChange={(e) => setForm({ ...form, whatsappConsent: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#c8911f]"
+              />
+              <span className="text-xs leading-relaxed text-muted">
+                I agree to receive appointment and post-visit service messages from Qasr Alshar on WhatsApp. I can opt out at any time.
               </span>
             </label>
           </div>

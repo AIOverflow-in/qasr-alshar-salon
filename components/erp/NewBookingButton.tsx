@@ -34,6 +34,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
   const [mode, setMode] = useState<"SALON" | "HOME">("SALON");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [enforce, setEnforce] = useState(true);
   const [created, setCreated] = useState<{ phone: string; waUrl: string } | null>(null);
   // client
@@ -92,7 +93,7 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
           phone: newClient ? nc.phone : selClient?.phone ?? "",
           email: newClient ? nc.email : selClient?.email ?? "",
           serviceMode: mode, address: mode === "HOME" ? address : null,
-          notes: notes || null, enforceAvailability: enforce,
+          notes: notes || null, enforceAvailability: enforce, whatsappConsent,
         }),
       });
       const data = await res.json();
@@ -271,6 +272,11 @@ function NewBookingModal({ services, staff, clients, onClose, onSaved }: {
           {mode === "HOME" && <input className={input} placeholder="Home address" value={address} onChange={(e) => setAddress(e.target.value)} />}
 
           <input className={input} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+
+          <label className="flex items-start gap-2 text-xs text-muted">
+            <input type="checkbox" checked={whatsappConsent} onChange={(e) => setWhatsappConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#c8911f]" />
+            Client agrees to receive appointment and post-visit service messages on WhatsApp.
+          </label>
 
           <label className="flex items-center gap-2 text-xs text-muted">
             <input type="checkbox" checked={!enforce} onChange={(e) => setEnforce(!e.target.checked)} className="h-4 w-4 accent-[#c8911f]" />

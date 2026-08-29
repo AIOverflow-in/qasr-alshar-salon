@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { isSlotBookable } from "@/lib/availability";
 import { sendBookingEmails } from "@/lib/email";
 import { resolveClientId } from "@/lib/clients";
+import { recordWhatsAppConsent } from "@/lib/message-engine/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ const schema = z.object({
   serviceMode: z.enum(["SALON", "HOME"]).default("SALON"),
   address: z.string().max(400).optional().nullable(),
   notes: z.string().max(800).optional().nullable(),
+  whatsappConsent: z.boolean().default(false),
   enforceAvailability: z.boolean().default(true),
 }).refine((d) => (d.services && d.services.length) || d.serviceId, { message: "Pick at least one service." });
 
@@ -100,6 +102,10 @@ export async function POST(req: Request) {
       items: { create: lines.map((l) => ({ serviceId: l.svc.id, serviceName: l.svc.name, priceAED: l.price, durationMin: l.svc.durationMin, staffId: l.staffId || d.staffId || null })) },
     },
   });
+
+  if (clientId && d.whatsappConsent) {
+    await recordWhatsAppConsent(prisma, clientId, true, "RECEPTION", session.sub);
+  }
 
   if (email) {
     try {
