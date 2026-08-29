@@ -82,6 +82,23 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
         ))}
       </div>
 
+      {/* The pay rule, stated where the numbers are read. Without it "Earned" looks like a mistake:
+          an artist with a salary shows commission far below 40% of their services, because the
+          salary floor is what actually paid them. */}
+      <div className="surface mb-4 rounded-2xl border-l-2 border-gold p-4">
+        <p className="text-sm text-cream">
+          <span className="font-semibold">How pay is worked out:</span> each artist earns the{" "}
+          <span className="text-gold">higher</span> of their base salary or their sales commission —
+          never both added together.
+        </p>
+        <p className="mt-1.5 text-xs text-muted">
+          Referral and bonus are always added on top; advances and deductions come off. Commission is
+          a % of the service value <span className="text-sand">after VAT is removed</span>, so it
+          works out near 38% of what the client actually paid, not 40%. An artist on 0% commission
+          earns their salary only.
+        </p>
+      </div>
+
       <div className="surface overflow-x-auto rounded-2xl">
         <table className="w-full min-w-[1000px] text-sm">
           <thead className="border-b border-ink-line text-left text-muted">
