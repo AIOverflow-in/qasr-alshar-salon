@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Qasr Alshar Salon software brochure, built with AIOverflow." />
+    <title>Qasr Alshar Salon Software | AIOverflow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&amp;family=Playfair+Display:ital,wght@0,500;0,600;1,500&amp;display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --paper: #fbf8f1;
+        --paper-soft: #f4ecdd;
+        --card: #ffffff;
+        --espresso: #211c14;
+        --sand: #4d4534;
+        --muted: #7c715a;
+        --line: #e7dcc6;
+        --gold: #8a6a1e;
+        --gold-bright: #d6ad52;
+        --gold-pale: #e6c478;
+        --display: "Playfair Display", Georgia, serif;
+        --sans: "Jost", "Trebuchet MS", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { background: #d9d1c3; }
+
+      body {
+        margin: 0;
+        color: var(--espresso);
+        background: #d9d1c3;
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .toolbar {
+        position: fixed;
+        z-index: 10;
+        right: 18px;
+        bottom: 18px;
+        display: flex;
+        gap: 8px;
+      }
+
+      .toolbar button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 15px;
+        background: var(--espresso);
+        color: var(--paper);
+        font: 600 12px var(--sans);
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(33, 28, 20, .2);
+      }
+
+      .page {
+        position: relative;
+        isolation: isolate;
+        display: grid;
+        grid-template-columns: 42% 58%;
+        width: min(100%, 1400px);
+        min-height: 100vh;
+        margin: 0 auto;
+        overflow: hidden;
+        background: var(--paper);
+      }
+
+      .page::before {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        opacity: .65;
+        background-image:
+          linear-gradient(to right, rgba(138, 106, 30, .06) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(138, 106, 30, .06) 1px, transparent 1px);
+        background-size: 42px 42px;
+        mask-image: linear-gradient(to bottom, black, transparent 78%);
+      }
+
+      .dark-panel {
+        position: relative;
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+        padding: clamp(28px, 4vw, 58px);
+        background:
+          radial-gradient(circle at 18% 13%, rgba(214, 173, 82, .2), transparent 17rem),
+          linear-gradient(155deg, #292116 0%, var(--espresso) 47%, #100e0a 100%);
+        color: var(--paper);
+      }
+
+      .dark-panel::after {
+        position: absolute;
+        top: 0;
+        right: 11%;
+        width: 1px;
+        height: 54%;
+        background: linear-gradient(var(--gold-bright), transparent);
+        content: "";
+        opacity: .6;
+      }
+
+      .brandline,
+      .meta,
+      .eyebrow,
+      .feature-label,
+      .footer-label {
+        text-transform: uppercase;
+        letter-spacing: .16em;
+      }
+
+      .brandline {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .crest {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+        filter: invert(1) sepia(.2) saturate(.8);
+        opacity: .95;
+      }
+
+      .brandline span { color: var(--gold-pale); }
+
+      .hero-copy { max-width: 500px; padding: clamp(50px, 7vw, 104px) 0 36px; }
+
+      .eyebrow,
+      .feature-label,
+      .footer-label {
+        color: var(--gold-bright);
+        font-size: 9px;
+        line-height: 1.4;
+      }
+
+      h1,
+      h2,
+      h3,
+      p { margin: 0; }
+
+      h1 {
+        max-width: 510px;
+        margin-top: 18px;
+        font: 500 clamp(52px, 7vw, 104px)/.89 var(--display);
+        letter-spacing: -.065em;
+      }
+
+      h1 em { color: var(--gold-pale); font-style: italic; }
+
+      .lead {
+        max-width: 355px;
+        margin-top: 26px;
+        color: #d8d0c1;
+        font-size: clamp(15px, 1.4vw, 20px);
+        line-height: 1.4;
+        letter-spacing: -.02em;
+      }
+
+      .proof {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 28px;
+        padding: 9px 12px;
+        border: 1px solid rgba(230, 196, 120, .28);
+        color: var(--gold-pale);
+        font-size: 10px;
+        letter-spacing: .08em;
+      }
+
+      .proof svg { flex: 0 0 auto; }
+
+      .photo-stack {
+        position: relative;
+        min-height: 168px;
+        margin: 0 -58px -58px;
+      }
+
+      .photo-stack::before {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: linear-gradient(0deg, rgba(16, 14, 10, .76), transparent 70%);
+        content: "";
+        pointer-events: none;
+      }
+
+      .photo-stack img {
+        display: block;
+        width: 100%;
+        height: 206px;
+        object-fit: cover;
+        object-position: 50% 48%;
+        filter: saturate(.78) contrast(1.03) brightness(.78);
+      }
+
+      .photo-caption {
+        position: absolute;
+        z-index: 2;
+        right: 22px;
+        bottom: 20px;
+        color: #f4ecdd;
+        font-size: 10px;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+      }
+
+      .content {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        padding: clamp(28px, 4vw, 58px) clamp(26px, 4vw, 62px) 28px;
+      }
+
+      .content-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        padding-bottom: 21px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .content-top .meta {
+        max-width: 180px;
+        color: var(--muted);
+        font-size: 9px;
+        line-height: 1.5;
+        text-align: right;
+      }
+
+      .section-intro { padding: clamp(28px, 4vw, 56px) 0 21px; }
+
+      h2 {
+        max-width: 580px;
+        margin-top: 10px;
+        font: 500 clamp(30px, 4vw, 57px)/.98 var(--display);
+        letter-spacing: -.055em;
+      }
+
+      h2 em { color: var(--gold); font-style: italic; }
+
+      .section-intro p {
+        max-width: 460px;
+        margin-top: 15px;
+        color: var(--sand);
+        font-size: 14px;
+        line-height: 1.48;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-top: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+      }
+
+      .feature {
+        min-height: 116px;
+        padding: 15px 16px 14px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 253, 249, .58);
+      }
+
+      .feature:nth-child(1) { border-top: 2px solid var(--gold); }
+      .feature:nth-child(2) { border-top: 2px solid var(--gold-bright); }
+      .feature:nth-child(3) { border-top: 2px solid var(--gold-pale); }
+      .feature:nth-child(4) { border-top: 2px solid var(--gold); }
+
+      .feature-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .icon {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(138, 106, 30, .1);
+        color: var(--gold);
+      }
+
+      .feature h3 {
+        font: 500 17px/1.05 var(--display);
+        letter-spacing: -.02em;
+      }
+
+      .feature p {
+        margin: 10px 0 0 38px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .bottom {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: end;
+        gap: 20px;
+        margin-top: auto;
+        padding-top: 26px;
+      }
+
+      .cta {
+        position: relative;
+        overflow: hidden;
+        padding: 18px 20px;
+        background: var(--espresso);
+        color: var(--paper);
+      }
+
+      .cta::after {
+        position: absolute;
+        top: -46px;
+        right: -20px;
+        width: 130px;
+        height: 130px;
+        border: 1px solid rgba(230, 196, 120, .3);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .cta h3 {
+        position: relative;
+        z-index: 1;
+        font: 500 23px/1 var(--display);
+      }
+
+      .cta p {
+        position: relative;
+        z-index: 1;
+        margin-top: 7px;
+        color: #d8d0c1;
+        font-size: 11px;
+      }
+
+      .cta a {
+        position: relative;
+        z-index: 1;
+        display: inline-block;
+        margin-top: 12px;
+        color: var(--gold-pale);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: .08em;
+        text-decoration: none;
+      }
+
+      .ai-lockup { text-align: right; }
+
+      .ai-lockup strong {
+        display: block;
+        color: var(--gold);
+        font: 600 17px/1 var(--display);
+      }
+
+      .ai-lockup span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 10px;
+        letter-spacing: .04em;
+      }
+
+      .ai-lockup a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .ai-lockup a:hover { color: var(--gold-bright); }
+
+      .footer-label { margin-top: 20px; color: var(--muted); font-size: 8px; }
+
+      svg { display: block; }
+
+      @media (max-width: 760px) {
+        .page { display: block; }
+        .dark-panel { min-height: auto; }
+        .photo-stack { margin-bottom: -28px; }
+        .content { padding-top: 48px; }
+      }
+
+      @media print {
+        @page { size: A4 landscape; margin: 0; }
+        html,
+        body { width: 297mm; height: 210mm; background: var(--paper); }
+        .toolbar { display: none; }
+        .page { width: 297mm; height: 210mm; min-height: 210mm; }
+        .dark-panel { min-height: 210mm; padding: 13mm; }
+        .content { padding: 13mm 15mm 8mm; }
+        .photo-stack { margin: 0 -13mm -13mm; }
+        .photo-stack img { height: 54mm; }
+        .hero-copy { padding: 25mm 0 9mm; }
+        .lead { font-size: 15px; }
+        .section-intro { padding: 13mm 0 6mm; }
+        h2 { font-size: 39px; }
+        .feature { min-height: 28mm; padding: 10px 12px; }
+        .feature p { font-size: 10px; }
+        .bottom { padding-top: 8mm; }
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        .dark-panel > *, .content > * { animation: rise .7s cubic-bezier(.16, 1, .3, 1) both; }
+        .dark-panel > *:nth-child(2) { animation-delay: 90ms; }
+        .dark-panel > *:nth-child(3) { animation-delay: 180ms; }
+        .content > *:nth-child(2) { animation-delay: 100ms; }
+        .content > *:nth-child(3) { animation-delay: 180ms; }
+        .content > *:nth-child(4) { animation-delay: 260ms; }
+        @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar" aria-label="Brochure tools">
+      <button type="button" onclick="window.print()">Print / Save PDF</button>
+    </div>
+
+    <main class="page">
+      <section class="dark-panel">
+        <div class="brandline">
+          <img class="crest" src="../public/salon/logo-emblem.png" alt="Qasr Alshar crest" />
+          <div>Qasr Alshar <span>Salon software</span></div>
+        </div>
+
+        <div class="hero-copy">
+          <div class="eyebrow">Made for the beauty business</div>
+          <h1>Run a calmer <em>salon.</em></h1>
+          <p class="lead">One elegant workspace for bookings, clients, team, money, and the moments that keep customers coming back.</p>
+          <div class="proof">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 2.1 5.7L20 11l-5.9 2.2L12 19l-2.1-5.8L4 11l5.9-2.3L12 3Z"/><path d="m19 3 .7 2.3L22 6l-2.3.8L19 9l-.8-2.2L16 6l2.2-.7L19 3Z"/></svg>
+            Built around a real salon workflow
+          </div>
+        </div>
+
+        <div class="photo-stack">
+          <img src="../public/salon/hero-main.jpg" alt="Qasr Alshar Salon interior with floral ceiling and gold-accented styling chairs" />
+          <div class="photo-caption">Beautiful work. Clear operations.</div>
+        </div>
+      </section>
+
+      <section class="content">
+        <div class="content-top">
+          <div class="eyebrow">The salon operating system</div>
+          <div class="meta">Designed in Dubai<br />for ambitious salon teams</div>
+        </div>
+
+        <div class="section-intro">
+          <div class="eyebrow">Everything in one view</div>
+          <h2>Less chasing.<br /><em>More beautiful work.</em></h2>
+          <p>Replace scattered notebooks, chats, and spreadsheets with one clear system your whole team can use.</p>
+        </div>
+
+        <div class="feature-grid" aria-label="Software features">
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><h3>Bookings &amp; calendar</h3></div>
+            <p>See every appointment, artist, and open slot at a glance.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v14H3z"/><path d="M7 9h10M7 13h5"/><circle cx="17" cy="15" r="2.2"/></svg></div><h3>POS &amp; payments</h3></div>
+            <p>Bill services and products, then keep the record tidy.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20c.6-3.3 2.5-5 6-5s5.4 1.7 6 5"/><path d="M16 11a3 3 0 1 0 0-6M16 15c2.8 0 4.5 1.7 5 5"/></svg></div><h3>Clients &amp; WhatsApp</h3></div>
+            <p>Keep client history close and service messages organised.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h17"/><path d="m7 15 3-4 3 2 5-7"/></svg></div><h3>Money &amp; insight</h3></div>
+            <p>Track finance, inventory, payroll, and performance with clarity.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8.5"/></svg></div><h3>Team controls</h3></div>
+            <p>Give owners, managers, reception, and artists the right view.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-head"><div class="icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg></div><h3>AI assistant</h3></div>
+            <p>Ask your salon data simple questions and get useful answers.</p>
+          </article>
+        </div>
+
+        <div class="bottom">
+          <div class="cta">
+            <h3>Ready to make the day lighter?</h3>
+            <p>Let’s map your salon’s workflow.</p>
+            <a href="https://rogelladvisory.com/">Rogell Advisory ↗</a>
+          </div>
+          <div class="ai-lockup">
+            <strong><a href="https://rogelladvisory.com/">Rogell Advisory</a></strong>
+            <span>Business partner · <a href="https://rogelladvisory.com/">rogelladvisory.com</a></span>
+            <div class="footer-label">AI partner: <a href="https://AIOverflow.in/">AIOverflow.in</a></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
