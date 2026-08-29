@@ -27,7 +27,6 @@ const TEAM = [
   { slug: "ruth-amizo-osome", name: "Ruth Amizo Osome", role: "Crown Artist" },
   { slug: "sarah-gatibaro", name: "Sarah Gatibaro", role: "Crown Artist" },
   { slug: "brian-gichuki-mugo", name: "Brian Gichuki Mugo", role: "Crown Artist" },
-  { slug: "grace-mwangi", name: "Grace Mwangi", role: "Aesthete" },
   { slug: "sarah-ngigi", name: "Sarah Ngigi", role: "Crown Artist" },
   { slug: "kamara-kadiatu", name: "Kamara Kadiatu", role: "Crown Artist" },
   { slug: "gifty-afriyie", name: "Gifty Afriyie", role: "Head of Comms" },
