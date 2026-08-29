@@ -14,6 +14,7 @@ import { inclusiveDays } from "@/lib/leave";
 import { normalizeNewStaff } from "@/lib/staff-core";
 import { stylistNeedsStaff, UNLINKED_STYLIST_ERROR } from "@/lib/user-core";
 import { userDeletionGuard } from "@/lib/erp-users-core";
+import { queueVisitThankYou } from "@/lib/message-engine/ledger";
 import { del } from "@vercel/blob";
 import bcrypt from "bcryptjs";
 import type { BookingStatus, Role } from "@prisma/client";
@@ -55,10 +56,17 @@ export async function logoutAction() {
 // ---- bookings ----
 export async function setBookingStatus(id: string, status: BookingStatus) {
   await requireReception();
-  const booking = await prisma.booking.update({ where: { id }, data: { status } });
+  const { booking, completedNow } = await prisma.$transaction(async (tx) => {
+    const before = await tx.booking.findUnique({ where: { id }, select: { status: true } });
+    if (!before) throw new Error("Booking not found.");
+    const updated = await tx.booking.update({ where: { id }, data: { status } });
+    const completedNow = before.status !== "COMPLETED" && status === "COMPLETED";
+    if (completedNow) await queueVisitThankYou(tx, updated, "ADMIN_COMPLETION");
+    return { booking: updated, completedNow };
+  });
 
   // On completion, send an aftercare recommendation email (best-effort).
-  if (status === "COMPLETED" && booking.email) {
+  if (completedNow && booking.email) {
     try {
       const products = await prisma.product.findMany({
         where: { active: true, category: { contains: "Retail", mode: "insensitive" }, qty: { gt: 0 } },

@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/payment-reminders",
       "schedule": "34 2 * * *"
+    },
+    {
+      "path": "/api/cron/message-dispatch",
+      "schedule": "42 2 * * *"
     }
   ]
 }

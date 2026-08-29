@@ -8,6 +8,7 @@ import { sendInvoiceEmail } from "@/lib/email";
 import { resolveClientId } from "@/lib/clients";
 import { SITE } from "@/lib/site";
 import { vatFromInclusive, netFromInclusive, VAT_PCT } from "@/lib/vat-core";
+import { queueVisitThankYou } from "@/lib/message-engine/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -139,9 +140,9 @@ async function syncBookingToBill(
   const dur = items.reduce((s, i) => s + i.durationMin, 0);
   const price = items.reduce((s, i) => s + i.priceAED, 0);
   const summary = items.length === 1 ? items[0].serviceName : `${items[0].serviceName} +${items.length - 1} more`;
-  const bk = await tx.booking.findUnique({ where: { id: bookingId }, select: { startAt: true } });
+  const bk = await tx.booking.findUnique({ where: { id: bookingId }, select: { startAt: true, status: true } });
   await tx.bookingItem.deleteMany({ where: { bookingId } });
-  await tx.booking.update({
+  const updated = await tx.booking.update({
     where: { id: bookingId },
     data: {
       serviceId: items[0].serviceId, serviceName: summary, priceAED: price, durationMin: dur,
@@ -153,6 +154,7 @@ async function syncBookingToBill(
       items: { create: items },
     },
   });
+  if (complete && bk?.status !== "COMPLETED") await queueVisitThankYou(tx, updated, "POS_BILLING");
 }
 
 const editSchema = createSchema.extend({ orderId: z.string().min(1) });

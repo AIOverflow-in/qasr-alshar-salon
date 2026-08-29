@@ -5,6 +5,7 @@ import { isSlotBookable } from "@/lib/availability";
 import { sendBookingEmails } from "@/lib/email";
 import { resolveClientId, hasActiveBooking } from "@/lib/clients";
 import { SITE } from "@/lib/site";
+import { recordWhatsAppConsent } from "@/lib/message-engine/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const schema = z.object({
   serviceMode: z.enum(["SALON", "HOME"]).optional(),
   address: z.string().max(400).optional().nullable(),
   customRequest: z.string().max(800).optional().nullable(),
+  whatsappConsent: z.boolean().default(false),
 }).refine((d) => (d.serviceIds && d.serviceIds.length) || d.serviceId, { message: "Pick at least one service." });
 
 function dubaiLabel(d: Date) {
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
       // Only when the salon has set a deposit amount; capped at the booking total.
       const depositAED = Math.min(Math.max(settings?.depositAED ?? 0, 0), totalPrice);
 
-      return tx.booking.create({
+      const booking = await tx.booking.create({
         data: {
           serviceId: services[0].id,
           serviceName: summaryName,
@@ -110,6 +112,8 @@ export async function POST(req: Request) {
           },
         },
       });
+      if (clientId && data.whatsappConsent) await recordWhatsAppConsent(tx, clientId, true, "BOOKING_FORM");
+      return booking;
     }, { isolationLevel: "Serializable" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";

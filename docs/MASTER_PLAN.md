@@ -81,16 +81,18 @@ Legend: 🟢 done · 🟡 in progress · 🔴 todo · ⚪ parallel/external.
 
 ---
 
-## 5. WORKSTREAM C — WhatsApp Integration & Automation  `[Chethan]`
+## 5. WORKSTREAM C — Twilio Message Engine  `[Chethan]`
 
-**Decision:** persistent **floating WhatsApp icon on every page** for direct booking; automate initial responses.
+**Decision:** use **Twilio** as the provider for the WhatsApp message engine, with SMS and chatbot support as the next phase. The detailed implementation plan is in [`docs/features/message-engine/`](features/message-engine/).
 
 - [ ] Floating WhatsApp button (all pages, mobile-first, doesn't clash with the mobile booking bar).
 - [ ] Deep-link pre-fills service/date context where possible.
-- [ ] **Automated greeting / auto-reply** (WhatsApp Business API or provider) that, when staff are unavailable, returns: booking instructions, available dates, and **stylist availability**.
+- [ ] **Automated greeting / auto-reply** through Twilio that, when staff are unavailable, returns: booking instructions, available dates, and **stylist availability**.
 - [ ] Booking confirmations + reminders **also via WhatsApp** (not just email — clients here live on WhatsApp).
+- [ ] Post-service `visit_thank_you` message with a durable send/status ledger.
+- [ ] Future chatbot and SMS channel built on the same Twilio integration.
 
-**Open decision:** WhatsApp Business API provider (Twilio / 360dialog / Meta Cloud API) + number. *(needs owner input + budget)*
+**Remaining owner decisions:** dedicated WhatsApp number, Twilio onboarding/migration path, sender setup, consent wording, and budget.
 
 ---
 
@@ -228,7 +230,7 @@ Build on the live v1. New requirements from the meeting:
 - [ ] Investor/finance dashboard + automated dividends + P&L.
 - [ ] Inventory barcode + aftercare e-commerce with smart recommendations.
 - [ ] Full Arabic localisation.
-- [ ] WhatsApp/social AI auto-responses.
+- [ ] Twilio chatbot, human handoff, and SMS fallback.
 
 ### Phase 3 — Ongoing (scale)
 - [ ] Hire-driven service expansion (lashes, nails — competitor does 150k/mo on these alone).
@@ -249,17 +251,20 @@ Build on the live v1. New requirements from the meeting:
 | Specific **ODU/Odoo features** to replicate | Jacqueline | H (ERP scope) |
 | Full **T&Cs** (cancellation, late, min-order, location rules) | Jacqueline | D (policies) |
 | Social media links + collaboration policy | Jacqueline | I |
-| WhatsApp Business number + API provider choice | Owner | C |
+| Twilio WhatsApp sender/number + business onboarding | Owner | C |
+| Twilio budget, SMS sender decision, and chatbot scope | Owner | C / Phase 2 |
 
 ---
 
 ## 15. Open Questions / Decisions Needed
-1. **WhatsApp API provider** + number (Meta Cloud API vs Twilio vs 360dialog) and monthly budget.
-2. **Payments**: still deferred? E-commerce + cancellation fees eventually need a gateway (Stripe/Telr/PayTabs for UAE).
-3. **"Sisterlocks®" trademark** — are we certified, or is client-approved naming acceptable?
-4. **ERP hosting** — same Vercel/Neon stack, or a dedicated backend for heavier finance/inventory workloads?
-5. **Stylist availability source of truth** — managed in-system by admin, or self-served by stylists?
-6. **Data residency** — any UAE requirement to keep client/financial data in-region?
+1. **Twilio WhatsApp sender/number**, onboarding path, and monthly budget.
+2. **SMS scope:** fallback only or reminders too; confirm UAE sender requirements.
+3. **Chatbot scope:** FAQs, booking availability, rescheduling, and reception handoff.
+4. **Payments**: still deferred? E-commerce + cancellation fees eventually need a gateway (Stripe/Telr/PayTabs for UAE).
+5. **"Sisterlocks®" trademark** — are we certified, or is client-approved naming acceptable?
+6. **ERP hosting** — same Vercel/Neon stack, or a dedicated backend for heavier finance/inventory workloads?
+7. **Stylist availability source of truth** — managed in-system by admin, or self-served by stylists?
+8. **Data residency** — any UAE requirement to keep client/financial data in-region?
 
 ---
 

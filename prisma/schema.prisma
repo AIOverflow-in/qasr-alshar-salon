@@ -35,6 +35,38 @@ enum BookingStatus {
   NO_SHOW
 }
 
+enum MessageChannel {
+  WHATSAPP
+  SMS
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessagePurpose {
+  VISIT_THANK_YOU
+}
+
+enum MessageStatus {
+  QUEUED
+  SUBMITTING
+  SUBMITTED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SUPPRESSED
+  CANCELLED
+}
+
+enum MessageConsentState {
+  OPTED_IN
+  OPTED_OUT
+  UNKNOWN
+}
+
 model Booking {
   id          String  @id @default(cuid())
   // denormalized service info (survives service edits/deletes)
@@ -72,12 +104,13 @@ model Booking {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  service     Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  staff       Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  createdBy   AdminUser?    @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  service     Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  staff       Staff?          @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  client      Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy   AdminUser?      @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   salesOrders SalesOrder[]
   items       BookingItem[]
+  messages    MessageLedger[]
 
   @@index([startAt])
   @@index([status])
@@ -309,8 +342,10 @@ model Client {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  salesOrders SalesOrder[]
-  bookings    Booking[]
+  salesOrders     SalesOrder[]
+  bookings        Booking[]
+  messages        MessageLedger[]
+  messageConsents MessageConsent[]
 
   @@index([phone])
   @@index([email])
@@ -389,10 +424,11 @@ model SalesOrder {
   updatedAt DateTime  @updatedAt
 
   lines     OrderLine[]
-  booking   Booking?    @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  client    Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  staff     Staff?      @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  createdBy AdminUser?  @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  booking   Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client    Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  staff     Staff?          @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  createdBy AdminUser?      @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  messages  MessageLedger[]
 
   @@index([status])
   @@index([staffId])
@@ -416,6 +452,98 @@ model BookingItem {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+}
+
+/// One logical customer-message send. Retries reuse the same idempotency key.
+model MessageLedger {
+  id                     String           @id @default(cuid())
+  clientId               String?
+  bookingId              String?
+  salesOrderId           String?
+  channel                MessageChannel
+  direction              MessageDirection @default(OUTBOUND)
+  purpose                MessagePurpose
+  provider               String           @default("TWILIO")
+  idempotencyKey         String           @unique
+  providerMessageId      String?          @unique
+  providerConversationId String?
+  recipientE164          String
+  senderAddress          String
+  templateName           String?
+  templateVersion        String?
+  locale                 String           @default("en")
+  templateVariables      Json?
+  status                 MessageStatus    @default(QUEUED)
+  queuedAt               DateTime         @default(now())
+  submittedAt            DateTime?
+  sentAt                 DateTime?
+  deliveredAt            DateTime?
+  readAt                 DateTime?
+  repliedAt              DateTime?
+  failedAt               DateTime?
+  lastErrorCode          String?
+  lastErrorMessage       String?
+  attemptCount           Int              @default(0)
+  nextAttemptAt          DateTime?
+  terminalFailure        Boolean          @default(false)
+  consentId              String?
+  estimatedCostMinor     Int?
+  costCurrency           String?
+  costFinal              Boolean          @default(false)
+  triggerSource          String
+  metadata               Json?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  client     Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  booking    Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  salesOrder SalesOrder?     @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  consent    MessageConsent? @relation(fields: [consentId], references: [id], onDelete: SetNull)
+  events     MessageEvent[]
+
+  @@index([status, nextAttemptAt])
+  @@index([clientId, createdAt])
+  @@index([bookingId, purpose, channel])
+  @@index([createdAt])
+}
+
+/// Append-only provider lifecycle events. The current state is denormalized on MessageLedger.
+model MessageEvent {
+  id                String        @id @default(cuid())
+  messageLedgerId   String
+  providerEventKey  String        @unique
+  providerMessageId String
+  eventType         String
+  normalizedStatus  MessageStatus
+  providerStatus    String?
+  occurredAt        DateTime?
+  receivedAt        DateTime      @default(now())
+  errorCode         String?
+  errorMessage      String?
+  payload           Json?
+
+  message MessageLedger @relation(fields: [messageLedgerId], references: [id], onDelete: Cascade)
+
+  @@index([messageLedgerId, receivedAt])
+  @@index([providerMessageId])
+}
+
+/// Append-only channel consent history. A phone number alone is not consent.
+model MessageConsent {
+  id           String              @id @default(cuid())
+  clientId     String
+  channel      MessageChannel
+  state        MessageConsentState
+  source       String
+  capturedAt   DateTime            @default(now())
+  capturedById String?
+  evidence     String?
+  createdAt    DateTime            @default(now())
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  messages MessageLedger[]
+
+  @@index([clientId, channel, createdAt])
 }
 
 model OrderLine {

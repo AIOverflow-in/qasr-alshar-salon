@@ -134,6 +134,7 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   "BlogPost", "Keyword", "BlogTopic", // marketing content, not business questions
   "WorkingHours", "BlockedSlot", "SalonSettings", "PageStat",
   "AssistantQuery",                   // the assistant's own cache — not business data
+  "MessageLedger", "MessageEvent", "MessageConsent", // customer communications and consent records
 ]);
 
 /** Never allowed as any token, in any casing or position — belt over the braces. */

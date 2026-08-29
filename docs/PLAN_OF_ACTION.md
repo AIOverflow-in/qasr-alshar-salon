@@ -1,7 +1,7 @@
 # Qasr Alshar — Plan of Action & Launch Roadmap
 
 > Consolidated from the 27 Jun 2026 strategy meeting. The website is the **single source of truth** for bookings, billing, inventory and clients.
-> **Target launch: Monday.** Runs at **$0/month** (only the domain and optional SMS cost anything).
+> **Target launch: Monday.** Messaging costs depend on the selected Twilio channels and Meta pricing; email and in-app alerts remain separate low-cost channels.
 
 **Live URLs**
 - Public site: `qasr-alshar-salon.vercel.app` → will become **qasralsharsalon.com**
@@ -34,17 +34,17 @@ Status legend: ✅ Live · 🔨 Building · 🙋 Needs you · ⏳ Later
 ## 4 · Live alerts & notifications
 - 🔨 **In-app new-booking alert** (bell + toast) + **live dashboard** — free polling, real-time feel, $0
 - ✅ **Email** confirmation on every booking (customer + salon) — Resend, free
-- 🙋 **WhatsApp** auto-message to **customer + admin** — Meta Cloud API (free for our volume); needs your Meta account + number
+- 🙋 **WhatsApp** auto-message to **customer + admin** — Twilio Message Engine; needs Twilio account, approved sender, template, and test number
 - 🔨 **Aftercare product recommendation email** after a completed visit
-- ⏳ **SMS** — the only paid channel; deferred until you want to spend
+- ⏳ **SMS** — Twilio channel, separately priced and deferred until sender/compliance setup is approved
 
 ### Notifications: free vs paid
 | Channel | Free? | Needs |
 |---|---|---|
 | In-app live alerts | ✅ free forever | nothing (polling) |
 | Email | ✅ free | live now; domain to brand it |
-| WhatsApp (auto) | ✅ free for our volume | Meta Cloud API (no monthly fee, ~1k chats/mo free) |
-| SMS | ❌ paid | provider + UAE sender-ID — deferred |
+| WhatsApp (auto) | ❌ provider/Meta fees apply | Twilio WhatsApp sender + approved template |
+| SMS | ❌ paid | Twilio SMS sender + UAE sender/compliance review |
 
 ## 5 · Public site & brand
 - 🔨 **Single impressive hero image** (regenerated) — replacing the sliding showcase
@@ -68,16 +68,16 @@ Status legend: ✅ Live · 🔨 Building · 🙋 Needs you · ⏳ Later
 
 ## What we need from you
 1. **GoDaddy DNS** records (above) — the only thing blocking the domain going live
-2. **WhatsApp (free):** Meta Business account + dedicated number → send Phone Number ID, WhatsApp Business Account ID, Access Token
+2. **WhatsApp:** Twilio account + dedicated business number + approved sender/template + test recipient
 3. **Inventory prices** — fill the CSV template (one-click import)
 4. **Gallery images** — boho, colored braids, dreadlocks + Grace's services (facial/wax/lashes), Black & non-Black mix
 5. **Telegram QR** — to finish the social QR set
 
 ## Sequence to Monday
 - **This weekend (I build, no accounts needed):** booking→client · ERP new-booking · multi-staff per line · marketer commission · inventory CSV + live low-stock · live notifications · floating IG/TikTok · gallery categories · single impressive hero
-- **In parallel (your team):** inventory prices (CSV) · gallery images · GoDaddy DNS · start free Meta WhatsApp account
-- **Monday:** final test, deploy, go live on qasralsharsalon.com (email + in-app alerts working; WhatsApp switches on when Meta creds land)
-- **After launch:** WhatsApp templates · aftercare e-commerce storefront · home-service live location · SMS (optional)
+- **In parallel (your team):** inventory prices (CSV) · gallery images · GoDaddy DNS · complete Twilio WhatsApp onboarding
+- **Monday:** final test, deploy, go live on qasralsharsalon.com (email + in-app alerts working; WhatsApp switches on after the Twilio pilot passes)
+- **After launch:** Twilio message ledger and WhatsApp pilot · aftercare e-commerce storefront · home-service live location · chatbot + SMS (optional next phase)
 
 ---
 *Qasr Alshar Salon — Dubai's Crown of Beauty. Maintained as the working build plan.*
