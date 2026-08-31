@@ -23,6 +23,18 @@ someone outside the dev work has to act first — those cannot be started by ask
 
 ## 🔴 Costing money or risk right now
 
+### ERP-31 · Nightly database backups ✅ built, awaiting merge
+Until now there were **no backups at all** — no dump, no script, no cron. The only other copy was
+a local test snapshot 33 days stale. Neon's point-in-time restore covers roughly 7 days, which does
+not cover a payroll error found at month end, losing the Neon account, or a Neon outage (which
+already happened in July).
+
+Nightly at 02:50 to Vercel Blob, **private** (the file holds password hashes, passport and Emirates
+ID numbers). 30 dailies + 12 monthlies. Whole database compresses to ~250 KB.
+**Restore is tested, not assumed:** 4,363 rows were dumped and restored into a scratch database and
+verified identical by checksum.
+**Status:** PR open
+
 ### ERP-01 · Rotate the Neon database password
 The production connection string was pasted into a chat on 29 Aug. It is the **owner**
 account — full read/write over every client record, staff passport detail and payroll figure.
