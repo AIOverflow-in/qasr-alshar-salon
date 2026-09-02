@@ -23,7 +23,7 @@ test("Prisma types survive a round trip", () => {
   assert.equal(back.plain, "hi");
 });
 
-test("retention keeps 30 days plus one per month", () => {
+test("retention keeps 8 weeks plus one per month", () => {
   const keys: string[] = [];
   for (let i = 0; i < 400; i++) {
     const d = new Date("2026-08-31T00:00:00Z");
@@ -32,9 +32,9 @@ test("retention keeps 30 days plus one per month", () => {
   }
   const { keep, drop } = applyRetention(keys, "2026-08-31");
   assert.ok(keep.includes(backupKey("2026-08-31")), "today must always survive");
-  assert.ok(keep.includes(backupKey("2026-08-05")), "inside the 30-day window");
+  assert.ok(keep.includes(backupKey("2026-07-20")), "inside the 56-day window (8 weekly runs)");
   assert.ok(drop.includes(backupKey("2026-06-15")), "an old mid-month daily is dropped");
-  assert.ok(keep.length < 60 && keep.length > 30, `expected ~42 kept, got ${keep.length}`);
+  assert.ok(keep.length > 56 && keep.length < 75, `expected ~68 kept, got ${keep.length}`);
   assert.equal(keep.length + drop.length, keys.length, "every backup is either kept or dropped");
 });
 

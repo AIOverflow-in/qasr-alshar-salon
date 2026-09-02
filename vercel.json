@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/backup",
-      "schedule": "50 2 * * *"
+      "schedule": "50 2 * * 0"
     }
   ]
 }

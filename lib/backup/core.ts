@@ -53,8 +53,11 @@ export function jsonReviver(_key: string, value: unknown): unknown {
 export type Retention = { keep: string[]; drop: string[] };
 
 /**
- * Which backups to keep: every one of the last `dailyDays` days, plus the FIRST backup of each
+ * Which backups to keep: every one from the last `recentDays` days, plus the FIRST backup of each
  * month for `monthlyMonths` months. Everything else is dropped.
+ *
+ * The window is 56 days rather than 30 because the job runs WEEKLY: a 30-day window would hold
+ * only four files, so a fortnight of unnoticed corruption would have no clean copy behind it.
  *
  * Keeping the first of the month rather than the last means a monthly restore point survives even
  * if the salon closes mid-month, and it never collides with a daily we are already keeping.
@@ -62,7 +65,7 @@ export type Retention = { keep: string[]; drop: string[] };
 export function applyRetention(
   keys: string[],
   today: string,
-  dailyDays = 30,
+  recentDays = 56,        // eight weekly runs
   monthlyMonths = 12,
 ): Retention {
   const days = keys
@@ -71,7 +74,7 @@ export function applyRetention(
     .sort((a, b) => (a.d < b.d ? 1 : -1)); // newest first
 
   const cutoff = new Date(`${today}T00:00:00Z`);
-  cutoff.setUTCDate(cutoff.getUTCDate() - dailyDays);
+  cutoff.setUTCDate(cutoff.getUTCDate() - recentDays);
   const cutoffISO = cutoff.toISOString().slice(0, 10);
 
   const firstOfMonth = new Map<string, string>();

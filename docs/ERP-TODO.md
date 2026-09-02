@@ -29,8 +29,8 @@ a local test snapshot 33 days stale. Neon's point-in-time restore covers roughly
 not cover a payroll error found at month end, losing the Neon account, or a Neon outage (which
 already happened in July).
 
-Nightly at 02:50 to Vercel Blob, **private** (the file holds password hashes, passport and Emirates
-ID numbers). 30 dailies + 12 monthlies. Whole database compresses to ~250 KB.
+Weekly (Sunday 02:50) to Vercel Blob, **private** (the file holds password hashes, passport and Emirates
+ID numbers). 8 weeks + 12 monthlies. Whole database compresses to ~250 KB.
 **Restore is tested, not assumed:** 4,363 rows were dumped and restored into a scratch database and
 verified identical by checksum.
 **Status:** PR open
