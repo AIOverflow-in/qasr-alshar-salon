@@ -321,6 +321,72 @@ export async function payStaffMonth(staffId: string, month: string) {
   revalidatePath("/erp/staff");
 }
 
+/**
+ * Close a month in one go: pay everyone still due. Same money rules as payStaffMonth, but the
+ * payroll is computed ONCE and every payslip is written in a single transaction — closing a month
+ * for 20 artists used to mean 20 full payroll recomputations fired one at a time from the browser.
+ *
+ * Ordering matters: the transaction commits first, so a slow mail run can never leave a month
+ * half-paid. Payslip emails are best-effort afterwards, exactly as for a single payment.
+ */
+export async function payAllDue(month: string) {
+  await requireManager();
+  if (!MONTH_RE.test(month)) throw new Error("Invalid month");
+  const { getPayrollMonth, dubaiMonthRange } = await import("@/lib/payroll");
+  const payroll = await getPayrollMonth(month);
+  // Never auto-settle a zero or negative net — those need a manager's eyes, not a bulk action.
+  const due = payroll.rows.filter((r) => !r.paid && r.net > 0);
+  if (!due.length) return { ok: true as const, paid: 0, totalAED: 0 };
+
+  const { start, end } = dubaiMonthRange(month);
+  const paidAt = new Date();
+
+  await prisma.$transaction([
+    ...due.flatMap((row) => [
+      prisma.payrollPayment.upsert({
+        where: { staffId_month: { staffId: row.staffId, month } },
+        update: { salaryAED: row.salary, commissionAED: row.commission, bonusAED: row.bonus, deductionAED: row.deductions, netAED: row.net, paidAt },
+        create: { staffId: row.staffId, month, salaryAED: row.salary, commissionAED: row.commission, bonusAED: row.bonus, deductionAED: row.deductions, netAED: row.net },
+      }),
+      prisma.commission.updateMany({ where: { staffId: row.staffId, paid: false, createdAt: { gte: start, lt: end } }, data: { paid: true, paidAt } }),
+    ]),
+  ]);
+
+  // Payslips out — in parallel, and never allowed to undo a payment that is already recorded.
+  try {
+    const logins = await prisma.adminUser.findMany({
+      where: { staffId: { in: due.map((r) => r.staffId) }, active: true },
+      select: { staffId: true, email: true },
+    });
+    const emailOf = new Map(logins.map((l) => [l.staffId, l.email]));
+    const [{ buildPayslipPdf }, { sendPayslipEmail }] = await Promise.all([
+      import("@/lib/payslip-pdf"),
+      import("@/lib/email"),
+    ]);
+    const [y, m] = month.split("-").map(Number);
+    const monthLabel = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+
+    await Promise.allSettled(
+      due.map(async (row) => {
+        const email = emailOf.get(row.staffId);
+        if (!email) return;
+        const pdf = await buildPayslipPdf({
+          staffName: row.name, role: row.role, month, clientsServed: row.clientsServed,
+          grossAED: row.grossAED, netSaleAED: row.servicesAED, salary: row.salary,
+          salesCommission: row.salesCommission, referral: row.referral, bonus: row.bonus,
+          deductions: row.deductions, net: row.net, paidAt: paidAt.toISOString(),
+        });
+        await sendPayslipEmail({ staffName: row.name, email, monthLabel, netAED: row.net, pdf });
+      })
+    );
+  } catch (e) {
+    console.error("[payroll] bulk payslip emails failed (payments still recorded):", e);
+  }
+
+  revalidatePath("/erp/staff");
+  return { ok: true as const, paid: due.length, totalAED: due.reduce((t, r) => t + r.net, 0) };
+}
+
 /** Mark every unpaid commission for a staff member as paid (payroll settle). */
 export async function settleCommissions(staffId: string) {
   await requireManager();

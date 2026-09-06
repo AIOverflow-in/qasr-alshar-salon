@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Printer, BadgeCheck, X, Wallet, Trash2 } from "lucide-react";
+import { Plus, Printer, BadgeCheck, X, Wallet, Trash2 } from "lucide-react";
 import { aed, cn } from "@/lib/utils";
 import { addPayAdjustment, deletePayAdjustment, payStaffMonth, addStaffLoan, repayStaffLoan, applyUnpaidLeaveDeduction } from "@/lib/actions/admin";
 
@@ -23,7 +23,7 @@ function monthLabel(m: string) {
   return new Date(Date.UTC(y, mm - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-export function PayrollTable({ month, months, rows, totals, totalSales }: { month: string; months: string[]; rows: PayrollRow[]; totals: PayrollTotals; totalSales: number }) {
+export function PayrollTable({ month, rows }: { month: string; rows: PayrollRow[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [adjFor, setAdjFor] = useState<PayrollRow | null>(null);
@@ -35,51 +35,13 @@ export function PayrollTable({ month, months, rows, totals, totalSales }: { mont
     setBusyId(staffId);
     start(async () => { await payStaffMonth(staffId, month); setBusyId(null); router.refresh(); });
   }
-  function payAll() {
-    const due = rows.filter((r) => !r.paid && r.net > 0); // never auto-settle a zero/negative net
-    if (!due.length) return;
-    const totalDue = due.reduce((s, r) => s + r.net, 0);
-    if (!window.confirm(`Pay ${due.length} staff a total of ${aed(totalDue)} for ${monthLabel(month)}? This marks them paid.`)) return;
-    start(async () => { for (const r of due) await payStaffMonth(r.staffId, month); router.refresh(); });
-  }
-
-  // Owner's monthly P&L view (mirrors the March salary sheet): Total Sales, Net Salary, Gross Profit.
-  const cards = [
-    { label: "Total sales", value: aed(totalSales) },
-    { label: "Net salary payable", value: aed(totals.net), accent: true },
-    { label: "Gross profit", value: aed(totalSales - totals.net) },
-    { label: "Outstanding", value: aed(totals.outstandingNet) },
-  ];
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Wallet size={18} className="text-gold" />
-          <h2 className="font-display text-xl text-cream">Monthly Payroll</h2>
-          <select
-            value={month}
-            onChange={(e) => router.push(`/erp/staff?month=${e.target.value}`)}
-            className="rounded-lg border border-ink-line bg-ink-card px-3 py-1.5 text-sm text-cream outline-none focus:border-gold/60"
-          >
-            {months.map((m) => <option key={m} value={m} className="bg-ink">{monthLabel(m)}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <a href={`/api/erp/payroll/export?month=${month}`} className="rounded-full border border-ink-line px-4 py-1.5 text-sm text-sand hover:border-gold/50 hover:text-gold">Export CSV</a>
-          <button onClick={payAll} disabled={pending || totals.outstandingNet === 0} className="rounded-full bg-gold-gradient px-4 py-1.5 text-sm font-semibold text-espresso disabled:opacity-40">
-            {pending ? <Loader2 className="inline animate-spin" size={14} /> : null} Pay all due
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => (
-          <div key={c.label} className="surface rounded-2xl p-4">
-            <div className={cn("font-display text-2xl", c.accent ? "text-gold-gradient" : "text-cream")}>{c.value}</div>
-            <div className="text-xs uppercase tracking-wider text-muted">{c.label}</div>
-          </div>
-        ))}
+      <div className="flex items-center gap-2">
+        <Wallet size={18} className="text-gold" />
+        <h2 className="font-display text-xl text-cream">Payslip detail</h2>
+        <span className="text-xs text-muted">{monthLabel(month)}</span>
       </div>
 
       {/* The pay rule, stated where the numbers are read. Without it "Earned" looks like a mistake:
